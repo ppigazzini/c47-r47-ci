@@ -27,6 +27,9 @@ jobs:
       upstream_url: ${{ steps.resolve.outputs.upstream_url }}
       upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
       upstream_short: ${{ steps.resolve.outputs.upstream_short }}
+      xlsxio_url: ${{ steps.resolve.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ steps.resolve.outputs.xlsxio_commit }}
+      llvm_version: ${{ steps.resolve.outputs.llvm_version }}
     steps:
       - name: Resolve authoritative upstream c43 commit
         id: resolve
@@ -43,6 +46,9 @@ jobs:
           echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
           echo "upstream_short=${upstream_commit:0:12}" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "llvm_version=$LLVM_VERSION" >> "$GITHUB_OUTPUT"
 
   linux-tests:
     name: Run Linux simulator tests
@@ -341,13 +347,13 @@ jobs:
       upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
       upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
       upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
-      xlsxio_url: ${{ env.XLSXIO_URL }}
-      xlsxio_commit: ${{ env.XLSXIO_COMMIT }}
-      cc: clang-${{ env.LLVM_VERSION }}
-      cxx: clang++-${{ env.LLVM_VERSION }}
-      compiler_label: clang-${{ env.LLVM_VERSION }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
+      cc: clang-${{ needs.resolve-upstream-core.outputs.llvm_version }}
+      cxx: clang++-${{ needs.resolve-upstream-core.outputs.llvm_version }}
+      compiler_label: clang-${{ needs.resolve-upstream-core.outputs.llvm_version }}
       install_llvm: true
-      llvm_version: ${{ env.LLVM_VERSION }}
+      llvm_version: ${{ needs.resolve-upstream-core.outputs.llvm_version }}
 
   macos-arm64-package:
     name: Build macOS simulator package (Apple Silicon)
@@ -359,8 +365,8 @@ jobs:
       upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
       upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
       upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
-      xlsxio_url: ${{ env.XLSXIO_URL }}
-      xlsxio_commit: ${{ env.XLSXIO_COMMIT }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
       compiler_label: apple-clang
 
   windows-msys2-clang-package:
@@ -373,8 +379,8 @@ jobs:
       upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
       upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
       upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
-      xlsxio_url: ${{ env.XLSXIO_URL }}
-      xlsxio_commit: ${{ env.XLSXIO_COMMIT }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
       msystem: CLANG64
       msys2_packages: >-
         git

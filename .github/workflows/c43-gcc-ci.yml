@@ -26,6 +26,8 @@ jobs:
       upstream_url: ${{ steps.resolve.outputs.upstream_url }}
       upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
       upstream_short: ${{ steps.resolve.outputs.upstream_short }}
+      xlsxio_url: ${{ steps.resolve.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ steps.resolve.outputs.xlsxio_commit }}
     steps:
       - name: Resolve authoritative upstream c43 commit
         id: resolve
@@ -42,6 +44,8 @@ jobs:
           echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
           echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
           echo "upstream_short=${upstream_commit:0:12}" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
   linux-tests:
     name: Run Linux simulator tests
@@ -346,8 +350,8 @@ jobs:
       upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
       upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
       upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
-      xlsxio_url: ${{ env.XLSXIO_URL }}
-      xlsxio_commit: ${{ env.XLSXIO_COMMIT }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
       cc: gcc
       cxx: g++
       compiler_label: gcc
@@ -364,8 +368,8 @@ jobs:
       upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
       upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
       upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
-      xlsxio_url: ${{ env.XLSXIO_URL }}
-      xlsxio_commit: ${{ env.XLSXIO_COMMIT }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
       msystem: UCRT64
       msys2_packages: >-
         git
