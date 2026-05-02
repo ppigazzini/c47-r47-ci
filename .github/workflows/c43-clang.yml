@@ -2,6 +2,8 @@ name: c43 Clang CI
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '14 3 * * *'
   push:
   pull_request:
 
@@ -15,6 +17,7 @@ concurrency:
 env:
   LLVM_VERSION: '22'
   UPSTREAM_URL: https://gitlab.com/rpncalculators/c43.git
+  UPSTREAM_MARKER_PREFIX: c43-clang-upstream
   XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
   XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
 
@@ -50,10 +53,67 @@ jobs:
           echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "llvm_version=$LLVM_VERSION" >> "$GITHUB_OUTPUT"
 
-  linux-tests:
-    name: Run Linux simulator tests
+  upstream-build-gate:
+    name: Decide whether the build lanes should run
     needs:
       - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+      marker_tag: ${{ steps.decide.outputs.marker_tag }}
+    steps:
+      - name: Decide whether to build
+        id: decide
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$UPSTREAM_COMMIT" ]]; then
+            echo "Missing resolved upstream commit." >&2
+            exit 1
+          fi
+
+          marker_tag="${UPSTREAM_MARKER_PREFIX}-${UPSTREAM_COMMIT:0:8}"
+          echo "marker_tag=$marker_tag" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_EVENT_NAME" != "schedule" ]]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          api_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/tags/${marker_tag}"
+          status_code=$(curl -sS \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -o /dev/null \
+            -w '%{http_code}' \
+            "$api_url")
+
+          case "$status_code" in
+            200)
+              echo "Upstream ${UPSTREAM_COMMIT} already has build marker ${marker_tag}; skipping scheduled run."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "Upstream ${UPSTREAM_COMMIT} is new to this workflow; running scheduled build lanes."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected GitHub API status while checking build marker ${marker_tag}: ${status_code}" >&2
+              exit 1
+              ;;
+          esac
+
+  linux-tests:
+    name: Run Linux simulator tests
+    if: needs.upstream-build-gate.outputs.should_run == 'true'
+    needs:
+      - resolve-upstream-core
+      - upstream-build-gate
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -192,8 +252,10 @@ jobs:
 
   linux-docs:
     name: Build Linux docs
+    if: needs.upstream-build-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - upstream-build-gate
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -339,8 +401,10 @@ jobs:
 
   linux-package:
     name: Build Linux simulator package (Clang 22)
+    if: needs.upstream-build-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - upstream-build-gate
     uses: ./.github/workflows/desktop-linux-package.yml
     with:
       artifact_prefix: c43-linux-clang22
@@ -357,8 +421,10 @@ jobs:
 
   macos-arm64-package:
     name: Build macOS simulator package (Apple Silicon)
+    if: needs.upstream-build-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - upstream-build-gate
     uses: ./.github/workflows/desktop-macos-package.yml
     with:
       artifact_prefix: c43-macos-apple-clang
@@ -371,8 +437,10 @@ jobs:
 
   windows-msys2-clang-package:
     name: Build Windows simulator package (MSYS2 CLANG64)
+    if: needs.upstream-build-gate.outputs.should_run == 'true'
     needs:
       - resolve-upstream-core
+      - upstream-build-gate
     uses: ./.github/workflows/desktop-windows-package.yml
     with:
       artifact_prefix: c43-windows-clang64
@@ -399,3 +467,83 @@ jobs:
       cc: clang
       cxx: clang++
       compiler_label: clang
+
+  record-upstream-build-marker:
+    name: Record successful upstream build marker
+    if: |
+      needs.upstream-build-gate.outputs.should_run == 'true' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule'
+      )
+    needs:
+      - upstream-build-gate
+      - linux-tests
+      - linux-docs
+      - linux-package
+      - macos-arm64-package
+      - windows-msys2-clang-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Record build marker tag
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MARKER_TAG: ${{ needs.upstream-build-gate.outputs.marker_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$MARKER_TAG" ]]; then
+            echo "Missing build marker tag." >&2
+            exit 1
+          fi
+
+          api_base="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}"
+          ref_url="${api_base}/git/ref/tags/${MARKER_TAG}"
+          status_code=$(curl -sS \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -o /dev/null \
+            -w '%{http_code}' \
+            "$ref_url")
+
+          case "$status_code" in
+            200)
+              echo "Build marker ${MARKER_TAG} already exists."
+              exit 0
+              ;;
+            404)
+              ;;
+            *)
+              echo "Unexpected GitHub API status while checking build marker ${MARKER_TAG}: ${status_code}" >&2
+              exit 1
+              ;;
+          esac
+
+          create_status=$(curl -sS \
+            -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -o /dev/null \
+            -w '%{http_code}' \
+            "${api_base}/git/refs" \
+            -d "{\"ref\":\"refs/tags/${MARKER_TAG}\",\"sha\":\"${GITHUB_SHA}\"}")
+
+          case "$create_status" in
+            201)
+              echo "Created build marker ${MARKER_TAG}."
+              ;;
+            422)
+              echo "Build marker ${MARKER_TAG} was created concurrently."
+              ;;
+            *)
+              echo "Unexpected GitHub API status while creating build marker ${MARKER_TAG}: ${create_status}" >&2
+              exit 1
+              ;;
+          esac
