@@ -1,0 +1,187 @@
+name: desktop-macos-package
+
+on:
+  workflow_call:
+    inputs:
+      artifact_prefix:
+        required: true
+        type: string
+      upstream_url:
+        required: true
+        type: string
+      upstream_commit:
+        required: true
+        type: string
+      upstream_short:
+        required: true
+        type: string
+      xlsxio_url:
+        required: true
+        type: string
+      xlsxio_commit:
+        required: true
+        type: string
+      compiler_label:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build macOS simulator package
+    runs-on: macos-14
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Configure Git init defaults
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Install macOS packaging dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+
+          formulas=(
+            gmp
+            gtk+3
+            ninja
+            pulseaudio
+            xlsxio
+          )
+          missing_formulas=()
+
+          for formula in "${formulas[@]}"; do
+            if brew list --versions "$formula" > /dev/null 2>&1; then
+              echo "Using preinstalled Homebrew formula: $formula"
+            else
+              missing_formulas+=("$formula")
+            fi
+          done
+
+          if ((${#missing_formulas[@]})); then
+            brew install "${missing_formulas[@]}"
+          else
+            echo "All required Homebrew formulas are already installed."
+          fi
+
+          meson_venv="$RUNNER_TEMP/meson-venv"
+          python3 -m venv "$meson_venv"
+          "$meson_venv/bin/python" -m pip install --upgrade pip
+          "$meson_venv/bin/pip" install meson==1.7.2
+
+          echo "$meson_venv/bin" >> "$GITHUB_PATH"
+
+      - name: Verify macOS toolchain
+        run: |
+          set -euo pipefail
+
+          clang --version
+          meson --version
+          pkg-config --modversion gtk+-3.0
+          command -v xlsxio_xlsx2csv > /dev/null
+
+      - name: Sync authoritative upstream c43
+        env:
+          UPSTREAM_URL: ${{ inputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          rm -rf upstream
+          git init upstream
+          git -C upstream remote add origin "$UPSTREAM_URL"
+          git -C upstream fetch --depth 1 origin "$UPSTREAM_COMMIT"
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth 1
+
+      - name: Build macOS simulator package
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+
+          chmod +x tools/onARaspberry
+          mkdir -p ../ci-artifacts/logs
+
+          make dist_macos 2>&1 | tee ../ci-artifacts/logs/macos-package.log
+
+      - name: Collect macOS simulator artifact
+        run: |
+          set -euo pipefail
+
+          release_dir="$PWD/ci-artifacts/release/macos"
+          package_zip="$PWD/upstream/c47-macos.zip"
+          package_dir="$release_dir/c47-macos"
+
+          rm -rf "$release_dir"
+          mkdir -p "$release_dir"
+
+          unzip -q "$package_zip" -d "$release_dir"
+
+          xlsxio_license_dir="$release_dir/xlsxio-license-src"
+          rm -rf "$xlsxio_license_dir"
+          git init "$xlsxio_license_dir"
+          git -C "$xlsxio_license_dir" remote add origin "${{ inputs.xlsxio_url }}"
+          git -C "$xlsxio_license_dir" fetch --depth 1 origin "${{ inputs.xlsxio_commit }}"
+          git -C "$xlsxio_license_dir" checkout --detach FETCH_HEAD
+
+          cp "$PWD/upstream/COPYING" "$package_dir/COPYING"
+          cp "$xlsxio_license_dir/LICENSE.txt" "$package_dir/LICENSE.txt"
+          rm -rf "$xlsxio_license_dir"
+
+          cat > "$package_dir/SOURCE" <<EOF
+          upstream_url=${{ inputs.upstream_url }}
+          upstream_commit=${{ inputs.upstream_commit }}
+          upstream_license_file=COPYING
+          xlsxio_url=${{ inputs.xlsxio_url }}
+          xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
+          EOF
+
+          find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
+
+          cat > "$release_dir/BUILD-METADATA.txt" <<EOF
+          upstream_url=${{ inputs.upstream_url }}
+          upstream_commit=${{ inputs.upstream_commit }}
+          upstream_license_file=COPYING
+          source_manifest_file=SOURCE
+          xlsxio_url=${{ inputs.xlsxio_url }}
+          xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
+          compiler=${{ inputs.compiler_label }}
+          make_target=dist_macos
+          runner_label=macos-14
+          runner_arch=arm64
+          package_zip=$(basename "$package_zip")
+          package_dir=$(basename "$package_dir")
+          EOF
+
+      - name: Upload macOS simulator artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}
+          path: ci-artifacts/release/macos/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}-build-log
+          path: ci-artifacts/logs/macos-package.log
+          if-no-files-found: warn
+          retention-days: 14

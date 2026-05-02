@@ -1,0 +1,299 @@
+name: desktop-linux-package
+
+on:
+  workflow_call:
+    inputs:
+      artifact_prefix:
+        required: true
+        type: string
+      upstream_url:
+        required: true
+        type: string
+      upstream_commit:
+        required: true
+        type: string
+      upstream_short:
+        required: true
+        type: string
+      xlsxio_url:
+        required: true
+        type: string
+      xlsxio_commit:
+        required: true
+        type: string
+      cc:
+        required: true
+        type: string
+      cxx:
+        required: true
+        type: string
+      compiler_label:
+        required: true
+        type: string
+      install_llvm:
+        required: false
+        default: false
+        type: boolean
+      llvm_version:
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build Linux simulator package
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux packaging dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            cmake \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            unzip \
+            wget \
+            xvfb \
+            zip
+
+      - name: Set pinned xlsxio revision
+        id: xlsxio
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "xlsxio_prefix=$HOME/.cache/c43/xlsxio/${{ inputs.xlsxio_commit }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xlsxio toolchain cache
+        id: xlsxio-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ inputs.xlsxio_commit }}-static-tools-v1
+
+      - name: Build xlsxio toolchain
+        if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          XLSXIO_URL: ${{ inputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ inputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+        run: |
+          set -euo pipefail
+
+          xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+          rm -rf "$xlsxio_dir"
+          git init "$xlsxio_dir"
+          git -C "$xlsxio_dir" remote add origin "$XLSXIO_URL"
+          git -C "$xlsxio_dir" fetch --depth 1 origin "$XLSXIO_COMMIT"
+          git -C "$xlsxio_dir" checkout --detach FETCH_HEAD
+
+          mkdir -p "$XLSXIO_PREFIX"
+
+          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_STATIC=ON \
+            -DBUILD_SHARED=OFF \
+            -DBUILD_DOCUMENTATION=FALSE \
+            -DBUILD_EXAMPLES=FALSE \
+            -DBUILD_TOOLS=ON \
+            -DWITH_LIBZIP=OFF
+
+          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
+          cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+      - name: Expose xlsxio toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          xlsxio_xlsx2csv -h > /dev/null
+
+      - name: Install LLVM toolchain
+        if: inputs.install_llvm
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" ./llvm.sh "${{ inputs.llvm_version }}"
+          sudo apt-get install --yes --no-install-recommends \
+            clang-"${{ inputs.llvm_version }}" \
+            clang-tools-"${{ inputs.llvm_version }}" \
+            lld-"${{ inputs.llvm_version }}" \
+            libclang-rt-"${{ inputs.llvm_version }}"-dev
+
+          llvm_bindir="$(llvm-config-"${{ inputs.llvm_version }}" --bindir)"
+          echo "$llvm_bindir" >> "$GITHUB_PATH"
+
+      - name: Show configured compiler toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ${{ inputs.cc }} --version
+          ${{ inputs.cxx }} --version
+
+          if [[ -n "${{ inputs.llvm_version }}" ]]; then
+            ld.lld-"${{ inputs.llvm_version }}" --version
+            llvm-symbolizer-"${{ inputs.llvm_version }}" --version
+          fi
+
+      - name: Sync authoritative upstream c43
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ inputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          rm -rf upstream
+          git init upstream
+          git -C upstream remote add origin "$UPSTREAM_URL"
+          git -C upstream fetch --depth 1 origin "$UPSTREAM_COMMIT"
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth 1
+
+      - name: Build Linux simulator package
+        shell: bash
+        working-directory: upstream
+        env:
+          CC: ${{ inputs.cc }}
+          CXX: ${{ inputs.cxx }}
+        run: |
+          set -euo pipefail
+
+          chmod +x tools/onARaspberry
+          mkdir -p ../ci-artifacts/logs
+
+          export CC
+          export CXX
+
+          make XVFB=xvfb-run \
+            dist_linux 2>&1 | tee ../ci-artifacts/logs/linux-package.log
+
+      - name: Collect stripped Linux package artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          release_dir="$PWD/ci-artifacts/release/linux"
+          package_zip="$PWD/upstream/c47-linux.zip"
+          package_dir="$release_dir/c47-linux"
+          stripped_count=0
+
+          rm -rf "$release_dir"
+          mkdir -p "$release_dir"
+
+          unzip -q "$package_zip" -d "$release_dir"
+
+          if command -v llvm-strip > /dev/null 2>&1; then
+            strip_tool=llvm-strip
+          elif command -v strip > /dev/null 2>&1; then
+            strip_tool=strip
+          else
+            echo "No strip tool found in PATH." >&2
+            exit 1
+          fi
+
+          while IFS= read -r -d '' binary; do
+            if ! readelf -h "$binary" > /dev/null 2>&1; then
+              continue
+            fi
+
+            "$strip_tool" "$binary"
+            stripped_count=$((stripped_count + 1))
+          done < <(find "$package_dir" -type f -print0)
+
+          xlsxio_license_dir="$release_dir/xlsxio-license-src"
+          rm -rf "$xlsxio_license_dir"
+          git init "$xlsxio_license_dir"
+          git -C "$xlsxio_license_dir" remote add origin "${{ inputs.xlsxio_url }}"
+          git -C "$xlsxio_license_dir" fetch --depth 1 origin "${{ inputs.xlsxio_commit }}"
+          git -C "$xlsxio_license_dir" checkout --detach FETCH_HEAD
+
+          cp "$PWD/upstream/COPYING" "$package_dir/COPYING"
+          cp "$xlsxio_license_dir/LICENSE.txt" "$package_dir/LICENSE.txt"
+          rm -rf "$xlsxio_license_dir"
+
+          cat > "$package_dir/SOURCE" <<EOF
+          upstream_url=${{ inputs.upstream_url }}
+          upstream_commit=${{ inputs.upstream_commit }}
+          upstream_license_file=COPYING
+          xlsxio_url=${{ inputs.xlsxio_url }}
+          xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
+          EOF
+
+          find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
+
+          cat > "$release_dir/BUILD-METADATA.txt" <<EOF
+          upstream_url=${{ inputs.upstream_url }}
+          upstream_commit=${{ inputs.upstream_commit }}
+          upstream_license_file=COPYING
+          source_manifest_file=SOURCE
+          xlsxio_url=${{ inputs.xlsxio_url }}
+          xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
+          compiler=${{ inputs.compiler_label }}
+          make_target=dist_linux
+          strip_tool=$strip_tool
+          stripped_files_count=$stripped_count
+          package_zip=$(basename "$package_zip")
+          package_dir=$(basename "$package_dir")
+          EOF
+
+          if [[ -n "${{ inputs.llvm_version }}" ]]; then
+            printf 'llvm_version=%s\n' '${{ inputs.llvm_version }}' >> "$release_dir/BUILD-METADATA.txt"
+          fi
+
+      - name: Upload Linux simulator artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}
+          path: ci-artifacts/release/linux/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Linux build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}-build-log
+          path: ci-artifacts/logs/linux-package.log
+          if-no-files-found: warn
+          retention-days: 14

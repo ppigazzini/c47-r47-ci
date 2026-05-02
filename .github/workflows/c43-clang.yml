@@ -1,0 +1,401 @@
+name: c43 Clang CI
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  LLVM_VERSION: '22'
+  UPSTREAM_URL: https://gitlab.com/rpncalculators/c43.git
+  XLSXIO_URL: https://github.com/brechtsanders/xlsxio.git
+  XLSXIO_COMMIT: a9016eb2eb46dcd613a68fcfcd1002b5adf64ae9
+
+jobs:
+  resolve-upstream-core:
+    name: Resolve authoritative upstream c43 revision
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      upstream_url: ${{ steps.resolve.outputs.upstream_url }}
+      upstream_commit: ${{ steps.resolve.outputs.upstream_commit }}
+      upstream_short: ${{ steps.resolve.outputs.upstream_short }}
+      xlsxio_url: ${{ steps.resolve.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ steps.resolve.outputs.xlsxio_commit }}
+      llvm_version: ${{ steps.resolve.outputs.llvm_version }}
+    steps:
+      - name: Resolve authoritative upstream c43 commit
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          upstream_commit=$(git ls-remote --exit-code "$UPSTREAM_URL" refs/heads/master | awk 'NR == 1 { print $1 }')
+          if [[ -z "$upstream_commit" ]]; then
+            echo "Failed to resolve upstream master." >&2
+            exit 1
+          fi
+
+          echo "upstream_url=$UPSTREAM_URL" >> "$GITHUB_OUTPUT"
+          echo "upstream_commit=$upstream_commit" >> "$GITHUB_OUTPUT"
+          echo "upstream_short=${upstream_commit:0:12}" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "llvm_version=$LLVM_VERSION" >> "$GITHUB_OUTPUT"
+
+  linux-tests:
+    name: Run Linux simulator tests
+    needs:
+      - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            cmake \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            unzip \
+            zip
+
+      - name: Set pinned xlsxio revision
+        id: xlsxio
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/c43/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xlsxio toolchain cache
+        id: xlsxio-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+
+      - name: Build xlsxio toolchain
+        if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+        run: |
+          set -euo pipefail
+
+          xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+          rm -rf "$xlsxio_dir"
+          git init "$xlsxio_dir"
+          git -C "$xlsxio_dir" remote add origin "$XLSXIO_URL"
+          git -C "$xlsxio_dir" fetch --depth 1 origin "$XLSXIO_COMMIT"
+          git -C "$xlsxio_dir" checkout --detach FETCH_HEAD
+
+          mkdir -p "$XLSXIO_PREFIX"
+
+          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_STATIC=ON \
+            -DBUILD_SHARED=OFF \
+            -DBUILD_DOCUMENTATION=FALSE \
+            -DBUILD_EXAMPLES=FALSE \
+            -DBUILD_TOOLS=ON \
+            -DWITH_LIBZIP=OFF
+
+          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
+          cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+      - name: Expose xlsxio toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          xlsxio_xlsx2csv -h > /dev/null
+
+      - name: Sync authoritative upstream c43
+        id: upstream
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          rm -rf upstream
+          git init upstream
+          git -C upstream remote add origin "$UPSTREAM_URL"
+          git -C upstream fetch --depth 1 origin "$UPSTREAM_COMMIT"
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth 1
+
+          echo "upstream_dir=$PWD/upstream" >> "$GITHUB_OUTPUT"
+
+      - name: Run Linux simulator tests
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+
+          chmod +x tools/onARaspberry
+          mkdir -p ../ci-artifacts/logs
+
+          make test 2>&1 | tee ../ci-artifacts/logs/linux-tests.log
+
+      - name: Upload Linux test log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: c43-linux-tests-${{ needs.resolve-upstream-core.outputs.upstream_short }}-log
+          path: ci-artifacts/logs/linux-tests.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-docs:
+    name: Build Linux docs
+    needs:
+      - resolve-upstream-core
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Detect runner build concurrency
+        id: jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux docs dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            cmake \
+            doxygen \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            python3-breathe \
+            python3-pip \
+            python3-sphinx \
+            unzip \
+            zip
+
+      - name: Install Furo theme
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user furo
+
+      - name: Set pinned xlsxio revision
+        id: xlsxio
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "xlsxio_url=$XLSXIO_URL" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "xlsxio_prefix=$HOME/.cache/c43/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xlsxio toolchain cache
+        id: xlsxio-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+
+      - name: Build xlsxio toolchain
+        if: steps.xlsxio-cache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          XLSXIO_URL: ${{ steps.xlsxio.outputs.xlsxio_url }}
+          XLSXIO_COMMIT: ${{ steps.xlsxio.outputs.xlsxio_commit }}
+          XLSXIO_PREFIX: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
+        run: |
+          set -euo pipefail
+
+          xlsxio_dir="${RUNNER_TEMP}/xlsxio"
+          rm -rf "$xlsxio_dir"
+          git init "$xlsxio_dir"
+          git -C "$xlsxio_dir" remote add origin "$XLSXIO_URL"
+          git -C "$xlsxio_dir" fetch --depth 1 origin "$XLSXIO_COMMIT"
+          git -C "$xlsxio_dir" checkout --detach FETCH_HEAD
+
+          mkdir -p "$XLSXIO_PREFIX"
+
+          cmake -S "$xlsxio_dir" -B "$xlsxio_dir/build" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DBUILD_STATIC=ON \
+            -DBUILD_SHARED=OFF \
+            -DBUILD_DOCUMENTATION=FALSE \
+            -DBUILD_EXAMPLES=FALSE \
+            -DBUILD_TOOLS=ON \
+            -DWITH_LIBZIP=OFF
+
+          cmake --build "$xlsxio_dir/build" --parallel "${{ steps.jobs.outputs.jobs }}"
+          cmake --install "$xlsxio_dir/build" --prefix "$XLSXIO_PREFIX"
+
+      - name: Expose xlsxio toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin" >> "$GITHUB_PATH"
+          export PATH="${{ steps.xlsxio.outputs.xlsxio_prefix }}/bin:$PATH"
+          xlsxio_xlsx2csv -h > /dev/null
+
+      - name: Sync authoritative upstream c43
+        shell: bash
+        env:
+          UPSTREAM_URL: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+          UPSTREAM_COMMIT: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+        run: |
+          set -euo pipefail
+
+          rm -rf upstream
+          git init upstream
+          git -C upstream remote add origin "$UPSTREAM_URL"
+          git -C upstream fetch --depth 1 origin "$UPSTREAM_COMMIT"
+          git -C upstream checkout --detach FETCH_HEAD
+          git -C upstream submodule update --init --recursive --depth 1
+
+      - name: Build Linux docs
+        shell: bash
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+
+          chmod +x tools/onARaspberry
+          mkdir -p ../ci-artifacts/logs
+
+          make docs 2>&1 | tee ../ci-artifacts/logs/linux-docs.log
+
+      - name: Upload Linux docs log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: c43-linux-docs-${{ needs.resolve-upstream-core.outputs.upstream_short }}-log
+          path: ci-artifacts/logs/linux-docs.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-package:
+    name: Build Linux simulator package (Clang 22)
+    needs:
+      - resolve-upstream-core
+    uses: ./.github/workflows/desktop-linux-package.yml
+    with:
+      artifact_prefix: c43-linux-clang22
+      upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+      upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+      upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
+      cc: clang-${{ needs.resolve-upstream-core.outputs.llvm_version }}
+      cxx: clang++-${{ needs.resolve-upstream-core.outputs.llvm_version }}
+      compiler_label: clang-${{ needs.resolve-upstream-core.outputs.llvm_version }}
+      install_llvm: true
+      llvm_version: ${{ needs.resolve-upstream-core.outputs.llvm_version }}
+
+  macos-arm64-package:
+    name: Build macOS simulator package (Apple Silicon)
+    needs:
+      - resolve-upstream-core
+    uses: ./.github/workflows/desktop-macos-package.yml
+    with:
+      artifact_prefix: c43-macos-apple-clang
+      upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+      upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+      upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
+      compiler_label: apple-clang
+
+  windows-msys2-clang-package:
+    name: Build Windows simulator package (MSYS2 CLANG64)
+    needs:
+      - resolve-upstream-core
+    uses: ./.github/workflows/desktop-windows-package.yml
+    with:
+      artifact_prefix: c43-windows-clang64
+      upstream_url: ${{ needs.resolve-upstream-core.outputs.upstream_url }}
+      upstream_commit: ${{ needs.resolve-upstream-core.outputs.upstream_commit }}
+      upstream_short: ${{ needs.resolve-upstream-core.outputs.upstream_short }}
+      xlsxio_url: ${{ needs.resolve-upstream-core.outputs.xlsxio_url }}
+      xlsxio_commit: ${{ needs.resolve-upstream-core.outputs.xlsxio_commit }}
+      msystem: CLANG64
+      msys2_packages: >-
+        git
+        make
+        unzip
+        zip
+        mingw-w64-clang-x86_64-ca-certificates
+        mingw-w64-clang-x86_64-cc
+        mingw-w64-clang-x86_64-freetype
+        mingw-w64-clang-x86_64-gmp
+        mingw-w64-clang-x86_64-gtk3
+        mingw-w64-clang-x86_64-meson
+        mingw-w64-clang-x86_64-ninja
+        mingw-w64-clang-x86_64-pkgconf
+        mingw-w64-clang-x86_64-xlsxio
+      cc: clang
+      cxx: clang++
+      compiler_label: clang
