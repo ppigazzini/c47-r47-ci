@@ -186,10 +186,19 @@ jobs:
             cp "$dll" "$package_dir/"
           done <<< "$dlls"
 
+          xlsxio_license_dir="$release_dir/xlsxio-license-src"
+          rm -rf "$xlsxio_license_dir"
+          git init "$xlsxio_license_dir"
+          git -C "$xlsxio_license_dir" remote add origin "${{ inputs.xlsxio_url }}"
+          git -C "$xlsxio_license_dir" fetch --depth 1 origin "${{ inputs.xlsxio_commit }}"
+          git -C "$xlsxio_license_dir" checkout --detach FETCH_HEAD
+
           printf 'Stripped executable sizes:\n'
           stat -c '%n %s' "$package_dir/c47.exe" "$package_dir/r47.exe"
 
           cp upstream/COPYING "$package_dir/COPYING"
+          cp "$xlsxio_license_dir/LICENSE.txt" "$package_dir/LICENSE.txt"
+          rm -rf "$xlsxio_license_dir"
 
           cat > "$package_dir/SOURCE" <<EOF
           upstream_url=${{ inputs.upstream_url }}
@@ -197,6 +206,7 @@ jobs:
           upstream_license_file=COPYING
           xlsxio_url=${{ inputs.xlsxio_url }}
           xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
           EOF
 
           find "$package_dir" -type f | sed "s#^$release_dir/##" | sort > "$release_dir/PACKAGE-CONTENTS.txt"
@@ -208,6 +218,7 @@ jobs:
           source_manifest_file=SOURCE
           xlsxio_url=${{ inputs.xlsxio_url }}
           xlsxio_commit=${{ inputs.xlsxio_commit }}
+          xlsxio_license_file=LICENSE.txt
           compiler=${{ inputs.compiler_label }}
           make_target=dist_windows
           msystem=${{ inputs.msystem }}
