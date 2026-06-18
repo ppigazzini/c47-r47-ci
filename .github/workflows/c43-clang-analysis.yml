@@ -193,8 +193,8 @@ jobs:
         shell: bash
         working-directory: upstream
         env:
-          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=0
         run: |
           set -euo pipefail
 
@@ -213,7 +213,7 @@ jobs:
               --buildtype=custom \
               -DRASPBERRY="$raspberry" \
               -DDECNUMBER_FASTMUL=true \
-              -Dc_args="-Wno-deprecated-declarations" \
+              -Dc_args="-Wno-deprecated-declarations -fno-sanitize=alignment -fno-omit-frame-pointer" \
               -Db_sanitize=address,undefined
 
             ninja -C "$build_dir" sim simr47
