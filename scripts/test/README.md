@@ -19,6 +19,10 @@ machine, so a CI failure is reproducible locally.
 - `run-testmem.sh` - runs the corpus under `--testmem` (per-test
   pool/GMP attribution) and gates on any growth case not in
   `testmem-baseline.txt`.
+- `run-coverage.sh` - builds the testSuite with gcc coverage,
+  exercises it (corpus, `--keyscan`, `--leakscan`), and publishes a gcovr
+  coverage map plus the least-covered leak-prone modules. Report-only by
+  default; set `COVERAGE_MIN` to gate on overall line coverage.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak and per-test lanes.
 
@@ -53,7 +57,8 @@ bash scripts/test/run-smoke.sh
 - The smoke lane: `run-smoke.sh` + `test-harness-smoke.yml`. Done.
 - `run-leakscan.sh` + `test-leakscan.yml`: pool/GMP leak gate. Done.
 - `run-testmem.sh` + `test-testmem.yml`: per-test pool/GMP attribution. Done.
-- `run-coverage.sh`: coverage over the suite and the key-sequence driver.
+- `run-coverage.sh` + `test-coverage.yml`: coverage map over the suite,
+  `--keyscan` and `--leakscan`. Done (baseline 37.5% c47 line coverage).
 - `run-fuzz.sh`: a libFuzzer harness over a parser entry point.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
   analysis, `-Werror` hardening warnings).
