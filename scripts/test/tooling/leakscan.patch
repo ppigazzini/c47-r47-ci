@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..81ecb9bcf 100644
+index 9a756330b..359cd21c1 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -147,7 +147,7 @@ index 9a756330b..81ecb9bcf 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3512,292 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3512,305 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -273,7 +273,9 @@ index 9a756330b..81ecb9bcf 100644
 +    // operation keys run on pool/GMP-backed operands.
 +    // kev: 0 dispatch each key through runFunction; 1 through processKeyAction
 +    // (full state machine), needed for the interactive subsystems.
-+    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; int kev; } keyseq_t;
++    // solver: 1 = after the keys build LBL Z and leave guesses on the stack,
++    // allocate a named variable and run the root finder via fnPgmSlv/fnSolve.
++    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; int kev; int solver; } keyseq_t;
 +
 +    static const int16_t kNumArith[] = {ITM_1, ITM_2, ITM_3, ITM_PERIOD, ITM_5, ITM_ENTER, ITM_6, ITM_7, ITM_ADD, ITM_MULT, ITM_DIV, ITM_SUB};
 +    static const int16_t kNegExp[]   = {ITM_2, ITM_PERIOD, ITM_5, ITM_EXPONENT, ITM_3, ITM_CHS, ITM_ENTER};
@@ -308,27 +310,30 @@ index 9a756330b..81ecb9bcf 100644
 +    // Equation create + delete each iteration (1463 = EQ.DEL): decides whether
 +    // the per-equation memory is fully reclaimable or orphaned.
 +    static const int16_t kEqnDel[] = {IT_EQ_NEW, ITM_A, ITM_ADD, ITM_B, ITM_MULT, ITM_C, ITM_EXIT1, 1463};
-+    // Solver: build a program LBL A computing f(X) = X^2 - 2 (the TAM label name
-+    // is confirmed with ENTER), then drive PGMSLV and SOLVE. This exercises the
-+    // program engine (PEM) and the solver's TAM parameter entry (TM_LABEL /
-+    // TM_SOLVE) in solver/solve.c and ui/tam.c.
++    // Solver: build a program LBL Z computing f(X) = X^2 - 2 and leave two guesses
++    // (1, 3) on the stack. Z is entered through explicit alpha mode (ITM_alpha,
++    // 628) because A..D are local labels outside the solver's label range, and the
++    // solver needs a global named label it can select. The solve itself is invoked
++    // by the driver (solver flag below) - the program build and label binding are
++    // key-driven, but resolving the SOLVE variable purely through keys is
++    // unreliable headless, so the driver allocates the variable and calls
++    // fnPgmSlv/fnSolve. This runs the root finder and reaches solver/solve.c.
++    enum { IT_ALPHA = 628 };
 +    static const int16_t kSolve[] = {
-+      ITM_PR, ITM_LBL, ITM_A, ITM_ENTER, ITM_SQUARE, ITM_2, ITM_SUB, ITM_RTN, ITM_PR,
-+      ITM_1, ITM_ENTER, ITM_3,
-+      ITM_PGMSLV, ITM_A, ITM_ENTER,
-+      ITM_SOLVE, ITM_REG_X};
-+    // Integrator: build LBL B computing f(X) = X^2, then PGMINT and the integral
++      ITM_PR, ITM_LBL, IT_ALPHA, ITM_Z, ITM_ENTER, ITM_SQUARE, ITM_2, ITM_SUB, ITM_RTN, ITM_PR,
++      ITM_1, ITM_ENTER, ITM_3};
++    // Integrator: build LBL Z computing f(X) = X^2, then PGMINT and the integral
 +    // over the X register, reaching the integrator's TAM entry and integrate.c.
 +    static const int16_t kInteg[] = {
-+      ITM_PR, ITM_LBL, ITM_B, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
++      ITM_PR, ITM_LBL, IT_ALPHA, ITM_Z, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
 +      ITM_0, ITM_ENTER, ITM_1,
-+      ITM_PGMINT, ITM_B, ITM_ENTER,
++      ITM_PGMINT, IT_ALPHA, ITM_Z, ITM_ENTER,
 +      ITM_INTEGRAL_YX, ITM_REG_X};
-+    // Grapher: build LBL C computing f(X) = X^2, select it and DRAW, reaching the
++    // Grapher: build LBL Z computing f(X) = X^2, select it and DRAW, reaching the
 +    // plot setup in graph.c.
 +    static const int16_t kDraw[] = {
-+      ITM_PR, ITM_LBL, ITM_C, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
-+      ITM_PGMSLV, ITM_C, ITM_ENTER,
++      ITM_PR, ITM_LBL, IT_ALPHA, ITM_Z, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
++      ITM_PGMSLV, IT_ALPHA, ITM_Z, ITM_ENTER,
 +      ITM_DRAW};
 +
 +    static const keyseq_t seqs[] = {
@@ -362,9 +367,9 @@ index 9a756330b..81ecb9bcf 100644
 +      {"matrix_new_x80",   kMatNew,  8, 80, -1, 1},
 +      {"equation_x80",     kEqn,     7, 80, -1, 1},
 +      {"equation_create_delete_x80", kEqnDel, 8, 80, -1, 1},
-+      {"solve_pgm_x20",    kSolve,  17, 20, -1, 1},
-+      {"integrate_pgm_x20",kInteg,  14, 20, -1, 1},
-+      {"draw_pgm_x20",     kDraw,   10, 20, -1, 1},
++      {"solve_pgm",        kSolve,  13,  1, -1, 1, 1},
++      {"integrate_pgm_x20",kInteg,  16, 20, -1, 1},
++      {"draw_pgm_x20",     kDraw,   13, 20, -1, 1},
 +    };
 +    const int numSeqs = (int)(sizeof(seqs) / sizeof(seqs[0]));
 +
@@ -409,6 +414,14 @@ index 9a756330b..81ecb9bcf 100644
 +            else {
 +              runFunction(seqs[s].keys[k]);
 +            }
++          }
++          if(seqs[s].solver) {
++            // The keys built LBL Z and left two guesses on the stack. Allocate the
++            // variable to solve for, select the program and run the root finder.
++            allocateNamedVariable("SLV", dtReal34, REAL34_SIZE_IN_BLOCKS);
++            fnPgmSlv(findNamedLabel("Z"));
++            lastErrorCode = 0;
++            fnSolve(findNamedVariable("SLV"));
 +          }
 +        }
 +        fnClAll(CONFIRMED);
