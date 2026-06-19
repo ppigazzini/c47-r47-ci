@@ -1,0 +1,5 @@
+# Valgrind memcheck baseline for c47.
+# c47 sub-allocates from its own ram[] pool, so it is malloc-clean: the
+# subset run found zero definitely-lost/invalid c47 sites with
+# tooling/valgrind.supp applied. Any c47 line here is a real finding.
+# Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh

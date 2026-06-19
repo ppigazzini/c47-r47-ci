@@ -1,0 +1,39 @@
+# cppcheck static-analysis baseline for c47.
+# One line per distinct finding: src/c47/file:line check-id.
+# Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
+src/c47/c47Extensions/graphs.c:1366: invalidFunctionArgBool
+src/c47/c47Extensions/graphs.c:1374: invalidFunctionArgBool
+src/c47/c47Extensions/graphs.c:1378: invalidFunctionArgBool
+src/c47/c47Extensions/graphs.c:1387: invalidFunctionArgBool
+src/c47/c47Extensions/inlineTest.c:74: uninitvar
+src/c47/core/freeList.c:132: invalidPrintfArgType_sint
+src/c47/core/freeList.c:241: invalidPrintfArgType_sint
+src/c47/defines.h:2390: preprocessorErrorDirective
+src/c47/mathematics/matrix.c:4330: nullPointer
+src/c47/mathematics/matrix.c:4331: nullPointer
+src/c47/mathematics/matrix.c:447: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:497: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:502: invalidPrintfArgType_sint
+src/c47/mathematics/opmod.c:248: uninitvar
+src/c47/mathematics/opmod.c:293: uninitvar
+src/c47/mathematics/opmod.c:324: uninitvar
+src/c47/mathematics/opmod.c:325: uninitvar
+src/c47/mathematics/opmod.c:432: uninitvar
+src/c47/mathematics/opmod.c:462: uninitvar
+src/c47/mathematics/opmod.c:464: uninitvar
+src/c47/mathematics/opmod.c:507: uninitvar
+src/c47/mathematics/opmod.c:508: uninitvar
+src/c47/programming/input.c:447: invalidPrintfArgType_uint
+src/c47/programming/input.c:454: invalidPrintfArgType_uint
+src/c47/programming/input.c:460: invalidPrintfArgType_uint
+src/c47/programming/input.c:466: invalidPrintfArgType_uint
+src/c47/programming/input.c:472: invalidPrintfArgType_uint
+src/c47/programming/input.c:478: invalidPrintfArgType_uint
+src/c47/programming/input.c:484: invalidPrintfArgType_uint
+src/c47/programming/manage.c:772: identicalInnerCondition
+src/c47/solver/graph.c:1564: invalidPrintfArgType_uint
+src/c47/solver/graph.c:1583: invalidPrintfArgType_uint
+src/c47/solver/graph.c:1605: invalidPrintfArgType_uint
+src/c47/solver/graph.c:1635: invalidPrintfArgType_uint
+src/c47/solver/graph.c:843: oppositeInnerCondition
+src/c47/solver/integrate.c:898: syntaxError

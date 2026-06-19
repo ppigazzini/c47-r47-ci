@@ -1,0 +1,47 @@
+# Curated Valgrind suppressions for the c43 testSuite.
+# These silence known third-party noise (GTK/GLib/fontconfig type caches, the
+# one-time GMP allocation) so a real malloc-level error or leak in c47 code
+# stands out. Keep this list tight: suppress libraries, never c47 frames.
+
+{
+   glib-type-registration-one-time-init
+   Memcheck:Leak
+   ...
+   obj:*/libglib-2.0.so*
+}
+{
+   gobject-type-system-one-time-init
+   Memcheck:Leak
+   ...
+   obj:*/libgobject-2.0.so*
+}
+{
+   gtk-init-static-caches
+   Memcheck:Leak
+   ...
+   obj:*/libgtk-3.so*
+}
+{
+   gdk-init-static-caches
+   Memcheck:Leak
+   ...
+   obj:*/libgdk-3.so*
+}
+{
+   fontconfig-pattern-cache
+   Memcheck:Leak
+   ...
+   obj:*/libfontconfig.so*
+}
+{
+   pango-static-init
+   Memcheck:Leak
+   ...
+   obj:*/libpango*-1.0.so*
+}
+{
+   gmp-realloc-scratch
+   Memcheck:Leak
+   ...
+   obj:*/libgmp.so*
+}

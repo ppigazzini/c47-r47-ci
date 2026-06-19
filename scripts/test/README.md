@@ -27,12 +27,23 @@ machine, so a CI failure is reproducible locally.
   `decodeOneStep` under clang (ASan gate, UBSan report) and runs a time-boxed
   campaign over a seed corpus, uploading any crash reproducer and the evolved
   corpus. Report-first; set `FUZZ_GATE=1` to fail on a finding.
+- `run-warnings.sh` - rebuilds the testSuite with the OpenSSF
+  hardening warning set and reports new warnings vs `warnings-baseline.txt`.
+  Report-first; `WARN_GATE=1` to gate.
+- `run-valgrind.sh` - runs the testSuite corpus under Valgrind
+  memcheck with `tooling/valgrind.supp` and reports new c47 malloc-level sites
+  vs `valgrind-baseline.txt`. Report-first; `VALGRIND_GATE=1` to gate.
+- `run-staticanalysis.sh` - runs cppcheck over the c47 sources and
+  reports new findings vs `cppcheck-baseline.txt`. Report-first;
+  `ANALYSIS_GATE=1` to gate.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
   `tooling/fuzz-decode.dict` - the libFuzzer harness over `decodeOneStep`
   carried off the `test/fuzz-decode-harness` branch, with its seed corpus and
   dictionary, applied by the fuzz lane.
+- `tooling/valgrind.supp` - curated Valgrind suppressions (GTK/GLib/GMP noise)
+  used by the Valgrind lane.
 
 ## Contract for new lanes
 
@@ -69,5 +80,10 @@ bash scripts/test/run-smoke.sh
   `--keyscan` and `--leakscan`. Done (baseline 37.5% c47 line coverage).
 - `run-fuzz.sh` + `test-fuzz.yml`: libFuzzer over `decodeOneStep`. Done
   (the campaign immediately found a real decoder stack-buffer-overflow).
+- breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 310
+  baselined), `run-valgrind.sh` (memcheck + suppressions, clean baseline),
+  `run-staticanalysis.sh` (cppcheck, 36 baselined) with their `test-*.yml`
+  callers. Done. MSan (needs an instrumented libc/gmp) and clang-tidy (needs an
+  upstream `.clang-tidy`) are documented deferrals.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
   analysis, `-Werror` hardening warnings).
