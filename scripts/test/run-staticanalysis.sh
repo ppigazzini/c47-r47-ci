@@ -19,6 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/common.sh"
 
 BASELINE="${BASELINE:-$SCRIPT_DIR/cppcheck-baseline.txt}"
+SUPPRESSIONS="${SUPPRESSIONS:-$SCRIPT_DIR/tooling/cppcheck-suppressions.txt}"
 ANALYSIS_GATE="${ANALYSIS_GATE:-0}"
 CPPCHECK_ENABLE="${CPPCHECK_ENABLE:-warning,performance,portability}"
 
@@ -34,9 +35,12 @@ main() {
     harness_log "running cppcheck (--enable=$CPPCHECK_ENABLE) over src/c47"
     # Source-level analysis; no build needed. Exclude third-party decNumber.
     # --error-exitcode=0 so we collect and baseline rather than abort.
+    local suppr_arg=()
+    [[ -f "$SUPPRESSIONS" ]] && suppr_arg=("--suppressions-list=$SUPPRESSIONS")
     cppcheck \
         --enable="$CPPCHECK_ENABLE" \
         --inline-suppr \
+        "${suppr_arg[@]}" \
         --suppress=missingInclude \
         --suppress=missingIncludeSystem \
         --suppress=unmatchedSuppression \

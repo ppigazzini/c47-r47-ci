@@ -1,0 +1,24 @@
+# Confirmed cppcheck false positives, kept out of the findings so that a real
+# uninitvar / nullPointer stands out. Verdicts come from the REPORT-7-BUGS triage.
+#
+# Format: <id>:<file-glob>[:<line>]. A carried suppressions file is used rather
+# than inline // cppcheck-suppress comments because the lane analyses a freshly
+# synced upstream tree, where inline comments would not be present.
+
+# opmod.c's modular-arithmetic helpers pass a longInteger_t (a GMP mpz_t) to
+# parseReal() and the register converters, which longIntegerInit() it before
+# any read. cppcheck does not track initialisation through an output parameter
+# across functions, so it flags every such use as uninitvar. File-scoped: every
+# uninitvar in this file is the same pattern.
+uninitvar:*/mathematics/opmod.c
+
+# inlineTest.c is build-time self-test scaffolding using the same GMP pattern.
+uninitvar:*/c47Extensions/inlineTest.c
+
+# verifySqrtMatrix() is always called with exactly one non-NULL operand pair
+# (real or complex); the isComplex ternary selects the non-NULL operand, so it
+# never dereferences NULL. cppcheck cannot see the caller contract. Line-scoped
+# so a real nullPointer elsewhere in matrix.c still surfaces - update the lines
+# if verifySqrtMatrix moves.
+nullPointer:*/mathematics/matrix.c:4338
+nullPointer:*/mathematics/matrix.c:4339

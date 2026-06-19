@@ -33,9 +33,10 @@ machine, so a CI failure is reproducible locally.
 - `run-valgrind.sh` - runs the testSuite corpus under Valgrind
   memcheck with `tooling/valgrind.supp` and reports new c47 malloc-level sites
   vs `valgrind-baseline.txt`. Report-first; `VALGRIND_GATE=1` to gate.
-- `run-staticanalysis.sh` - runs cppcheck over the c47 sources and
-  reports new findings vs `cppcheck-baseline.txt`. Report-first;
-  `ANALYSIS_GATE=1` to gate.
+- `run-staticanalysis.sh` - runs cppcheck over the c47 sources (with confirmed
+  false positives filtered by `tooling/cppcheck-suppressions.txt`) and reports
+  new findings vs `cppcheck-baseline.txt`. Report-first; `ANALYSIS_GATE=1` to
+  gate.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
@@ -44,6 +45,9 @@ machine, so a CI failure is reproducible locally.
   dictionary, applied by the fuzz lane.
 - `tooling/valgrind.supp` - curated Valgrind suppressions (GTK/GLib/GMP noise)
   used by the Valgrind lane.
+- `tooling/cppcheck-suppressions.txt` - confirmed cppcheck false positives
+  (GMP-init `uninitvar`, the `verifySqrtMatrix` contract) filtered by the
+  static-analysis lane so a real finding stands out.
 
 ## Contract for new lanes
 
@@ -82,7 +86,8 @@ bash scripts/test/run-smoke.sh
   (the campaign immediately found a real decoder stack-buffer-overflow).
 - breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 310
   baselined), `run-valgrind.sh` (memcheck + suppressions, clean baseline),
-  `run-staticanalysis.sh` (cppcheck, 36 baselined) with their `test-*.yml`
+  `run-staticanalysis.sh` (cppcheck, 23 baselined after filtering confirmed
+  false positives) with their `test-*.yml`
   callers. Done. MSan (needs an instrumented libc/gmp) and clang-tidy (needs an
   upstream `.clang-tidy`) are documented deferrals.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
