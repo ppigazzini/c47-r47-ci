@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..359cd21c1 100644
+index 9a756330b..e317a9f08 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -147,7 +147,7 @@ index 9a756330b..359cd21c1 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3512,305 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3512,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -275,7 +275,8 @@ index 9a756330b..359cd21c1 100644
 +    // (full state machine), needed for the interactive subsystems.
 +    // solver: 1 = after the keys build LBL Z and leave guesses on the stack,
 +    // allocate a named variable and run the root finder via fnPgmSlv/fnSolve.
-+    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; int kev; int solver; } keyseq_t;
++    // tvm: 1 = seed the known TVM variables and solve FV via fnTvmVar.
++    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; int kev; int solver; int tvm; } keyseq_t;
 +
 +    static const int16_t kNumArith[] = {ITM_1, ITM_2, ITM_3, ITM_PERIOD, ITM_5, ITM_ENTER, ITM_6, ITM_7, ITM_ADD, ITM_MULT, ITM_DIV, ITM_SUB};
 +    static const int16_t kNegExp[]   = {ITM_2, ITM_PERIOD, ITM_5, ITM_EXPONENT, ITM_3, ITM_CHS, ITM_ENTER};
@@ -335,6 +336,9 @@ index 9a756330b..359cd21c1 100644
 +      ITM_PR, ITM_LBL, IT_ALPHA, ITM_Z, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
 +      ITM_PGMSLV, IT_ALPHA, ITM_Z, ITM_ENTER,
 +      ITM_DRAW};
++    // TVM (time value of money) solver - driven by the tvm flag below, not by
++    // keys: under TESTSUITE_BUILD fnTvmVar always calculates (never stores), so
++    // the known variables (N, I/yr, PV, PMT) are seeded directly and FV is solved.
 +
 +    static const keyseq_t seqs[] = {
 +      {"num_arith",       kNumArith, 12,  1, -1},
@@ -370,6 +374,7 @@ index 9a756330b..359cd21c1 100644
 +      {"solve_pgm",        kSolve,  13,  1, -1, 1, 1},
 +      {"integrate_pgm_x20",kInteg,  16, 20, -1, 1},
 +      {"draw_pgm_x20",     kDraw,   13, 20, -1, 1},
++      {"tvm_solve",        kEnter,   0,  1, -1, 0, 0, 1},
 +    };
 +    const int numSeqs = (int)(sizeof(seqs) / sizeof(seqs[0]));
 +
@@ -418,10 +423,40 @@ index 9a756330b..359cd21c1 100644
 +          if(seqs[s].solver) {
 +            // The keys built LBL Z and left two guesses on the stack. Allocate the
 +            // variable to solve for, select the program and run the root finder.
++            uint16_t lbl = findNamedLabel("Z");
 +            allocateNamedVariable("SLV", dtReal34, REAL34_SIZE_IN_BLOCKS);
-+            fnPgmSlv(findNamedLabel("Z"));
++            fnPgmSlv(lbl);
 +            lastErrorCode = 0;
 +            fnSolve(findNamedVariable("SLV"));
++            // X now holds the root; take the numerical first and second derivatives
++            // of the same program there, which runs solver/differentiate.c.
++            lastErrorCode = 0;
++            fn1stDeriv(lbl);
++            lastErrorCode = 0;
++            fn2ndDeriv(lbl);
++          }
++          if(seqs[s].tvm) {
++            // Seed the four known TVM variables (N=10, I/yr=5, PV=1000, PMT=-100)
++            // and solve for FV. fnTvmVar always calculates in this build, so the
++            // known values are written directly rather than stored through keys.
++            const struct { int16_t var; int32_t val; } tvmKnown[] = {
++              {RESERVED_VARIABLE_NPPER, 10}, {RESERVED_VARIABLE_IPONA, 5},
++              {RESERVED_VARIABLE_PV, 1000}, {RESERVED_VARIABLE_PMT, -100}};
++            for(unsigned i = 0; i < 4; i++) {
++              reallocateRegister(tvmKnown[i].var, dtReal34, 0, amNone);
++              int32ToReal34(tvmKnown[i].val, REGISTER_REAL34_DATA(tvmKnown[i].var));
++            }
++            // Solve FV (analytic path); the five variables are then consistent, so
++            // solve each of the others in turn - I/yr in particular drives the
++            // iterative branch - to exercise more of solver/tvm.c.
++            const int16_t tvmSolveFor[] = {
++              RESERVED_VARIABLE_FV, RESERVED_VARIABLE_IPONA, RESERVED_VARIABLE_PMT,
++              RESERVED_VARIABLE_NPPER, RESERVED_VARIABLE_PV};
++            for(unsigned i = 0; i < sizeof(tvmSolveFor)/sizeof(tvmSolveFor[0]); i++) {
++              currentSolverStatus |= SOLVER_STATUS_READY_TO_EXECUTE;
++              lastErrorCode = 0;
++              fnTvmVar(tvmSolveFor[i]);
++            }
 +          }
 +        }
 +        fnClAll(CONFIRMED);
