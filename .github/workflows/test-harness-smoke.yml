@@ -1,0 +1,62 @@
+name: Test Harness Smoke
+# Thin CI caller for the c43 testing harness skeleton.
+# The lane only sets up the toolchain and calls scripts/test/run-smoke.sh; all
+# logic lives in the script so it runs identically on a maintainer's machine.
+# Other lanes call scripts/test/run-leakscan.sh,
+# run-coverage.sh, etc., reusing the same scripts/test/lib/common.sh preamble.
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Test harness skeleton smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Write logs inside the workspace so the upload step can find them.
+      LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Install minimal harness dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            ca-certificates \
+            ccache \
+            git
+
+      - name: Run harness smoke lane
+        shell: bash
+        run: bash scripts/test/run-smoke.sh
+
+      - name: Upload smoke log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-harness-smoke-log
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14
