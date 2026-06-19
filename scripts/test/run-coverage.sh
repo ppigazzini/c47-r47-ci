@@ -60,10 +60,13 @@ main() {
         rm -rf "$BUILD_DIR"
         # -Db_coverage=true adds --coverage to compile and link (gcc gcno/gcda).
         # ccache is content-keyed so it does not hide coverage flags.
+        # -DKEYSCAN_COVERAGE_FLUSH makes the forked --keyscan children flush their
+        # gcov counters before _exit; without it their interactive-subsystem
+        # coverage (the editors, TAM, the solver entry) is discarded.
         meson setup "$BUILD_DIR" --buildtype=custom \
             -DRASPBERRY="$raspberry" -DDECNUMBER_FASTMUL=true \
             -Db_coverage=true \
-            -Dc_args="-Wno-deprecated-declarations" > "$LOG_DIR/coverage-build.log" 2>&1
+            -Dc_args="-Wno-deprecated-declarations -DKEYSCAN_COVERAGE_FLUSH" > "$LOG_DIR/coverage-build.log" 2>&1
         ninja -C "$BUILD_DIR" src/c47/vcs.h >> "$LOG_DIR/coverage-build.log" 2>&1
         ninja -C "$BUILD_DIR" "-j$(harness_jobs)" src/testSuite/testSuite >> "$LOG_DIR/coverage-build.log" 2>&1
     ) || harness_die "coverage build failed (see $LOG_DIR/coverage-build.log)"

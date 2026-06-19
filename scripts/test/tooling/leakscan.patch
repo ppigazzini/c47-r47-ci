@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..d511c232a 100644
+index 9a756330b..81ecb9bcf 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -90,7 +90,7 @@ index 9a756330b..d511c232a 100644
    }
  
    else if(line[0] != 0) {
-@@ -3395,6 +3448,40 @@ int processTests(const char *listPath) {
+@@ -3395,6 +3448,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -128,10 +128,26 @@ index 9a756330b..d511c232a 100644
 +  }
 +}
 +
++// The key-sequence driver runs each sequence in a forked child that ends with
++// _exit(), which skips the atexit handler gcov uses to write its counters - so in
++// a coverage build the child's coverage, exactly the interactive-subsystem code
++// the driver exercises, is otherwise discarded. __gcov_dump flushes the counters
++// first. It is referenced only when KEYSCAN_COVERAGE_FLUSH is defined (the
++// coverage lane passes -DKEYSCAN_COVERAGE_FLUSH); a strong reference is needed to
++// pull the definition out of libgcov, and a normal build neither defines the
++// macro nor links libgcov. It is applied to the key-sequence children only, not
++// the item sweep, whose thousands of forks would each rewrite the whole .gcda set.
++#if defined(KEYSCAN_COVERAGE_FLUSH)
++  extern void __gcov_dump(void);
++  static void flushCoverage(void) { __gcov_dump(); }
++#else
++  static void flushCoverage(void) {}
++#endif // KEYSCAN_COVERAGE_FLUSH
++
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3496,242 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3512,292 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -241,10 +257,23 @@ index 9a756330b..d511c232a 100644
 +  // crash or hang is isolated and reported.
 +  if(argc >= 2 && strcmp(argv[1], "--keyscan") == 0) {
 +    extern void runFunction(int16_t func);
++    // A key press reaches the calculator through btnPressed, which first runs
++    // processKeyAction (the state machine: number entry NIM, alpha entry AIM,
++    // temporary argument TAM, program entry PEM, matrix editor MIM) and then, if
++    // that did not consume the key (keyActionProcessed stays false), executes the
++    // function with runFunction. Reproducing both halves (kev=1) is what reaches
++    // the interactive subsystems: a TAM-parameter function (PGMSLV, SOLVE, LBL,
++    // matrix ops) is left unconsumed by processKeyAction in CM_NORMAL, so
++    // runFunction executes it and enters TAM; the next key is then consumed by
++    // processKeyAction as that parameter. runFunction alone never enters that
++    // parameter exchange, so it cannot drive the solver, integrator or editors.
++    extern void processKeyAction(int16_t item);
 +    // prep: -1 = none, else a leakscanSetupStack type (0 real, 1 string,
 +    // 2 long integer, 3 complex) applied to X,Y,Z,T,L before the keys, so the
 +    // operation keys run on pool/GMP-backed operands.
-+    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; } keyseq_t;
++    // kev: 0 dispatch each key through runFunction; 1 through processKeyAction
++    // (full state machine), needed for the interactive subsystems.
++    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; int kev; } keyseq_t;
 +
 +    static const int16_t kNumArith[] = {ITM_1, ITM_2, ITM_3, ITM_PERIOD, ITM_5, ITM_ENTER, ITM_6, ITM_7, ITM_ADD, ITM_MULT, ITM_DIV, ITM_SUB};
 +    static const int16_t kNegExp[]   = {ITM_2, ITM_PERIOD, ITM_5, ITM_EXPONENT, ITM_3, ITM_CHS, ITM_ENTER};
@@ -279,6 +308,28 @@ index 9a756330b..d511c232a 100644
 +    // Equation create + delete each iteration (1463 = EQ.DEL): decides whether
 +    // the per-equation memory is fully reclaimable or orphaned.
 +    static const int16_t kEqnDel[] = {IT_EQ_NEW, ITM_A, ITM_ADD, ITM_B, ITM_MULT, ITM_C, ITM_EXIT1, 1463};
++    // Solver: build a program LBL A computing f(X) = X^2 - 2 (the TAM label name
++    // is confirmed with ENTER), then drive PGMSLV and SOLVE. This exercises the
++    // program engine (PEM) and the solver's TAM parameter entry (TM_LABEL /
++    // TM_SOLVE) in solver/solve.c and ui/tam.c.
++    static const int16_t kSolve[] = {
++      ITM_PR, ITM_LBL, ITM_A, ITM_ENTER, ITM_SQUARE, ITM_2, ITM_SUB, ITM_RTN, ITM_PR,
++      ITM_1, ITM_ENTER, ITM_3,
++      ITM_PGMSLV, ITM_A, ITM_ENTER,
++      ITM_SOLVE, ITM_REG_X};
++    // Integrator: build LBL B computing f(X) = X^2, then PGMINT and the integral
++    // over the X register, reaching the integrator's TAM entry and integrate.c.
++    static const int16_t kInteg[] = {
++      ITM_PR, ITM_LBL, ITM_B, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
++      ITM_0, ITM_ENTER, ITM_1,
++      ITM_PGMINT, ITM_B, ITM_ENTER,
++      ITM_INTEGRAL_YX, ITM_REG_X};
++    // Grapher: build LBL C computing f(X) = X^2, select it and DRAW, reaching the
++    // plot setup in graph.c.
++    static const int16_t kDraw[] = {
++      ITM_PR, ITM_LBL, ITM_C, ITM_ENTER, ITM_SQUARE, ITM_RTN, ITM_PR,
++      ITM_PGMSLV, ITM_C, ITM_ENTER,
++      ITM_DRAW};
 +
 +    static const keyseq_t seqs[] = {
 +      {"num_arith",       kNumArith, 12,  1, -1},
@@ -288,7 +339,7 @@ index 9a756330b..d511c232a 100644
 +      {"big_number_x40",  kBigNum,   10, 40, -1},
 +      {"alpha",           kAlpha,     7,  1, -1},
 +      {"alpha_x60",       kAlpha,     7, 60, -1},
-+      {"sto_rcl_x100",    kStoRcl,    7, 100, -1},
++      {"sto_rcl_x100",    kStoRcl,    7, 100, -1, 1},
 +      {"shift_f",         kShiftF,    2,  1, -1},
 +      {"shift_g",         kShiftG,    2,  1, -1},
 +      {"many_enter_x200", kEnter,     1, 200, -1},
@@ -300,15 +351,20 @@ index 9a756330b..d511c232a 100644
 +      {"string_add_x300",   kAdd,     1, 300, 1},
 +      {"string_sub_x300",   kSub,     1, 300, 1},
 +      {"complex_mul_x300",  kMul,     1, 300, 3},
-+      {"longint_storcl_x200", kStoRclT, 4, 200, 2},
-+      {"string_storcl_x200", kStoRclT, 4, 200, 1},
-+      // stateful subsystems: program entry/execution, matrix editor, equation/solver
-+      {"pgm_build_x100",   kPgm,    10, 100, -1},
-+      {"pgm_run_x100",     kPgmRun,  7, 100, -1},
-+      {"matrix_edit_x80",  kMatEdit,10, 80, -1},
-+      {"matrix_new_x80",   kMatNew,  8, 80, -1},
-+      {"equation_x80",     kEqn,     7, 80, -1},
-+      {"equation_create_delete_x80", kEqnDel, 8, 80, -1},
++      {"longint_storcl_x200", kStoRclT, 4, 200, 2, 1},
++      {"string_storcl_x200", kStoRclT, 4, 200, 1, 1},
++      // stateful subsystems: program entry/execution, matrix editor, equation/solver.
++      // kev=1 routes these through the TAM-aware dispatcher so the editors and the
++      // solver/integrator/grapher (which take TAM parameters) are actually reached.
++      {"pgm_build_x100",   kPgm,    10, 100, -1, 1},
++      {"pgm_run_x100",     kPgmRun,  7, 100, -1, 1},
++      {"matrix_edit_x80",  kMatEdit,10, 80, -1, 1},
++      {"matrix_new_x80",   kMatNew,  8, 80, -1, 1},
++      {"equation_x80",     kEqn,     7, 80, -1, 1},
++      {"equation_create_delete_x80", kEqnDel, 8, 80, -1, 1},
++      {"solve_pgm_x20",    kSolve,  17, 20, -1, 1},
++      {"integrate_pgm_x20",kInteg,  14, 20, -1, 1},
++      {"draw_pgm_x20",     kDraw,   10, 20, -1, 1},
 +    };
 +    const int numSeqs = (int)(sizeof(seqs) / sizeof(seqs[0]));
 +
@@ -321,6 +377,7 @@ index 9a756330b..d511c232a 100644
 +      pid_t pid = fork();
 +      if(pid == 0) {
 +        fnClAll(CONFIRMED);
++        flushCoverage();
 +        _exit((int)(((int32_t)baseline - (int32_t)getFreeRamMemory()) & 0xFF));
 +      }
 +      int st = 0;
@@ -343,7 +400,15 @@ index 9a756330b..d511c232a 100644
 +          }
 +          for(int k = 0; k < seqs[s].n; k++) {
 +            lastErrorCode = 0;
-+            runFunction(seqs[s].keys[k]);
++            if(seqs[s].kev) {
++              processKeyAction(seqs[s].keys[k]);
++              if(!keyActionProcessed) {
++                runFunction(seqs[s].keys[k]);
++              }
++            }
++            else {
++              runFunction(seqs[s].keys[k]);
++            }
 +          }
 +        }
 +        fnClAll(CONFIRMED);
@@ -353,6 +418,7 @@ index 9a756330b..d511c232a 100644
 +          printf("LEAK  seq=%-16s pool=%d gmp=%ld\n", seqs[s].name, net > 0 ? net : 0, gmpNet > 0 ? gmpNet : 0L);
 +        }
 +        fflush(stdout);
++        flushCoverage();
 +        _exit((net > 0 || gmpNet > 0) ? 1 : 0);
 +      }
 +      else if(pid > 0) {
