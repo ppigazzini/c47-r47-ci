@@ -1,2 +1,9 @@
 # test harness output
 /ci-artifacts/
+
+# stray calculator state files (lanes run the testSuite in a scratch dir;
+# these patterns are defence-in-depth so a stray run never dirties the repo)
+*.REGS.TSV
+*.bmp
+/backup.cfg
+/c47.sav

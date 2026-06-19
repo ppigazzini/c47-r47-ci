@@ -1,0 +1,277 @@
+diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
+index 9a756330b..75a8daf8e 100644
+--- a/src/testSuite/testSuite.c
++++ b/src/testSuite/testSuite.c
+@@ -6,6 +6,8 @@
+  ***********************************************/
+ 
+ #include "c47.h"
++#include <unistd.h>
++#include <sys/wait.h>
+ 
+ #define NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED 34
+ 
+@@ -3395,6 +3397,40 @@ int processTests(const char *listPath) {
+   return failedTests > 0 || gmpMemInBytes != 0;
+ }
+ 
++// Fill the stack registers X, Y, Z, T, L with a representative value of one
++// data type so the leak scanner can drive type-specific allocation paths.
++static void leakscanSetupStack(int type) {
++  const calcRegister_t regs[5] = {REGISTER_X, REGISTER_Y, REGISTER_Z, REGISTER_T, REGISTER_L};
++  for(int k = 0; k < 5; k++) {
++    calcRegister_t r = regs[k];
++    if(type == 0) {        // real
++      real34_t t;
++      int32ToReal34(2, &t);
++      reallocateRegister(r, dtReal34, 0, amNone);
++      real34Copy(&t, REGISTER_REAL34_DATA(r));
++    }
++    else if(type == 1) {   // string
++      const char *s = "leakScanString";
++      reallocateRegister(r, dtString, TO_BLOCKS(stringByteLength((char *)s) + 1), amNone);
++      strcpy(REGISTER_STRING_DATA(r), s);
++    }
++    else if(type == 2) {   // long integer
++      longInteger_t li;
++      longIntegerInit(li);
++      uInt32ToLongInteger(123456789u, li);
++      convertLongIntegerToLongIntegerRegister(li, r);
++      longIntegerFree(li);
++    }
++    else if(type == 3) {   // complex
++      real34_t t;
++      int32ToReal34(2, &t);
++      reallocateRegister(r, dtComplex34, 0, amNone);
++      real34Copy(&t, REGISTER_REAL34_DATA(r));
++      real34Copy(&t, REGISTER_IMAG34_DATA(r));
++    }
++  }
++}
++
+ int main(int argc, char* argv[]) {
+   int exitCode;
+ 
+@@ -3409,6 +3445,222 @@ int main(int argc, char* argv[]) {
+ 
+   fnReset(CONFIRMED);
+ 
++  // Memory-leak scanner for the calculator's own RAM pool (not malloc/ASan).
++  // Runs every item once on a generic real stack, clears all state, and reports
++  // any item whose freeing did not return the C47 RAM pool to baseline. Each
++  // item runs in a forked child so a crash or hang (alarm) is isolated and
++  // reported instead of aborting the scan.
++  if(argc >= 2 && strcmp(argv[1], "--leakscan") == 0) {
++    // setupStack + fnClAll has a fixed per-cycle footprint in the RAM pool
++    // (menu rebuild etc.). Measure it per stack type as a reference and
++    // subtract it so only a function's own excess pool leak is reported. Each
++    // item runs in a forked child so a crash or hang (alarm) is isolated and
++    // reported rather than aborting the scan.
++    const char *typeName[4] = {"real", "string", "longint", "complex"};
++    fnClAll(CONFIRMED);
++    uint32_t baseline = getFreeRamMemory();
++    size_t gmpBaseline = gmpMemInBytes;
++    printf("LEAKSCAN start: baseline=%u blocks, gmpBaseline=%zu bytes; items 1..%d; stack types real,string,longint,complex\n", baseline, gmpBaseline, LAST_ITEM);
++    fflush(stdout);
++
++    int totalLeak = 0, totalCrash = 0;
++    for(int type = 0; type < 4; type++) {
++      int32_t refDelta = 0;
++      {
++        pid_t pid = fork();
++        if(pid == 0) {
++          leakscanSetupStack(type);
++          fnClAll(CONFIRMED);
++          _exit((int)(((int32_t)baseline - (int32_t)getFreeRamMemory()) & 0xFF));
++        }
++        int st = 0;
++        waitpid(pid, &st, 0);
++        refDelta = WIFEXITED(st) ? WEXITSTATUS(st) : 0;
++      }
++      printf("--- stack type %s (reference overhead %d blocks) ---\n", typeName[type], refDelta);
++      fflush(stdout);
++
++      for(int item = 1; item <= LAST_ITEM; item++) {
++        if(indexOfItems[item].func == NULL) {
++          continue;
++        }
++        const char *nm = indexOfItems[item].itemCatalogName;
++        if(nm[0] == 0) {
++          nm = indexOfItems[item].itemSoftmenuName;
++        }
++        fflush(stdout);
++        fflush(stderr);
++        pid_t pid = fork();
++        if(pid == 0) {
++          alarm(4); // a hanging item self-terminates and is reported as a crash
++          leakscanSetupStack(type);
++          lastErrorCode = 0;
++          reallyRunFunction(item, indexOfItems[item].param);
++          fnClAll(CONFIRMED);
++          int32_t net = ((int32_t)baseline - (int32_t)getFreeRamMemory()) - refDelta;
++          long gmpNet = (long)gmpMemInBytes - (long)gmpBaseline;
++          if(net > 0 || gmpNet > 0) {
++            printf("LEAK  type=%-7s item=%4d %-16s pool=%d gmp=%ld\n", typeName[type], item, nm, net > 0 ? net : 0, gmpNet > 0 ? gmpNet : 0L);
++          }
++          fflush(stdout);
++          _exit((net > 0 || gmpNet > 0) ? 1 : 0);
++        }
++        else if(pid > 0) {
++          int status = 0;
++          waitpid(pid, &status, 0);
++          if(WIFSIGNALED(status)) {
++            printf("CRASH type=%-7s item=%4d %-16s signal=%d\n", typeName[type], item, nm, WTERMSIG(status));
++            totalCrash++;
++          }
++          else if(WIFEXITED(status) && WEXITSTATUS(status) == 1) {
++            totalLeak++;
++          }
++        }
++      }
++    }
++    printf("LEAKSCAN done: %d leaking (item,type) pairs, %d crashing (item,type) pairs\n", totalLeak, totalCrash);
++    return 0;
++  }
++
++  // Key-sequence driver: feed realistic keypress sequences through runFunction,
++  // the same central dispatcher a real key press reaches, so the stateful
++  // number-entry (NIM), alpha-entry (AIM), temporary-argument (TAM), and
++  // arithmetic paths are exercised. After each sequence all state is cleared
++  // and the RAM pool plus GMP accounting are compared against baseline (minus
++  // the fixed fnClAll overhead). Each sequence runs in a forked child so a
++  // crash or hang is isolated and reported.
++  if(argc >= 2 && strcmp(argv[1], "--keyscan") == 0) {
++    extern void runFunction(int16_t func);
++    // prep: -1 = none, else a leakscanSetupStack type (0 real, 1 string,
++    // 2 long integer, 3 complex) applied to X,Y,Z,T,L before the keys, so the
++    // operation keys run on pool/GMP-backed operands.
++    typedef struct { const char *name; const int16_t *keys; int n; int repeat; int prep; } keyseq_t;
++
++    static const int16_t kNumArith[] = {ITM_1, ITM_2, ITM_3, ITM_PERIOD, ITM_5, ITM_ENTER, ITM_6, ITM_7, ITM_ADD, ITM_MULT, ITM_DIV, ITM_SUB};
++    static const int16_t kNegExp[]   = {ITM_2, ITM_PERIOD, ITM_5, ITM_EXPONENT, ITM_3, ITM_CHS, ITM_ENTER};
++    static const int16_t kAddLoop[]  = {ITM_5, ITM_ENTER, ITM_5, ITM_ADD};
++    static const int16_t kMulLoop[]  = {ITM_9, ITM_ENTER, ITM_8, ITM_MULT};
++    static const int16_t kBigNum[]   = {ITM_1, ITM_2, ITM_3, ITM_4, ITM_5, ITM_6, ITM_7, ITM_8, ITM_9, ITM_0};
++    static const int16_t kAlpha[]    = {ITM_A, ITM_B, ITM_C, ITM_D, ITM_E, ITM_Z, ITM_ENTER};
++    static const int16_t kStoRcl[]   = {ITM_4, ITM_2, ITM_STO, ITM_0, ITM_RCL, ITM_0, ITM_ADD};
++    static const int16_t kShiftF[]   = {ITM_f, ITM_ENTER};
++    static const int16_t kShiftG[]   = {ITM_g, ITM_ENTER};
++    static const int16_t kEnter[]    = {ITM_ENTER};
++    static const int16_t kChsExp[]   = {ITM_1, ITM_EXPONENT, ITM_2, ITM_3, ITM_ENTER, ITM_DIV};
++
++    // operation-only sequences run on a prepared typed stack (X,Y populated)
++    static const int16_t kAdd[]   = {ITM_ADD};
++    static const int16_t kMul[]   = {ITM_MULT};
++    static const int16_t kSub[]   = {ITM_SUB};
++    static const int16_t kStoRclT[] = {ITM_STO, ITM_0, ITM_RCL, ITM_0};
++
++    // stateful subsystem sequences (raw item numbers where there is no ITM_ alias)
++    enum { IT_MAT_A = 1202, IT_M_EDIT = 1529, IT_M_NEW = 1536, IT_EQ_NEW = 1465 };
++    // Program entry (PEM): enter program mode, insert steps (pool-backed), exit.
++    static const int16_t kPgm[]    = {ITM_PR, ITM_1, ITM_ENTER, ITM_2, ITM_ADD, ITM_3, ITM_MULT, ITM_4, ITM_SUB, ITM_EXIT1};
++    // Program then run it via R/S.
++    static const int16_t kPgmRun[] = {ITM_PR, ITM_5, ITM_ENTER, ITM_6, ITM_ADD, ITM_EXIT1, ITM_RS};
++    // Matrix editor (MIM): create/edit Mat_A, type cell values, exit.
++    static const int16_t kMatEdit[]= {IT_MAT_A, ITM_1, ITM_ENTER, ITM_2, ITM_ENTER, ITM_3, ITM_ENTER, ITM_4, ITM_ENTER, ITM_EXIT1};
++    // New matrix from a 2x2 dimension entry, edit a cell, exit.
++    static const int16_t kMatNew[] = {ITM_2, ITM_ENTER, ITM_2, IT_M_NEW, IT_M_EDIT, ITM_9, ITM_ENTER, ITM_EXIT1};
++    // Equation editor (EIM): new equation, type an expression, exit.
++    static const int16_t kEqn[]    = {IT_EQ_NEW, ITM_A, ITM_ADD, ITM_B, ITM_MULT, ITM_C, ITM_EXIT1};
++    // Equation create + delete each iteration (1463 = EQ.DEL): decides whether
++    // the per-equation memory is fully reclaimable or orphaned.
++    static const int16_t kEqnDel[] = {IT_EQ_NEW, ITM_A, ITM_ADD, ITM_B, ITM_MULT, ITM_C, ITM_EXIT1, 1463};
++
++    static const keyseq_t seqs[] = {
++      {"num_arith",       kNumArith, 12,  1, -1},
++      {"neg_exp",         kNegExp,    7,  1, -1},
++      {"add_loop_x200",   kAddLoop,   4, 200, -1},
++      {"mul_loop_x200",   kMulLoop,   4, 200, -1},
++      {"big_number_x40",  kBigNum,   10, 40, -1},
++      {"alpha",           kAlpha,     7,  1, -1},
++      {"alpha_x60",       kAlpha,     7, 60, -1},
++      {"sto_rcl_x100",    kStoRcl,    7, 100, -1},
++      {"shift_f",         kShiftF,    2,  1, -1},
++      {"shift_g",         kShiftG,    2,  1, -1},
++      {"many_enter_x200", kEnter,     1, 200, -1},
++      {"chs_exp_x100",    kChsExp,    6, 100, -1},
++      // pool/GMP-backed operand sequences
++      {"longint_add_x300",  kAdd,     1, 300, 2},
++      {"longint_mul_x150",  kMul,     1, 150, 2},
++      {"longint_sub_x300",  kSub,     1, 300, 2},
++      {"string_add_x300",   kAdd,     1, 300, 1},
++      {"string_sub_x300",   kSub,     1, 300, 1},
++      {"complex_mul_x300",  kMul,     1, 300, 3},
++      {"longint_storcl_x200", kStoRclT, 4, 200, 2},
++      {"string_storcl_x200", kStoRclT, 4, 200, 1},
++      // stateful subsystems: program entry/execution, matrix editor, equation/solver
++      {"pgm_build_x100",   kPgm,    10, 100, -1},
++      {"pgm_run_x100",     kPgmRun,  7, 100, -1},
++      {"matrix_edit_x80",  kMatEdit,10, 80, -1},
++      {"matrix_new_x80",   kMatNew,  8, 80, -1},
++      {"equation_x80",     kEqn,     7, 80, -1},
++      {"equation_create_delete_x80", kEqnDel, 8, 80, -1},
++    };
++    const int numSeqs = (int)(sizeof(seqs) / sizeof(seqs[0]));
++
++    fnClAll(CONFIRMED);
++    uint32_t baseline = getFreeRamMemory();
++    size_t gmpBaseline = gmpMemInBytes;
++
++    int32_t refDelta = 0;
++    {
++      pid_t pid = fork();
++      if(pid == 0) {
++        fnClAll(CONFIRMED);
++        _exit((int)(((int32_t)baseline - (int32_t)getFreeRamMemory()) & 0xFF));
++      }
++      int st = 0;
++      waitpid(pid, &st, 0);
++      refDelta = WIFEXITED(st) ? WEXITSTATUS(st) : 0;
++    }
++    printf("KEYSCAN start: baseline=%u blocks, gmpBaseline=%zu, refOverhead=%d; %d sequences\n", baseline, gmpBaseline, refDelta, numSeqs);
++    fflush(stdout);
++
++    int leaking = 0, crashing = 0;
++    for(int s = 0; s < numSeqs; s++) {
++      fflush(stdout);
++      fflush(stderr);
++      pid_t pid = fork();
++      if(pid == 0) {
++        alarm(20);
++        for(int r = 0; r < seqs[s].repeat; r++) {
++          if(seqs[s].prep >= 0) {
++            leakscanSetupStack(seqs[s].prep);
++          }
++          for(int k = 0; k < seqs[s].n; k++) {
++            lastErrorCode = 0;
++            runFunction(seqs[s].keys[k]);
++          }
++        }
++        fnClAll(CONFIRMED);
++        int32_t net = ((int32_t)baseline - (int32_t)getFreeRamMemory()) - refDelta;
++        long gmpNet = (long)gmpMemInBytes - (long)gmpBaseline;
++        if(net > 0 || gmpNet > 0) {
++          printf("LEAK  seq=%-16s pool=%d gmp=%ld\n", seqs[s].name, net > 0 ? net : 0, gmpNet > 0 ? gmpNet : 0L);
++        }
++        fflush(stdout);
++        _exit((net > 0 || gmpNet > 0) ? 1 : 0);
++      }
++      else if(pid > 0) {
++        int status = 0;
++        waitpid(pid, &status, 0);
++        if(WIFSIGNALED(status)) {
++          printf("CRASH seq=%-16s signal=%d\n", seqs[s].name, WTERMSIG(status));
++          crashing++;
++        }
++        else if(WIFEXITED(status) && WEXITSTATUS(status) == 1) {
++          leaking++;
++        }
++      }
++    }
++    printf("KEYSCAN done: %d leaking sequences, %d crashing sequences\n", leaking, crashing);
++    return 0;
++  }
++
+   /*
+   longInteger_t li;
+   longIntegerInit(li);
