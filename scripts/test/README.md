@@ -13,6 +13,14 @@ machine, so a CI failure is reproducible locally.
 - `run-smoke.sh` - proves the call pattern end to end (resolve,
   sync, build-surface check, toolchain report, log). Does not build the
   simulator.
+- `run-leakscan.sh` - builds the testSuite with the leak-scanner
+  tooling overlaid, runs `--leakscan`/`--keyscan`, and gates on any pool/GMP leak
+  or crash not in `leakscan-baseline.txt`.
+- `run-testmem.sh` - runs the corpus under `--testmem` (per-test
+  pool/GMP attribution) and gates on any growth case not in
+  `testmem-baseline.txt`.
+- `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
+  `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak and per-test lanes.
 
 ## Contract for new lanes
 
@@ -43,9 +51,8 @@ bash scripts/test/run-smoke.sh
 ## Roadmap
 
 - The smoke lane: `run-smoke.sh` + `test-harness-smoke.yml`. Done.
-- `run-leakscan.sh`: build the instrumented `testSuite`, run `--leakscan`
-  and `--keyscan`, gate on any pool/GMP delta.
-- per-test pool/GMP attribution in the suite.
+- `run-leakscan.sh` + `test-leakscan.yml`: pool/GMP leak gate. Done.
+- `run-testmem.sh` + `test-testmem.yml`: per-test pool/GMP attribution. Done.
 - `run-coverage.sh`: coverage over the suite and the key-sequence driver.
 - `run-fuzz.sh`: a libFuzzer harness over a parser entry point.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static

@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..75a8daf8e 100644
+index 9a756330b..d511c232a 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -11,7 +11,86 @@ index 9a756330b..75a8daf8e 100644
  
  #define NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED 34
  
-@@ -3395,6 +3397,40 @@ int processTests(const char *listPath) {
+@@ -24,6 +26,13 @@ int32_t lineNumber, numTestsFile, numTestsTotal, successfulTests, failedTests;
+ int32_t functionIndex, funcType, correctSignificantDigits;
+ bool_t noFailForNow;
+ 
++// Per-test pool/GMP attribution (--testmem mode).
++bool_t          testMemMode = false;
++static bool_t   testMemPending = false;
++static uint32_t testMemPrevFree; // post-clear free RAM after the previous case (high-water ratchet)
++static size_t   testMemPrevGmp;  // post-clear GMP after the previous case
++static int      testMemLeakCases;
++
+ uint16_t label, functionParameter;
+ 
+ GtkWidget      *screen;
+@@ -3175,6 +3184,43 @@ void stopTimerAndPrint(void) {
+ 
+ 
+ 
++// Free the calculator working state a test case can populate - statistical
++// sums, local registers, and all global registers - WITHOUT touching programs
++// (the test corpus relies on the preloaded test programs), menus, or flags and
++// modes (set by the per-file global IN line). Mirrors the relevant subset of
++// fnClAll. After this, a clean test case returns the pool/GMP to baseline; a
++// case that orphaned pool or GMP blocks does not.
++static void testMemClearWorkingState(void) {
++  fnClSigma(CONFIRMED);
++  if(savedStatisticalSumsPointer != NULL) {
++    freeC47Blocks(savedStatisticalSumsPointer, NUMBER_OF_STATISTICAL_SUMS * REAL_SIZE_IN_BLOCKS(75));
++    savedStatisticalSumsPointer = NULL;
++  }
++  allocateLocalRegisters(0);
++  for(calcRegister_t r = FIRST_GLOBAL_REGISTER; r <= LAST_GLOBAL_REGISTER; r++) {
++    clearRegister(r);
++  }
++}
++
++// Clear the working state and attribute any pool/GMP not returned to baseline to
++// the just-completed test case (identified by its IN line, still in
++// lastInParameters because this runs before the next IN overwrites it).
++static void testMemCheck(void) {
++  testMemClearWorkingState();
++  uint32_t freeNow = getFreeRamMemory();
++  int32_t poolGrow = (int32_t)testMemPrevFree - (int32_t)freeNow; // >0: this case kept pool blocks
++  long gmpGrow = (long)gmpMemInBytes - (long)testMemPrevGmp;      // >0: this case kept GMP
++  if(poolGrow > 0 || gmpGrow > 0) {
++    testMemLeakCases++;
++    printf("\nTESTMEM GROWTH file=%s pool=+%d gmp=+%ld\n  case: %s\n", fileName, (int)poolGrow, gmpGrow, lastInParameters);
++  }
++  // Ratchet: only growth beyond the new high-water is reported next time, so a
++  // persistent object (named variable, equation) is attributed to the one case
++  // that created it, not to every case after it.
++  testMemPrevFree = freeNow;
++  testMemPrevGmp = gmpMemInBytes;
++}
++
+ void processLine(void) {
+   // convert to upper case
+   int32_t lg = strlen(line);
+@@ -3210,6 +3256,10 @@ void processLine(void) {
+ 
+   else if(strncmp(line, "IN: ", 4) == 0) {
+     //printf("%s\n", line);
++    if(testMemMode && testMemPending) { // a new case begins: attribute the prior one
++      testMemCheck();
++      testMemPending = false;
++    }
+     strcpy(lastInParameters, line);
+     inParameters(line + 4);
+   }
+@@ -3253,6 +3303,9 @@ void processLine(void) {
+     successfulTests++;
+     noFailForNow = true;
+     outParameters(line + 5);
++    if(testMemMode) { // a case completed; checked at the next IN (handles multi-OUT cases)
++      testMemPending = true;
++    }
+   }
+ 
+   else if(line[0] != 0) {
+@@ -3395,6 +3448,40 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -52,10 +131,30 @@ index 9a756330b..75a8daf8e 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3445,222 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3496,242 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
++  // Per-test pool/GMP attribution (--testmem). Runs the normal test
++  // list but, after each test case, clears the working state and reports any
++  // case that did not return the pool/GMP to baseline. Turns the exit-only GMP
++  // gate into per-operation attribution. Usage: testSuite --testmem [list].
++  if(argc >= 2 && strcmp(argv[1], "--testmem") == 0) {
++    const char *list = (argc >= 3) ? argv[2] : "src/testSuite/tests/testSuiteList.txt";
++    testMemMode = true;
++    testMemClearWorkingState();
++    testMemPrevFree = getFreeRamMemory();
++    testMemPrevGmp = gmpMemInBytes;
++    printf("TESTMEM start: baseline free=%u blocks gmp=%zu bytes; list=%s\n", testMemPrevFree, testMemPrevGmp, list);
++    fflush(stdout);
++    processTests(list);
++    if(testMemPending) { // attribute the final case
++      testMemCheck();
++    }
++    printf("\nTESTMEM done: %d test case(s) left pool/GMP above baseline\n", testMemLeakCases);
++    return testMemLeakCases > 0 ? 1 : 0;
++  }
++
 +  // Memory-leak scanner for the calculator's own RAM pool (not malloc/ASan).
 +  // Runs every item once on a generic real stack, clears all state, and reports
 +  // any item whose freeing did not return the C47 RAM pool to baseline. Each

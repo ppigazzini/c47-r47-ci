@@ -1,0 +1,35 @@
+# c43 per-test pool/GMP growth baseline.
+# Cases on upstream master where a test grew the RAM pool past the high-water.
+# run-testmem.sh fails on any growth case NOT listed here.
+# Format: <file>|<IN parameter line>
+#
+# These are REAL per-call pool leaks (growth repeats when a file is run twice),
+# almost all in matrix ops (mismatched-dimension add/subtract, cross product,
+# singular inverse, SHOI->real). They are invisible to ASan/Valgrind (pool, not
+# malloc). Candidates for an upstream fix and a follow-up bug report; remove a
+# line here once the underlying leak is fixed.
+
+addition_complexMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=CXMA:"M3,2[13i14,15i16,17i18,19i20,21i22,23i24]"
+addition_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=REMA:"M3,2[13,14,15,16,17,18]"
+addition_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=CXMA:"M3,2[7i8,9i10,11i12,13i14,15i16,17i18]"
+addition_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=REMA:"M3,2[7,8,9,10,11,12]"
+conjugate.txt|IN: AM=RAD FL_ASLIFT=0 FL_CPXRES=0 RX=REMA:"M2,3[0,1,2,3,4,5]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=CXMA:"M1,2[1i2,5i6]" RX=CXMA:"M2,1[3i4,7i8]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=CXMA:"M3,1[1i2,5i6,9i10]" RX=CXMA:"M1,3[3i4,7i8,11i12]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=CXMA:"M3,1[1i2,5i6,9i10]" RX=REMA:"M1,3[3,7,11]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REMA:"M1,2[1,3]" RX=REMA:"M2,1[-1,1]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REMA:"M3,1[1,3,5]" RX=REMA:"M1,3[2,4,6]"
+cross.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REMA:"M3,1[1,5,9]" RX=CXMA:"M1,3[3i4,7i8,11i12]"
+matrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RX=REMA:"M2,2[1,2,2,4]"
+matrix.txt|IN: RT=LONI:"0" RZ=LONI:"0" RY=LONI:"0" FL_ASLIFT=0 FL_CPXRES=0 RX=REMA:"M4,4[0,1,0,0,0,0,1,0,0,0,0,1,1,0,0,0]"
+prime.txt|IN: FL_ASLIFT=0 RX=LONI:"3" RY=LONI:"5424563354566542698521412502251020304050"
+prime.txt|IN: FL_ASLIFT=0 RX=LONI:"3" RY=REMA:"M2,6[2,5,17,67,42649,2233377850600168337585874373171,1,2,1,1,1,1]"
+prime.txt|IN: FL_ASLIFT=0 RX=LONI:"3" RY=REMA:"M2,7[1, 1,1,1,1,1,1, 1, 0,0,0,0,0,0]"
+prime.txt|IN: FL_ASLIFT=0 RY=LONI:"3" RX=LONI:"5424563354566542698521412502251020304050"
+prime.txt|IN: FL_ASLIFT=0 RY=LONI:"3" RX=REMA:"M2,6[2,5,17,67,42649,2233377850600168337585874373171,1,2,1,1,1,1]"
+prime.txt|IN: FL_ASLIFT=0 RY=LONI:"3" RX=REMA:"M2,7[1, 1,1,1,1,1,1, 1, 0,0,0,0,0,0]"
+subtraction_complexMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=CXMA:"M3,2[13i14,15i16,17i18,19i20,21i22,23i24]"
+subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=REMA:"M3,2[13,14,15,16,17,18]"
+subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=CXMA:"M3,2[7i8,9i10,11i12,13i14,15i16,17i18]"
+subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=REMA:"M3,2[7,8,9,10,11,12]"
+toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"
