@@ -23,8 +23,16 @@ machine, so a CI failure is reproducible locally.
   exercises it (corpus, `--keyscan`, `--leakscan`), and publishes a gcovr
   coverage map plus the least-covered leak-prone modules. Report-only by
   default; set `COVERAGE_MIN` to gate on overall line coverage.
+- `run-fuzz.sh` - builds the libFuzzer harness over
+  `decodeOneStep` under clang (ASan gate, UBSan report) and runs a time-boxed
+  campaign over a seed corpus, uploading any crash reproducer and the evolved
+  corpus. Report-first; set `FUZZ_GATE=1` to fail on a finding.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
-  `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak and per-test lanes.
+  `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
+- `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
+  `tooling/fuzz-decode.dict` - the libFuzzer harness over `decodeOneStep`
+  carried off the `test/fuzz-decode-harness` branch, with its seed corpus and
+  dictionary, applied by the fuzz lane.
 
 ## Contract for new lanes
 
@@ -59,6 +67,7 @@ bash scripts/test/run-smoke.sh
 - `run-testmem.sh` + `test-testmem.yml`: per-test pool/GMP attribution. Done.
 - `run-coverage.sh` + `test-coverage.yml`: coverage map over the suite,
   `--keyscan` and `--leakscan`. Done (baseline 37.5% c47 line coverage).
-- `run-fuzz.sh`: a libFuzzer harness over a parser entry point.
+- `run-fuzz.sh` + `test-fuzz.yml`: libFuzzer over `decodeOneStep`. Done
+  (the campaign immediately found a real decoder stack-buffer-overflow).
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
   analysis, `-Werror` hardening warnings).

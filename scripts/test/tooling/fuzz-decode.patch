@@ -1,0 +1,141 @@
+diff --git a/meson_options.txt b/meson_options.txt
+index 55515d376..b1cf8bb3e 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -10,6 +10,12 @@ option('RASPBERRY',
+   description : 'Set if running on a RaspberryPi for a better layout'
+ )
+ 
++option('fuzz_decode',
++  type        : 'boolean',
++  value       : false,
++  description : 'Build the libFuzzer harness over decodeOneStep (needs CC=clang)'
++)
++
+ option('DMCPVERSION',
+   type        : 'string',
+   value       : '',
+diff --git a/src/fuzz/fuzz_decode.c b/src/fuzz/fuzz_decode.c
+new file mode 100644
+index 000000000..d863ed208
+--- /dev/null
++++ b/src/fuzz/fuzz_decode.c
+@@ -0,0 +1,83 @@
++// src/fuzz/fuzz_decode.c
++//
++// libFuzzer harness over the program-step decoder decodeOneStep()
++// decodeOneStep parses one step of program bytecode -
++// an opcode (1 or 2 bytes) followed by parameter, literal or REM data - into a
++// human-readable string. It is a parser of data that can reach the calculator
++// from an imported program or a restored state, which makes it a high-yield
++// target for adversarial input.
++//
++// Built only under clang with -fsanitize=fuzzer,address,undefined (see the
++// fuzzDecode meson target). libFuzzer supplies main(); this file supplies the
++// init hook and the per-input entry point.
++
++#include <stdint.h>
++#include <stddef.h>
++#include <string.h>
++#include <gmp.h>
++
++#include "c47.h"
++#include "programming/decode.h"
++
++// The c47 library expects its host (the simulator main, or testSuite.c) to
++// provide these GUI/screen globals. The fuzz target replaces that translation
++// unit, so define them here as zeroed stand-ins; decodeOneStep does not draw,
++// but display/keyboard code linked alongside it references the symbols.
++GtkWidget      *screen;
++calcKeyboard_t  calcKeyboard[43];
++int             currentBezel;
++int16_t         screenStride;
++uint32_t       *screenData;
++bool_t          screenChange;
++
++// Initialise the calculator once. This mirrors the testSuite main() preamble:
++// zero the RAM-pool and GMP accounting, install the GMP allocator hooks so
++// long-integer work is tracked, and run a full reset (registers, flags,
++// config). decodeOneStep relies on this global state being valid.
++int LLVMFuzzerInitialize(int *argc, char ***argv) {
++  (void) argc;
++  (void) argv;
++  c47MemInBlocks = 0;
++  gmpMemInBytes = 0;
++  mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
++  fnReset(CONFIRMED);
++  return 0;
++}
++
++int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
++  if(size < 2) {
++    return 0;
++  }
++
++  // Build one program step in a NUL-padded buffer. The buffer bounds the
++  // decoder's reads to a realistic maximum step length; a read past it is a
++  // genuine out-of-bounds bug, not a harness artifact.
++  uint8_t step[256];
++  memset(step, 0, sizeof(step));
++
++  // Map the first two input bytes onto a valid opcode (0..LAST_ITEM) and encode
++  // it the way decodeOneStep reads it: one byte for op < 0x80, otherwise two
++  // bytes with the high bit of the first marking a wide opcode. Clamping the
++  // opcode keeps the campaign on the parameter/literal/REM decoders instead of
++  // only re-finding the unbounded indexOfItems[op] read for op > LAST_ITEM,
++  // which is a separately known and trivially reached invariant.
++  uint16_t op = (uint16_t) (((data[0] << 8) | data[1]) % (LAST_ITEM + 1));
++  size_t pos = 0;
++  if(op < 0x80) {
++    step[pos++] = (uint8_t) op;
++  }
++  else {
++    step[pos++] = (uint8_t) (0x80 | (op >> 8));
++    step[pos++] = (uint8_t) (op & 0xff);
++  }
++
++  // The remaining input bytes are the step's parameter/literal payload.
++  size_t n = size - 2;
++  if(n > sizeof(step) - pos) {
++    n = sizeof(step) - pos;
++  }
++  memcpy(step + pos, data + 2, n);
++
++  decodeOneStep(step);
++  return 0;
++}
+diff --git a/src/testSuite/meson.build b/src/testSuite/meson.build
+index 6cb49dab7..f68d62bd7 100644
+--- a/src/testSuite/meson.build
++++ b/src/testSuite/meson.build
+@@ -22,3 +22,30 @@ test(
+   workdir : meson.project_source_root(),
+   timeout : 800
+ )
++
++# libFuzzer harness over the program-step decoder.
++# Reuses the testSuite HAL stubs and the full c47 + decNumber sources, minus
++# testSuite.c's main(), which libFuzzer supplies via -fsanitize=fuzzer. Build
++# with CC=clang; gating on get_option('fuzz_decode') keeps it out of the default
++# gcc build, where the fuzzer sanitizer is unavailable.
++if get_option('fuzz_decode')
++  fuzz_hal_src = files(
++    'hal/audio.c',
++    'hal/gui.c',
++    'hal/lcd.c',
++    'hal/io.c',
++    'hal/print_ir.c')
++
++  fuzzDecode = executable('fuzzDecode',
++    build_by_default    : false,
++    sources             : decNumber_src + c47_src + fuzz_hal_src + files('../fuzz/fuzz_decode.c') + [rasterFontsData_c, softmenuCatalogs_h, constantPointers_ch],
++    # ASan is the crash gate; UBSan runs in report-recover mode (repo policy),
++    # and the alignment check is dropped because the calculator intentionally
++    # packs program bytecode unaligned - that UB is a known design, not a bug.
++    c_args              : ['-DTESTSUITE_BUILD', '-fsanitize=fuzzer-no-link,address,undefined', '-fno-sanitize=alignment', '-fsanitize-recover=undefined', '-fno-omit-frame-pointer'],
++    link_args           : ['-fsanitize=fuzzer,address,undefined'],
++    include_directories : [decNumber_inc, c47_inc],
++    dependencies        : [gtk_dep, gmp_dep, m_dep],
++    native              : true
++  )
++endif

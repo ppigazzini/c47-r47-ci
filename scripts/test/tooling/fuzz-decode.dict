@@ -1,0 +1,11 @@
+# libFuzzer dictionary for the decodeOneStep harness.
+# Opcode-shape and parameter tokens to steer mutation toward the
+# parameter / literal / label decoders.
+wide_op="\x80\x00"
+two_byte="\x81\x01"
+label_len_1="\x01\x41"
+label_len_max="\xff"
+param_reg="\x00"
+param_lettered="\x64"
+param_local="\x70"
+zero="\x00\x00"
