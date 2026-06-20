@@ -45,3 +45,23 @@
    ...
    obj:*/libgmp.so*
 }
+
+# decNumber decFloatFMA reads its BCD accumulator four digits at a time with
+# UBTOUI (a read-4-bytes macro) when stripping leading zeros. The accumulator
+# (dep/decNumberICU/decBasic.c:2002, "uByte acc[FMALEN]") is rounded up to a
+# uInt boundary with ROUNDUP4, so the final read can touch padding past the
+# significant digits - which decNumber documents as safe ("tests are safe
+# because acc and coe are rounded up to uInts", decBasic.c:2082). clang's
+# codegen makes Memcheck flag that masked over-read as a conditional on
+# uninitialised data; gcc does not, confirming it is a decNumber-internal
+# artefact, not a c47 defect (c47 passes a fully-defined value in - here a
+# date register from decodeLiteral). decNumber is compiled into the binary, so
+# this matches by function, not obj:. Scope it to the decNumber caller frame
+# (decDivide -> decQuadFMA) so a value c47 itself fails to initialise and feeds
+# straight into a decQuad op is still reported.
+{
+   decnumber-decquad-fma-bcd-uint-overread
+   Memcheck:Cond
+   fun:decQuadFMA
+   fun:decDivide
+}
