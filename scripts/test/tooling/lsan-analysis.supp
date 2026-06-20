@@ -10,3 +10,21 @@
 # _dynmenuConstructUser (src/c47/softmenus.c:1577): the dynamic VAR softmenu is
 # malloc'd on reset and never freed (40 bytes, 1 allocation).
 leak:_dynmenuConstructUser
+
+# GTK/GUI toolkit caches. The analysis lane launches the real GTK app
+# (./c47 --writeexportall, ./r47 --writeexportall under xvfb); on exit the
+# toolkit's font/layout/widget caches are never torn down, so LeakSanitizer
+# reports ~950 blocks (~1.5 MB) allocated entirely inside fontconfig, pango,
+# cairo, gdk and gtk-3 - process-global caches reclaimed by the OS, not c47
+# bugs. Every one of these blocks bottoms out in c47 only as the call site that
+# rendered text (gtkGui.c moveLabels/calcModeAimGui); the allocation itself is
+# always in a toolkit frame. Suppress by toolkit module so a genuine c47-origin
+# leak (one whose allocating frame is in src/c47) still fails the lane. Note we
+# deliberately do NOT suppress glib/gobject/gio: no leak block depends solely on
+# those, and c47 could allocate through them directly, so leaving them gated
+# keeps real c47 leaks visible.
+leak:libfontconfig
+leak:libpango
+leak:libcairo
+leak:libgdk
+leak:libgtk-3
