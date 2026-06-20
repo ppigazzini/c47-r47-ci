@@ -226,7 +226,13 @@ jobs:
               -Db_sanitize=address,undefined
 
             ninja -C "$build_dir" sim simr47
-            meson test -C "$build_dir" --print-errorlogs
+            # The sanitized build runs the full testSuite corpus far slower than
+            # an optimized build, so the upstream-configured 800s per-test
+            # timeout is not enough headroom under Clang ASan+UBSan and the test
+            # is killed mid-run (SIGTERM) while still progressing. Multiply
+            # meson's test timeouts so the analysis workload completes; the
+            # 90-minute job cap stays the outer bound.
+            meson test -C "$build_dir" --print-errorlogs --timeout-multiplier 3
 
             cp "$build_dir/src/c47-gtk/c47" ./c47
             cp "$build_dir/src/c47-gtk/r47" ./r47
