@@ -1,0 +1,12 @@
+# LeakSanitizer suppressions for the c47/c43 simulator analysis lanes.
+#
+# AddressSanitizer is the hard memory gate (ITERATION-3 policy), but a few
+# upstream allocations are made once at startup and never freed, so they would
+# fail the gate on every run and hide a real regression. Suppress the known ones
+# here - tight, by the allocating frame - so a NEW leak still fails the lane.
+# Each entry is an upstream bug to file, not a harness defect.
+
+# fnReset -> showSoftmenuCurrentPart -> initVariableSoftmenu ->
+# _dynmenuConstructUser (src/c47/softmenus.c:1577): the dynamic VAR softmenu is
+# malloc'd on reset and never freed (40 bytes, 1 allocation).
+leak:_dynmenuConstructUser

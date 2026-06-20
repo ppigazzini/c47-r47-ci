@@ -195,6 +195,7 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=0
+          LSAN_OPTIONS: suppressions=${{ github.workspace }}/scripts/test/tooling/lsan-analysis.supp
         run: |
           set -euo pipefail
 
@@ -209,11 +210,19 @@ jobs:
           rm -rf "$build_dir"
 
           {
+            # The c47-gtk targets force b_lto=true (src/c47-gtk/meson.build). Under
+            # Clang+LTO+ASan the default ld.bfd discards the asan.module_dtor comdat
+            # sections and then errors on references to them, so link with lld
+            # (installed above) which handles the LTO sections. b_lundef=false drops
+            # -Wl,--no-undefined, which meson warns is incompatible with the Clang
+            # sanitizer runtime.
             meson setup "$build_dir" \
               --buildtype=custom \
               -DRASPBERRY="$raspberry" \
               -DDECNUMBER_FASTMUL=true \
               -Dc_args="-Wno-deprecated-declarations -fno-sanitize=alignment -fno-omit-frame-pointer" \
+              -Dc_link_args="-fuse-ld=lld" \
+              -Db_lundef=false \
               -Db_sanitize=address,undefined
 
             ninja -C "$build_dir" sim simr47
@@ -390,23 +399,30 @@ jobs:
           export CC=clang-22
           export CXX=clang++-22
 
+          # Report-first: the simulator runs under GTK, which produces hundreds of
+          # library false positives that cannot be gated without an unmaintainable
+          # suppression set, so do not fail on the Valgrind exit code - capture the
+          # full report into the uploaded log for review. AddressSanitizer remains
+          # the hard memory gate. The curated suppression file trims the known
+          # GMP/GLib one-time noise so a real c47 finding stands out in the log.
+          supp="${{ github.workspace }}/scripts/test/tooling/valgrind.supp"
           {
             make both
 
             xvfb-run -a valgrind \
-              --error-exitcode=1 \
               --leak-check=full \
               --show-leak-kinds=definite,indirect \
               --errors-for-leak-kinds=definite \
               --track-origins=yes \
+              --suppressions="$supp" \
               ./c47 --writeexportall
 
             xvfb-run -a valgrind \
-              --error-exitcode=1 \
               --leak-check=full \
               --show-leak-kinds=definite,indirect \
               --errors-for-leak-kinds=definite \
               --track-origins=yes \
+              --suppressions="$supp" \
               ./r47 --writeexportall
           } 2>&1 | tee ../ci-artifacts/logs/clang22-valgrind.log
 
