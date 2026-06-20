@@ -47,7 +47,6 @@ jobs:
             build-essential \
             ccache \
             cmake \
-            gcovr \
             git \
             libexpat1-dev \
             libgmp-dev \
@@ -60,6 +59,25 @@ jobs:
             unzip \
             wget \
             zip
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
+      - name: Install gcovr (latest, via uv)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # apt ships gcovr 7, which rejects the finer-grained
+          # --gcov-ignore-parse-errors choices (suspicious_hits.*) the coverage
+          # lane uses; those landed in gcovr 8. Install the current release with
+          # uv so the lane always runs the most recent gcovr. The tool shim lands
+          # in uv's tool bin dir; expose it to this step and to the later
+          # coverage-lane step (GITHUB_PATH only affects subsequent steps).
+          uv tool install --force gcovr
+          bindir="$(uv tool dir --bin)"
+          echo "$bindir" >> "$GITHUB_PATH"
+          export PATH="$bindir:$PATH"
+          gcovr --version
 
       - name: Cache xlsxio toolchain
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
