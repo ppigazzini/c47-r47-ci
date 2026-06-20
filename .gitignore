@@ -1,3 +1,7 @@
+# Maintainer-only dev surface (planning docs, bug reports, prompts): kept local,
+# never committed to the harness history.
+__DEV
+
 # test harness output
 /ci-artifacts/
 
