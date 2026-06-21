@@ -65,7 +65,7 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out planning repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -107,7 +107,7 @@ jobs:
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
           key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload Linux test log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: c43-linux-tests-${{ needs.resolve-upstream-core.outputs.upstream_short }}-log
           path: ci-artifacts/logs/linux-tests.log
@@ -205,7 +205,7 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out planning repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -257,7 +257,7 @@ jobs:
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
           key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
@@ -330,7 +330,7 @@ jobs:
 
       - name: Upload Linux docs log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: c43-linux-docs-${{ needs.resolve-upstream-core.outputs.upstream_short }}-log
           path: ci-artifacts/logs/linux-docs.log

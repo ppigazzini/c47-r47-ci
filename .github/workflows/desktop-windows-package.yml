@@ -57,12 +57,12 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out planning repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Set up MSYS2 ${{ inputs.msystem }}
-        uses: msys2/setup-msys2@e9898307ac31d1a803454791be09ab9973336e1c # v2.31.1
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: ${{ inputs.msystem }}
           cache: true
@@ -230,7 +230,7 @@ jobs:
           echo "artifact_path=$release_dir" >> "$GITHUB_OUTPUT"
 
       - name: Upload Windows simulator artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}
           path: ${{ steps.bundle.outputs.artifact_path }}
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload Windows build log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}-build-log
           path: ci-artifacts/logs/windows-package.log

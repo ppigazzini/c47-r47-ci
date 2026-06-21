@@ -56,7 +56,7 @@ jobs:
           git config --global advice.defaultBranchName false
 
       - name: Check out planning repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
@@ -99,7 +99,7 @@ jobs:
 
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
           key: ${{ runner.os }}-xlsxio-${{ inputs.xlsxio_commit }}-static-tools-v1
@@ -282,7 +282,7 @@ jobs:
           fi
 
       - name: Upload Linux simulator artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}
           path: ci-artifacts/release/linux/
@@ -291,7 +291,7 @@ jobs:
 
       - name: Upload Linux build log
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.artifact_prefix }}-${{ inputs.upstream_short }}-build-log
           path: ci-artifacts/logs/linux-package.log
