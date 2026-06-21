@@ -14,7 +14,7 @@
 # surfaced over the full 9672-test corpus. Display-only: every math test passes
 # and no memory is corrupted or lost. To be filed upstream.
 #   - matrixEditor.c:984  displayVectorAngle, via showRealMatrix register redraw
-#   - display.c:575/578   real34ToDisplayString2, via eigenvalue/real formatting
+#   - display.c:581/584   real34ToDisplayString2, via eigenvalue/real formatting
 Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:984
-Conditional jump or move depends on uninitialised value(s) @ display.c:575
-Conditional jump or move depends on uninitialised value(s) @ display.c:578
+Conditional jump or move depends on uninitialised value(s) @ display.c:581
+Conditional jump or move depends on uninitialised value(s) @ display.c:584
