@@ -10,17 +10,11 @@
 # Report-first against a baseline of known suppressed-error kinds; set
 # VALGRIND_GATE=1 to fail on a new definitely-lost block or invalid access.
 #
-# memcheck is a ~20-50x slowdown, so the full testSuite corpus does not fit the
-# lane's time budget. By default run a bounded, deterministic subset seeded with
-# the upstream commit: a given revision is reproducible while coverage rotates as
-# upstream advances, so the union across commits approaches the full corpus. c47
-# sub-allocates from its own ram[] pool and is malloc-clean, so the found-site
-# set is empty regardless of which entries run and a subset never invents a new
-# baseline site.
+# memcheck is a ~20-50x slowdown and a few iterative solver/integration tests
+# dominate the runtime, so the lane runs the full corpus under a large time
+# budget to capture the complete report before any subset strategy is chosen.
 #
-# Env knobs: VALGRIND_SUBSET (entries to sample, default 96; 0 or "all" runs the
-# full corpus), VALGRIND_SEED (sample seed, default the resolved upstream commit),
-# VALGRIND_LIST (explicit test list, overrides the subset), VALGRIND_GATE,
+# Env knobs: VALGRIND_LIST (test list, default the full corpus), VALGRIND_GATE,
 # BUILD_DIR, BASELINE.
 
 set -Eeuo pipefail
@@ -33,39 +27,6 @@ SUPP="${SUPP:-$SCRIPT_DIR/tooling/valgrind.supp}"
 BASELINE="${BASELINE:-$SCRIPT_DIR/valgrind-baseline.txt}"
 BUILD_DIR="${BUILD_DIR:-build.valgrind}"
 VALGRIND_GATE="${VALGRIND_GATE:-0}"
-VALGRIND_SUBSET="${VALGRIND_SUBSET:-96}"
-
-# Deterministic keystream for a reproducible shuf, per the GNU coreutils manual
-# (https://www.gnu.org/software/coreutils/manual/html_node/Random-sources.html).
-valgrind_seeded_random() {
-    openssl enc -aes-256-ctr -pass "pass:$1" -nosalt < /dev/zero 2> /dev/null
-}
-
-# Emit a bounded, deterministic subset of the testSuite corpus: always keep the
-# leading setup entry so calculator state is initialised, sample the rest with a
-# commit-seeded reproducible shuf, then restore original corpus order so any
-# positional assumptions still hold. Falls back to the full corpus when the
-# requested count meets or exceeds the corpus size.
-valgrind_select_subset() {
-    local full="$1" want="$2" seed="$3"
-    local names
-    names="$(grep -vE '^[[:space:]]*(;|$)' "$full")"
-    local total
-    total="$(printf '%s\n' "$names" | grep -c .)"
-    if [[ "$want" -ge "$total" ]]; then
-        printf '%s\n' "$names"
-        return 0
-    fi
-    local take=$(( want > 1 ? want - 1 : 1 ))
-    local pinned="${names%%$'\n'*}" rest="${names#*$'\n'}"
-    local sel="$HARNESS_WORK/valgrind-subset.sel"
-    {
-        printf '%s\n' "$pinned"
-        printf '%s\n' "$rest" \
-            | shuf -n "$take" --random-source=<(valgrind_seeded_random "$seed")
-    } > "$sel"
-    awk 'NR == FNR { keep[$0] = 1; next } ($0 in keep)' "$sel" <(printf '%s\n' "$names")
-}
 
 main() {
     harness_init
@@ -96,26 +57,7 @@ main() {
     local bin="$UPSTREAM_DIR/$BUILD_DIR/src/testSuite/testSuite"
     [[ -x "$bin" ]] || harness_die "testSuite binary not built"
 
-    local full_list="$UPSTREAM_DIR/src/testSuite/tests/testSuiteList.txt"
-    local seed="${VALGRIND_SEED:-$commit}"
-    local corpus
-    corpus="$(grep -cvE '^[[:space:]]*(;|$)' "$full_list")"
-    local list
-    if [[ -n "${VALGRIND_LIST:-}" ]]; then
-        list="$VALGRIND_LIST"
-        harness_log "memcheck list: explicit $(basename "$list")"
-    elif [[ "$VALGRIND_SUBSET" == "0" || "$VALGRIND_SUBSET" == "all" ]]; then
-        list="$full_list"
-        harness_log "memcheck list: full corpus ($corpus entries)"
-    else
-        # testSuite resolves each <name>.txt via dirname(listPath), so the subset
-        # list must sit beside the corpus in the upstream tests directory; keep a
-        # copy with the logs for reproduction.
-        list="$(dirname "$full_list")/valgrind-subset.txt"
-        valgrind_select_subset "$full_list" "$VALGRIND_SUBSET" "$seed" > "$list"
-        cp "$list" "$LOG_DIR/valgrind-subset.txt"
-        harness_log "memcheck list: subset $(grep -c . "$list")/$corpus entries, seed ${seed:0:12}"
-    fi
+    local list="${VALGRIND_LIST:-$UPSTREAM_DIR/src/testSuite/tests/testSuiteList.txt}"
     local run_dir="$HARNESS_WORK/run"
     rm -rf "$run_dir"
     mkdir -p "$run_dir"
