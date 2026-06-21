@@ -18,7 +18,9 @@ jobs:
   valgrind-memcheck:
     name: Valgrind memcheck
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # memcheck is a ~20-50x slowdown; the run-valgrind.sh subset is sized to fit,
+    # and this cap gives margin for runner variance and a tuned-up subset.
+    timeout-minutes: 90
     env:
       LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
     steps:

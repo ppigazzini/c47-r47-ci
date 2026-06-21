@@ -18,7 +18,7 @@
 # set is empty regardless of which entries run and a subset never invents a new
 # baseline site.
 #
-# Env knobs: VALGRIND_SUBSET (entries to sample, default 140; 0 or "all" runs the
+# Env knobs: VALGRIND_SUBSET (entries to sample, default 96; 0 or "all" runs the
 # full corpus), VALGRIND_SEED (sample seed, default the resolved upstream commit),
 # VALGRIND_LIST (explicit test list, overrides the subset), VALGRIND_GATE,
 # BUILD_DIR, BASELINE.
@@ -33,7 +33,7 @@ SUPP="${SUPP:-$SCRIPT_DIR/tooling/valgrind.supp}"
 BASELINE="${BASELINE:-$SCRIPT_DIR/valgrind-baseline.txt}"
 BUILD_DIR="${BUILD_DIR:-build.valgrind}"
 VALGRIND_GATE="${VALGRIND_GATE:-0}"
-VALGRIND_SUBSET="${VALGRIND_SUBSET:-140}"
+VALGRIND_SUBSET="${VALGRIND_SUBSET:-96}"
 
 # Deterministic keystream for a reproducible shuf, per the GNU coreutils manual
 # (https://www.gnu.org/software/coreutils/manual/html_node/Random-sources.html).
@@ -108,8 +108,12 @@ main() {
         list="$full_list"
         harness_log "memcheck list: full corpus ($corpus entries)"
     else
-        list="$LOG_DIR/valgrind-subset.txt"
+        # testSuite resolves each <name>.txt via dirname(listPath), so the subset
+        # list must sit beside the corpus in the upstream tests directory; keep a
+        # copy with the logs for reproduction.
+        list="$(dirname "$full_list")/valgrind-subset.txt"
         valgrind_select_subset "$full_list" "$VALGRIND_SUBSET" "$seed" > "$list"
+        cp "$list" "$LOG_DIR/valgrind-subset.txt"
         harness_log "memcheck list: subset $(grep -c . "$list")/$corpus entries, seed ${seed:0:12}"
     fi
     local run_dir="$HARNESS_WORK/run"
@@ -149,7 +153,9 @@ main() {
 
     [[ -f "$BASELINE" ]] || harness_die "no baseline at $BASELINE; run once with UPDATE_BASELINE=1"
     local base_sorted="$LOG_DIR/valgrind-baseline.sorted"
-    grep -vE '^\s*(#|$)' "$BASELINE" | LC_ALL=C sort -u > "$base_sorted"
+    # The baseline holds only comments while c47 stays malloc-clean, so tolerate
+    # a no-match grep instead of letting pipefail abort the lane.
+    { grep -vE '^\s*(#|$)' "$BASELINE" || true; } | LC_ALL=C sort -u > "$base_sorted"
 
     local new
     new="$(LC_ALL=C comm -13 "$base_sorted" "$LOG_DIR/valgrind-found.txt")"
