@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
 # scripts/test/run-valgrind.sh
 #
-# The Valgrind lane. memcheck catches malloc-level errors
-# and leaks the pool scanner cannot see, because c47 sub-allocates from its
-# own ram[] block - but some paths (GMP, the HAL) do use malloc, and third-party
-# init does too. A curated suppression file (tooling/valgrind.supp) silences the
-# known GTK/GLib/GMP noise so a real c47 malloc-level finding stands out.
+# The Valgrind lane: a hard memory gate over the full testSuite corpus.
 #
-# Report-first against a baseline of known suppressed-error kinds; set
-# VALGRIND_GATE=1 to fail on a new definitely-lost block or invalid access.
+# memcheck catches malloc-level errors and leaks the pool scanner cannot see,
+# because c47 sub-allocates from its own ram[] block - but some paths (GMP, the
+# HAL) do use malloc, and third-party init does too. A curated suppression file
+# (tooling/valgrind.supp) silences only the known GTK/GLib/GMP library noise.
 #
-# memcheck is a ~20-50x slowdown and a few iterative solver/integration tests
-# dominate the runtime, so the lane runs the full corpus under a large time
-# budget to capture the complete report before any subset strategy is chosen.
+# Strong by design: full corpus, --track-origins=yes, and leaks of every kind
+# (definite/indirect/possible) are errors. Each finding is attributed to the c47
+# source file it occurs in - the innermost frame for an access error, the first
+# c47 frame in the allocation stack for a leak. Any c47-owned uninitialised
+# read, invalid access, or leak that is not in the tracked baseline fails the
+# lane. Third-party frames (decNumberICU, GTK, GMP, libc) are surfaced in the
+# uploaded log but never gate.
 #
-# Env knobs: VALGRIND_LIST (test list, default the full corpus), VALGRIND_GATE,
-# BUILD_DIR, BASELINE.
+# Env knobs: VALGRIND_GATE (default 1; set 0 to report without failing),
+# VALGRIND_LIST (test list, default the full corpus), BUILD_DIR, BASELINE,
+# UPDATE_BASELINE=1 to regenerate the baseline from the current run.
 
 set -Eeuo pipefail
 
@@ -26,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUPP="${SUPP:-$SCRIPT_DIR/tooling/valgrind.supp}"
 BASELINE="${BASELINE:-$SCRIPT_DIR/valgrind-baseline.txt}"
 BUILD_DIR="${BUILD_DIR:-build.valgrind}"
-VALGRIND_GATE="${VALGRIND_GATE:-0}"
+VALGRIND_GATE="${VALGRIND_GATE:-1}"
 
 main() {
     harness_init
@@ -65,27 +68,53 @@ main() {
     harness_log "running testSuite under memcheck (list: $(basename "$list"))"
     (
         cd "$run_dir"
-        valgrind --tool=memcheck --leak-check=full --show-leak-kinds=definite,indirect \
-            --errors-for-leak-kinds=definite --error-exitcode=0 \
+        valgrind --tool=memcheck \
+            --leak-check=full \
+            --show-leak-kinds=definite,indirect,possible \
+            --errors-for-leak-kinds=definite,indirect,possible \
+            --track-origins=yes \
+            --error-exitcode=0 \
             --suppressions="$SUPP" --gen-suppressions=no \
             "$bin" "$list"
     ) > "$LOG_DIR/valgrind.log" 2>&1 || true
 
-    # Normalise to one line per distinct c47 error site: the memcheck error kind
-    # plus the first c47 frame, ignoring addresses.
+    # Ownership map: every c47 source basename in the synced tree. memcheck prints
+    # basenames, so a finding is c47-owned when the relevant frame names one of
+    # these files. Third-party frames (decNumberICU, GTK, GMP, libc) are excluded
+    # from the gate but stay in the uploaded log.
+    local c47_names="$LOG_DIR/c47-basenames.txt"
+    find "$UPSTREAM_DIR/src/c47" \( -name '*.c' -o -name '*.h' \) -printf '%f\n' \
+        | LC_ALL=C sort -u > "$c47_names"
+
+    # Normalise to one line per distinct c47 error site: "<kind> @ <file>:<line>".
+    # Access errors are attributed to the innermost frame (where the bad access
+    # happens); leaks to the first c47 frame in the allocation stack, past the
+    # allocator. Third-party-rooted findings are dropped here, not weakened: the
+    # full memcheck report is preserved in valgrind.log.
     awk '
-        /^==[0-9]+== (Invalid|Use of|Conditional|.*lost in loss record|.*definitely lost)/ { kind=$0; sub(/^==[0-9]+== */,"",kind); pending=1 }
-        pending && /by 0x|at 0x/ && /src\/c47\// {
-            site=$0; sub(/^.*\(/,"",site); sub(/\).*$/,"",site);
-            if(site ~ /src\/c47\//) { print kind " @ " site; pending=0 }
+        NR == FNR { c47[$0] = 1; next }
+        /^==[0-9]+== (Invalid|Use of|Conditional|Syscall|Mismatched|Source and destination|.*lost)/ {
+            kind = $0; sub(/^==[0-9]+== */, "", kind)
+            isleak = (kind ~ /lost/); pending = 1; first = 1; next
         }
-    ' "$LOG_DIR/valgrind.log" | LC_ALL=C sort -u > "$LOG_DIR/valgrind-found.txt" || true
+        pending && /^==[0-9]+== +(at|by) 0x/ {
+            f = $0; sub(/^.*\(/, "", f); sub(/\).*$/, "", f)   # f = "file:line"
+            bn = f; sub(/:.*/, "", bn)
+            if (isleak) {
+                if (bn in c47) { print kind " @ " f; pending = 0 }
+            } else {
+                if (first && (bn in c47)) print kind " @ " f
+                pending = 0          # access errors: only the innermost frame counts
+            }
+            first = 0
+        }
+    ' "$c47_names" "$LOG_DIR/valgrind.log" | LC_ALL=C sort -u > "$LOG_DIR/valgrind-found.txt" || true
 
     # Headline counts from memcheck's own summary.
-    grep -E "definitely lost|indirectly lost|ERROR SUMMARY" "$LOG_DIR/valgrind.log" | tail -3 | sed 's/^/ /' || true
+    grep -E "definitely lost|indirectly lost|possibly lost|ERROR SUMMARY" "$LOG_DIR/valgrind.log" | tail -4 | sed 's/^/ /' || true
     local n
     n="$(wc -l < "$LOG_DIR/valgrind-found.txt" | tr -d ' ')"
-    harness_log "distinct c47 memcheck sites (definite/invalid): $n"
+    harness_log "distinct c47 memcheck sites (uninit/invalid/leak): $n"
 
     if [[ "${UPDATE_BASELINE:-0}" == "1" ]]; then
         cp "$LOG_DIR/valgrind-found.txt" "$BASELINE.new"
@@ -104,8 +133,10 @@ main() {
     if [[ -n "$new" ]]; then
         harness_log "NEW c47 memcheck sites not in the baseline:"
         printf ' %s\n' "$new"
-        [[ "$VALGRIND_GATE" == "1" ]] && harness_die "valgrind gate failed: $(printf '%s\n' "$new" | grep -c .) new site(s)"
-        harness_log "report-first: not failing the lane (set VALGRIND_GATE=1 to gate)"
+        if [[ "$VALGRIND_GATE" == "1" ]]; then
+            harness_die "valgrind gate failed: $(printf '%s\n' "$new" | grep -c .) new c47 site(s)"
+        fi
+        harness_log "VALGRIND_GATE=0: reporting only, not failing the lane"
     else
         harness_log "no new c47 memcheck sites vs baseline"
     fi

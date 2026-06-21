@@ -1,5 +1,20 @@
-# Valgrind memcheck baseline for c47.
-# c47 sub-allocates from its own ram[] pool, so it is malloc-clean: the
-# subset run found zero definitely-lost/invalid c47 sites with
-# tooling/valgrind.supp applied. Any c47 line here is a real finding.
-# Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
+# Valgrind memcheck baseline for c47 - known upstream-owned findings.
+#
+# Each line is "<memcheck error kind> @ <c47 source file>:<line>" as emitted by
+# scripts/test/run-valgrind.sh. Lines here are KNOWN, accepted upstream c47
+# findings; the lane FAILS on any c47-owned uninitialised read, invalid access,
+# or leak that is not listed here. Keep this set minimal and file the entries
+# upstream. c47 stays malloc-clean (definite/indirect/possible lost all zero);
+# every entry below is an uninitialised-value read, not a leak.
+#
+# Regenerate after a legitimate upstream change (for example a line shift or an
+# upstream fix) with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
+#
+# Known upstream uninitialised-value reads in c47 display/formatting paths,
+# surfaced over the full 9672-test corpus. Display-only: every math test passes
+# and no memory is corrupted or lost. To be filed upstream.
+#   - matrixEditor.c:984  displayVectorAngle, via showRealMatrix register redraw
+#   - display.c:575/578   real34ToDisplayString2, via eigenvalue/real formatting
+Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:984
+Conditional jump or move depends on uninitialised value(s) @ display.c:575
+Conditional jump or move depends on uninitialised value(s) @ display.c:578
