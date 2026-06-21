@@ -4,10 +4,10 @@
 # Format: <file>|<IN parameter line>
 #
 # These are REAL per-call pool leaks (growth repeats when a file is run twice),
-# almost all in matrix ops (mismatched-dimension add/subtract, cross product,
-# singular inverse, SHOI->real). They are invisible to ASan/Valgrind (pool, not
-# malloc). Candidates for an upstream fix and a follow-up bug report; remove a
-# line here once the underlying leak is fixed.
+# all in matrix ops (mismatched-dimension add/subtract, cross product, singular
+# inverse, prime/eigen). They are invisible to ASan/Valgrind (pool, not malloc).
+# Candidates for an upstream fix and a follow-up bug report; remove a line here
+# once the underlying leak is fixed.
 
 addition_complexMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=CXMA:"M3,2[13i14,15i16,17i18,19i20,21i22,23i24]"
 addition_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=REMA:"M3,2[13,14,15,16,17,18]"
@@ -32,4 +32,3 @@ subtraction_complexMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,
 subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=CXMA:"M2,3[1i2,3i4,5i6,7i8,9i10,11i12]" RX=REMA:"M3,2[13,14,15,16,17,18]"
 subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=CXMA:"M3,2[7i8,9i10,11i12,13i14,15i16,17i18]"
 subtraction_realMatrix.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 IM=2COMPL RY=REMA:"M2,3[1,2,3,4,5,6]" RX=REMA:"M3,2[7,8,9,10,11,12]"
-toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"

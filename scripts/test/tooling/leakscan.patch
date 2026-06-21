@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..e317a9f08 100644
+index 9a756330b..2cab0d79a 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -25,7 +25,7 @@ index 9a756330b..e317a9f08 100644
  uint16_t label, functionParameter;
  
  GtkWidget      *screen;
-@@ -3175,6 +3184,43 @@ void stopTimerAndPrint(void) {
+@@ -3175,6 +3184,47 @@ void stopTimerAndPrint(void) {
  
  
  
@@ -59,17 +59,21 @@ index 9a756330b..e317a9f08 100644
 +    testMemLeakCases++;
 +    printf("\nTESTMEM GROWTH file=%s pool=+%d gmp=+%ld\n  case: %s\n", fileName, (int)poolGrow, gmpGrow, lastInParameters);
 +  }
-+  // Ratchet: only growth beyond the new high-water is reported next time, so a
-+  // persistent object (named variable, equation) is attributed to the one case
-+  // that created it, not to every case after it.
-+  testMemPrevFree = freeNow;
-+  testMemPrevGmp = gmpMemInBytes;
++  // Ratchet the high-water of usage only (least free / most GMP). A case that
++  // transiently FREES memory must not raise the bar, or the next case that
++  // merely returns to the established usage level is misreported as growth.
++  if(freeNow < testMemPrevFree) {
++    testMemPrevFree = freeNow;
++  }
++  if(gmpMemInBytes > testMemPrevGmp) {
++    testMemPrevGmp = gmpMemInBytes;
++  }
 +}
 +
  void processLine(void) {
    // convert to upper case
    int32_t lg = strlen(line);
-@@ -3210,6 +3256,10 @@ void processLine(void) {
+@@ -3210,6 +3260,10 @@ void processLine(void) {
  
    else if(strncmp(line, "IN: ", 4) == 0) {
      //printf("%s\n", line);
@@ -80,7 +84,7 @@ index 9a756330b..e317a9f08 100644
      strcpy(lastInParameters, line);
      inParameters(line + 4);
    }
-@@ -3253,6 +3303,9 @@ void processLine(void) {
+@@ -3253,6 +3307,9 @@ void processLine(void) {
      successfulTests++;
      noFailForNow = true;
      outParameters(line + 5);
@@ -90,7 +94,7 @@ index 9a756330b..e317a9f08 100644
    }
  
    else if(line[0] != 0) {
-@@ -3395,6 +3448,56 @@ int processTests(const char *listPath) {
+@@ -3395,6 +3452,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -147,7 +151,7 @@ index 9a756330b..e317a9f08 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3512,340 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3516,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
