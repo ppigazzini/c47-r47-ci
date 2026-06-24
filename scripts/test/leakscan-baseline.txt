@@ -11,6 +11,17 @@
 # - keyscan LEAK seq=equation_x80 - persistent equations CLEAR ALL keeps;
 # create+delete is clean.
 # - CRASH item=... - handlers called out of keyboard/menu context.
+#
+# oomscan (matrix/vector operands under allocation-failure injection - the RAM-full
+# leak/crash class the happy-path scans never reach):
+# - oomscan CRASH item=1456 EIGVAL - still faults on some allocation-failure
+#   points even after the upstream EIGVAL/EIGVEC leak fix; the fix is incomplete.
+#   (EIGVEC item=1457 IS fixed - it crashed pre-fix and no longer appears.)
+# - oomscan CRASH item=105/1461/1535/1646/1702/1745/1751/2472 - MAGNITUDE, ENORM,
+#   M.LU, M.QR, DET, VANGLE, >DET<, vector-dist: pre-existing NULL-deref/abort on
+#   the matrix RAM-full path, not yet fixed upstream. Real robustness backlog.
+# - leakscan LEAK item=1529/2386/2404 - matrix-editor (M.EDIT/EDIT) persistent
+#   state, surfaced now that the leak scan rotates matrix/vector operands too.
 # Remove a line here only when the underlying finding is fixed upstream.
 
 leakscan CRASH item=1197
@@ -49,4 +60,16 @@ leakscan LEAK item=1645
 leakscan LEAK item=1889
 leakscan LEAK item=2412
 leakscan LEAK item=2413
+leakscan LEAK item=1529
+leakscan LEAK item=2386
+leakscan LEAK item=2404
 keyscan LEAK seq=equation_x80
+oomscan CRASH item=105
+oomscan CRASH item=1456
+oomscan CRASH item=1461
+oomscan CRASH item=1535
+oomscan CRASH item=1646
+oomscan CRASH item=1702
+oomscan CRASH item=1745
+oomscan CRASH item=1751
+oomscan CRASH item=2472

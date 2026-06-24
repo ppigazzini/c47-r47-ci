@@ -1,5 +1,64 @@
+diff --git a/src/c47/memory.c b/src/c47/memory.c
+index 4de5b560b..04d177a6c 100644
+--- a/src/c47/memory.c
++++ b/src/c47/memory.c
+@@ -3,6 +3,24 @@
+ 
+ #include "c47.h"
+ 
++// --- Out-of-RAM fault injection (testSuite --oomscan) ---------------------
++// When oomInjectArm is set, the first oomInjectAllow real allocations succeed and
++// every allocation after that fails (modelling RAM exhaustion from a chosen point
++// on), so the leak scanner can drive an operation's allocation-failure cleanup
++// path deterministically. Inert in normal builds/runs (oomInjectArm stays 0).
++int      oomInjectArm   = 0;
++uint32_t oomInjectAllow = 0;
++static bool_t oomInjectFail(void) { // true => this allocation must fail
++  if(!oomInjectArm) {
++    return false;
++  }
++  if(oomInjectAllow > 0) {
++    oomInjectAllow--;
++    return false;
++  }
++  return true;
++}
++
+ uint32_t getFreeRamMemory(void) {
+   uint32_t freeMem;
+   int32_t i;
+@@ -27,6 +45,9 @@ uint32_t getFreeRamMemory(void) {
+ #endif // !DMCP_BUILD
+ 
+ bool_t isMemoryBlockAvailable(size_t sizeInBlocks, uint16_t numBlocks, float extraFraction) {
++  if(oomInjectArm && oomInjectAllow == 0) { // injected RAM-full: report no space (no consume; the alloc consumes)
++    return false;
++  }
+   int i;
+   size_t extraSize              = (size_t)((float)sizeInBlocks * extraFraction);
+   size_t requiredForNBlocks     = sizeInBlocks * numBlocks;
+@@ -78,6 +99,9 @@ void *allocC47Blocks(size_t sizeInBlocks) {
+ 
+   //return freeListAlloc(sizeInBlocks);
+ 
++  if(oomInjectFail()) { // injected RAM-full
++    return NULL;
++  }
+   void *allocated = freeListAlloc(sizeInBlocks);
+   if(allocated) {
+     c47MemInBlocks += sizeInBlocks;
+@@ -93,6 +117,9 @@ void *reallocC47Blocks(void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInB
+ 
+   //return freeListRealloc(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
+ 
++  if(oomInjectFail()) { // injected RAM-full: keep the old block, report failure
++    return NULL;
++  }
+   void *allocated = freeListRealloc(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
+   if(allocated) {
+     c47MemInBlocks += newSizeInBlocks - oldSizeInBlocks;
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..2cab0d79a 100644
+index 9a756330b..cc9fb4cd3 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -94,7 +153,7 @@ index 9a756330b..2cab0d79a 100644
    }
  
    else if(line[0] != 0) {
-@@ -3395,6 +3452,56 @@ int processTests(const char *listPath) {
+@@ -3395,6 +3452,106 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -129,8 +188,58 @@ index 9a756330b..2cab0d79a 100644
 +      real34Copy(&t, REGISTER_REAL34_DATA(r));
 +      real34Copy(&t, REGISTER_IMAG34_DATA(r));
 +    }
++    else if(type == 4) {   // real matrix 2x2 [[2,1],[1,2]] (symmetric: real eigenvalues, invertible)
++      real34Matrix_t m;
++      if(realMatrixInit(&m, 2, 2)) {
++        int32ToReal34(2, &m.matrixElements[0]); int32ToReal34(1, &m.matrixElements[1]);
++        int32ToReal34(1, &m.matrixElements[2]); int32ToReal34(2, &m.matrixElements[3]);
++        convertReal34MatrixToReal34MatrixRegister(&m, r);
++        realMatrixFree(&m);
++      }
++    }
++    else if(type == 5) {   // complex matrix 2x2 ([[2+i,1],[1,2-i]])
++      complex34Matrix_t cm;
++      if(complexMatrixInit(&cm, 2, 2)) {
++        real34_t two, one; int32ToReal34(2, &two); int32ToReal34(1, &one);
++        for(int e = 0; e < 4; e++) {
++          real34Copy((e == 0 || e == 3) ? &two : &one, VARIABLE_REAL34_DATA(cm.matrixElements + e));
++          real34Copy(&one, VARIABLE_IMAG34_DATA(cm.matrixElements + e));
++        }
++        convertComplex34MatrixToComplex34MatrixRegister(&cm, r);
++        complexMatrixFree(&cm);
++      }
++    }
++    else if(type == 6) {   // real 3-vector (3x1) for dot/cross/norm/angle
++      real34Matrix_t v;
++      if(realMatrixInit(&v, 3, 1)) {
++        int32ToReal34(1, &v.matrixElements[0]);
++        int32ToReal34(2, &v.matrixElements[1]);
++        int32ToReal34(2, &v.matrixElements[2]);
++        convertReal34MatrixToReal34MatrixRegister(&v, r);
++        realMatrixFree(&v);
++      }
++    }
 +  }
 +}
++
++// Number of leakscanSetupStack operand types (real,string,longint,complex,
++// realMatrix,complexMatrix,realVector).
++#define LEAKSCAN_NUM_TYPES 7
++static const char *const leakscanTypeName[LEAKSCAN_NUM_TYPES] =
++  {"real", "string", "longint", "complex", "realMat", "cpxMat", "realVec"};
++
++// --- Out-of-RAM fault injection (--oomscan) -------------------------------
++// Drive each function under precise allocation-failure injection to catch leaks
++// that only occur when an allocation fails part-way through an operation (the
++// matrix/vector "RAM full / out of RAM" leak class). The hooks live in memory.c:
++// when armed, the first oomInjectAllow real allocations succeed and every
++// allocation after that fails (isMemoryBlockAvailable returns false,
++// allocC47Blocks/reallocC47Blocks return NULL) - modelling true RAM exhaustion
++// from a chosen point on. Sweeping oomInjectAllow = 0,1,2,... walks the failure
++// point along the operation's allocation sequence, so a leak surfaces whenever an
++// op kept what it had already allocated when a later allocation failed.
++extern int      oomInjectArm;   // 1 = injection active
++extern uint32_t oomInjectAllow; // allocations allowed before failures begin
 +
 +// The key-sequence driver runs each sequence in a forked child that ends with
 +// _exit(), which skips the atexit handler gcov uses to write its counters - so in
@@ -151,7 +260,7 @@ index 9a756330b..2cab0d79a 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3516,340 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3566,445 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -186,15 +295,15 @@ index 9a756330b..2cab0d79a 100644
 +    // subtract it so only a function's own excess pool leak is reported. Each
 +    // item runs in a forked child so a crash or hang (alarm) is isolated and
 +    // reported rather than aborting the scan.
-+    const char *typeName[4] = {"real", "string", "longint", "complex"};
++    const char *const *typeName = leakscanTypeName;
 +    fnClAll(CONFIRMED);
 +    uint32_t baseline = getFreeRamMemory();
 +    size_t gmpBaseline = gmpMemInBytes;
-+    printf("LEAKSCAN start: baseline=%u blocks, gmpBaseline=%zu bytes; items 1..%d; stack types real,string,longint,complex\n", baseline, gmpBaseline, LAST_ITEM);
++    printf("LEAKSCAN start: baseline=%u blocks, gmpBaseline=%zu bytes; items 1..%d; stack types real,string,longint,complex,realMat,cpxMat,realVec\n", baseline, gmpBaseline, LAST_ITEM);
 +    fflush(stdout);
 +
 +    int totalLeak = 0, totalCrash = 0;
-+    for(int type = 0; type < 4; type++) {
++    for(int type = 0; type < LEAKSCAN_NUM_TYPES; type++) {
 +      int32_t refDelta = 0;
 +      {
 +        pid_t pid = fork();
@@ -249,6 +358,111 @@ index 9a756330b..2cab0d79a 100644
 +      }
 +    }
 +    printf("LEAKSCAN done: %d leaking (item,type) pairs, %d crashing (item,type) pairs\n", totalLeak, totalCrash);
++    return 0;
++  }
++
++  // Out-of-RAM fault-injection scan (--oomscan). Runs every item with a
++  // matrix/vector operand on the stack while allocation failures are injected at a
++  // chosen point in the operation's allocation sequence (the first `allow` real
++  // allocations succeed, the rest fail). An operation that does not free what it
++  // already allocated when a later allocation fails leaves the pool below baseline
++  // after injection is disarmed - the matrix/vector "RAM full / out of RAM" leak
++  // class the happy-path leakscan/testmem/valgrind never reach. Each
++  // (item,type,allow) runs in a forked child so a crash or hang is isolated.
++  // Sweeping `allow` walks the failure point along the allocation sequence.
++  if(argc >= 2 && strcmp(argv[1], "--oomscan") == 0) {
++    const int oomTypes[]    = {4, 5, 6};                       // realMat, cpxMat, realVec
++    const uint32_t allow[]  = {0, 1, 2, 3, 4, 6, 9, 13};       // allocations before failures begin
++    // The matrix/vector operation surface - the functions that actually allocate
++    // and free matrices/vectors, where an allocation failure part-way leaks or
++    // crashes. Restricting the sweep to these keeps the signal on the operations
++    // the RAM-full leak fixes live in (matrix.c, the arithmetic dispatchers, the
++    // vector ops) instead of every catalog item incidentally fed a matrix operand.
++    // Add new matrix/vector operations here.
++    const int16_t oomItems[] = {
++      ITM_EIGVAL, ITM_EIGVEC, ITM_DET, ITM_M_DET, ITM_INVRT, ITM_M_INV,
++      ITM_M_TRANSP, ITM_M_LU, ITM_M_QR, ITM_M_SQRT, ITM_MIDENT, ITM_SIM_EQ,
++      ITM_PNORM, ITM_ENORM, ITM_NORM, ITM_RSUM, ITM_DOT, ITM_CROSS,
++      ITM_VANGLE, ITM_VVDIST, ITM_MAGNITUDE, ITM_CONJ,
++      ITM_ADD, ITM_SUB, ITM_MULT, ITM_DIV};
++    const int nOomTypes = (int)(sizeof(oomTypes)/sizeof(oomTypes[0]));
++    const int nAllow    = (int)(sizeof(allow)/sizeof(allow[0]));
++    const int nOomItems = (int)(sizeof(oomItems)/sizeof(oomItems[0]));
++
++    fnClAll(CONFIRMED);
++    uint32_t baseline = getFreeRamMemory();
++    size_t gmpBaseline = gmpMemInBytes;
++    printf("OOMSCAN start: baseline=%u bytes, gmpBaseline=%zu bytes; %d matrix/vector ops; operand types realMat,cpxMat,realVec; inject allow 0,1,2,3,4,6,9,13\n", baseline, gmpBaseline, nOomItems);
++    fflush(stdout);
++
++    int totalLeak = 0, totalCrash = 0;
++    for(int ti = 0; ti < nOomTypes; ti++) {
++      int type = oomTypes[ti];
++      int32_t refDelta = 0;                                    // setup+clear residual, subtracted out
++      {
++        pid_t pid = fork();
++        if(pid == 0) {
++          leakscanSetupStack(type);
++          fnClAll(CONFIRMED);
++          _exit((int)(((int32_t)baseline - (int32_t)getFreeRamMemory()) & 0xFF));
++        }
++        int st = 0;
++        waitpid(pid, &st, 0);
++        refDelta = WIFEXITED(st) ? WEXITSTATUS(st) : 0;
++      }
++      printf("--- operand %s (reference overhead %d blocks) ---\n", leakscanTypeName[type], refDelta);
++      fflush(stdout);
++
++      for(int oi = 0; oi < nOomItems; oi++) {
++        int item = oomItems[oi];
++        if(indexOfItems[item].func == NULL) {
++          continue;
++        }
++        const char *nm = indexOfItems[item].itemCatalogName;
++        if(nm[0] == 0) {
++          nm = indexOfItems[item].itemSoftmenuName;
++        }
++        for(int ai = 0; ai < nAllow; ai++) {
++          fflush(stdout);
++          fflush(stderr);
++          pid_t pid = fork();
++          if(pid == 0) {
++            alarm(4);
++            leakscanSetupStack(type);            // operands built with injection OFF
++            lastErrorCode = 0;
++            // CM_NO_UNDO suppresses reallyRunFunction's per-call saveForUndo
++            // snapshot - a single allocation site common to every item that would
++            // otherwise dominate the injected-failure measurement and mask the
++            // per-function leak being looked for.
++            calcMode = CM_NO_UNDO;
++            oomInjectAllow = allow[ai];
++            oomInjectArm = 1;                     // fail allocations from `allow` onward
++            reallyRunFunction(item, indexOfItems[item].param);
++            oomInjectArm = 0;                     // disarm before measuring/clearing
++            fnClAll(CONFIRMED);
++            int32_t net = ((int32_t)baseline - (int32_t)getFreeRamMemory()) - refDelta;
++            long gmpNet = (long)gmpMemInBytes - (long)gmpBaseline;
++            if(net > 0 || gmpNet > 0) {
++              printf("OOMLEAK type=%-7s item=%4d %-16s allow=%2u pool=%d gmp=%ld\n", leakscanTypeName[type], item, nm, allow[ai], net > 0 ? net : 0, gmpNet > 0 ? gmpNet : 0L);
++            }
++            fflush(stdout);
++            _exit((net > 0 || gmpNet > 0) ? 1 : 0);
++          }
++          else if(pid > 0) {
++            int status = 0;
++            waitpid(pid, &status, 0);
++            if(WIFSIGNALED(status)) {
++              printf("OOMCRASH type=%-7s item=%4d %-16s allow=%2u signal=%d\n", leakscanTypeName[type], item, nm, allow[ai], WTERMSIG(status));
++              totalCrash++;
++            }
++            else if(WIFEXITED(status) && WEXITSTATUS(status) == 1) {
++              totalLeak++;
++            }
++          }
++        }
++      }
++    }
++    printf("OOMSCAN done: %d leaking (item,type,allow) triples, %d crashing\n", totalLeak, totalCrash);
 +    return 0;
 +  }
 +
