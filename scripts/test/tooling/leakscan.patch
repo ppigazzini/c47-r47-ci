@@ -1,16 +1,21 @@
 diff --git a/src/c47/memory.c b/src/c47/memory.c
-index 4de5b560b..04d177a6c 100644
+index 4de5b560b..582e269f7 100644
 --- a/src/c47/memory.c
 +++ b/src/c47/memory.c
-@@ -3,6 +3,24 @@
+@@ -3,6 +3,30 @@
  
  #include "c47.h"
  
 +// --- Out-of-RAM fault injection (testSuite --oomscan) ---------------------
-+// When oomInjectArm is set, the first oomInjectAllow real allocations succeed and
-+// every allocation after that fails (modelling RAM exhaustion from a chosen point
-+// on), so the leak scanner can drive an operation's allocation-failure cleanup
-+// path deterministically. Inert in normal builds/runs (oomInjectArm stays 0).
++// When oomInjectArm is set, the first oomInjectAllow real allocations succeed,
++// then ONE allocation fails and injection disarms itself. This is a single
++// transient allocation failure at a chosen point in the operation - the realistic
++// model: on a real device a failed allocation is relieved as the operation frees
++// its own intermediates, so the operation's cleanup and the surrounding undo /
++// display / register machinery can allocate again. (Failing every allocation from
++// a point on instead models permanent exhaustion that no free can relieve, which
++// cascades into NULL-deref crashes deep in shared cleanup code that are artifacts
++// of the model, not device-reachable bugs.) Inert in normal runs (arm stays 0).
 +int      oomInjectArm   = 0;
 +uint32_t oomInjectAllow = 0;
 +static bool_t oomInjectFail(void) { // true => this allocation must fail
@@ -21,23 +26,25 @@ index 4de5b560b..04d177a6c 100644
 +    oomInjectAllow--;
 +    return false;
 +  }
++  oomInjectArm = 0; // one-shot: fail this allocation, then allow recovery
 +  return true;
 +}
 +
  uint32_t getFreeRamMemory(void) {
    uint32_t freeMem;
    int32_t i;
-@@ -27,6 +45,9 @@ uint32_t getFreeRamMemory(void) {
+@@ -27,6 +51,10 @@ uint32_t getFreeRamMemory(void) {
  #endif // !DMCP_BUILD
  
  bool_t isMemoryBlockAvailable(size_t sizeInBlocks, uint16_t numBlocks, float extraFraction) {
-+  if(oomInjectArm && oomInjectAllow == 0) { // injected RAM-full: report no space (no consume; the alloc consumes)
++  if(oomInjectArm && oomInjectAllow == 0) { // injected RAM-full (one-shot): report no space, then disarm
++    oomInjectArm = 0;
 +    return false;
 +  }
    int i;
    size_t extraSize              = (size_t)((float)sizeInBlocks * extraFraction);
    size_t requiredForNBlocks     = sizeInBlocks * numBlocks;
-@@ -78,6 +99,9 @@ void *allocC47Blocks(size_t sizeInBlocks) {
+@@ -78,6 +106,9 @@ void *allocC47Blocks(size_t sizeInBlocks) {
  
    //return freeListAlloc(sizeInBlocks);
  
@@ -47,7 +54,7 @@ index 4de5b560b..04d177a6c 100644
    void *allocated = freeListAlloc(sizeInBlocks);
    if(allocated) {
      c47MemInBlocks += sizeInBlocks;
-@@ -93,6 +117,9 @@ void *reallocC47Blocks(void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInB
+@@ -93,6 +124,9 @@ void *reallocC47Blocks(void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInB
  
    //return freeListRealloc(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
  
@@ -58,7 +65,7 @@ index 4de5b560b..04d177a6c 100644
    if(allocated) {
      c47MemInBlocks += newSizeInBlocks - oldSizeInBlocks;
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..cc9fb4cd3 100644
+index 9a756330b..ff32a411b 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -260,7 +267,7 @@ index 9a756330b..cc9fb4cd3 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3566,445 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3566,455 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -388,6 +395,13 @@ index 9a756330b..cc9fb4cd3 100644
 +    const int nOomTypes = (int)(sizeof(oomTypes)/sizeof(oomTypes[0]));
 +    const int nAllow    = (int)(sizeof(allow)/sizeof(allow[0]));
 +    const int nOomItems = (int)(sizeof(oomItems)/sizeof(oomItems[0]));
++    // On a real key press, saveForUndo runs (allocating the undo buffer) before
++    // the operation; the operation's internal adjustResult then restores that
++    // buffer with undo() if it errors. Reproduce that here so the error path does
++    // not read through never-saved registers (a harness crash, not a device bug),
++    // and take the same snapshot in the reference run so the buffer's footprint is
++    // in refDelta rather than read as a per-op leak.
++    extern void saveForUndo(void);
 +
 +    fnClAll(CONFIRMED);
 +    uint32_t baseline = getFreeRamMemory();
@@ -398,11 +412,12 @@ index 9a756330b..cc9fb4cd3 100644
 +    int totalLeak = 0, totalCrash = 0;
 +    for(int ti = 0; ti < nOomTypes; ti++) {
 +      int type = oomTypes[ti];
-+      int32_t refDelta = 0;                                    // setup+clear residual, subtracted out
++      int32_t refDelta = 0;                                    // setup+snapshot+clear residual, subtracted out
 +      {
 +        pid_t pid = fork();
 +        if(pid == 0) {
 +          leakscanSetupStack(type);
++          saveForUndo();        // match the per-op undo snapshot footprint
 +          fnClAll(CONFIRMED);
 +          _exit((int)(((int32_t)baseline - (int32_t)getFreeRamMemory()) & 0xFF));
 +        }
@@ -429,15 +444,17 @@ index 9a756330b..cc9fb4cd3 100644
 +          if(pid == 0) {
 +            alarm(4);
 +            leakscanSetupStack(type);            // operands built with injection OFF
++            saveForUndo();                        // undo buffer ready, as on a real key press
 +            lastErrorCode = 0;
-+            // CM_NO_UNDO suppresses reallyRunFunction's per-call saveForUndo
-+            // snapshot - a single allocation site common to every item that would
-+            // otherwise dominate the injected-failure measurement and mask the
-+            // per-function leak being looked for.
-+            calcMode = CM_NO_UNDO;
 +            oomInjectAllow = allow[ai];
 +            oomInjectArm = 1;                     // fail allocations from `allow` onward
-+            reallyRunFunction(item, indexOfItems[item].param);
++            // Call the operation directly, not via reallyRunFunction: the latter
++            // wraps it in a saveForUndo snapshot, adjustResult and a screen
++            // refresh, and injecting failures into that surrounding machinery
++            // produces undo/display crashes that are harness artifacts, not the
++            // operation's own RAM-full behaviour. The bare func() is exactly the
++            // code the matrix/vector leak fixes live in.
++            indexOfItems[item].func(indexOfItems[item].param);
 +            oomInjectArm = 0;                     // disarm before measuring/clearing
 +            fnClAll(CONFIRMED);
 +            int32_t net = ((int32_t)baseline - (int32_t)getFreeRamMemory()) - refDelta;
