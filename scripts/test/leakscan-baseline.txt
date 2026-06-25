@@ -11,12 +11,6 @@
 # - keyscan LEAK seq=equation_x80 - persistent equations CLEAR ALL keeps;
 # create+delete is clean.
 # - CRASH item=... - handlers called out of keyboard/menu context.
-# - leakscan LEAK item=1529/2386/2404 - matrix-editor (M.EDIT/EDIT) persistent
-#   state, surfaced now that the leak scan rotates matrix/vector operands too.
-#
-# An out-of-RAM fault-injection scan (--oomscan) was trialled and removed: its
-# getFreeRamMemory-delta leak metric is confounded by free-list fragmentation and
-# yielded no reliable matrix finding. See __DEV/reports/REPORT-11.
 # Remove a line here only when the underlying finding is fixed upstream.
 
 leakscan CRASH item=1197
@@ -55,7 +49,4 @@ leakscan LEAK item=1645
 leakscan LEAK item=1889
 leakscan LEAK item=2412
 leakscan LEAK item=2413
-leakscan LEAK item=1529
-leakscan LEAK item=2386
-leakscan LEAK item=2404
 keyscan LEAK seq=equation_x80

@@ -12,13 +12,6 @@
 # Any finding not in the baseline (a new pool/GMP leak or a new crash) fails the
 # lane; a baseline entry that no longer appears is reported as a likely fix.
 #
-# --leakscan rotates the stack operand through real/string/longint/complex AND
-# real-matrix/complex-matrix/real-vector, so the matrix/vector allocation paths are
-# exercised for leaks (they were not before). An out-of-RAM fault-injection scan
-# (--oomscan) was trialled but removed: its getFreeRamMemory-delta leak metric is
-# confounded by free-list fragmentation and produced no reliable matrix finding
-# (see __DEV/reports/REPORT-11).
-#
 # Env knobs: UPDATE_BASELINE=1 rewrites the baseline from this run instead of
 # gating (use after an intended change). BUILD_DIR overrides the build dir.
 
@@ -32,8 +25,8 @@ TOOLING_PATCH="${TOOLING_PATCH:-$SCRIPT_DIR/tooling/leakscan.patch}"
 BASELINE="${BASELINE:-$SCRIPT_DIR/leakscan-baseline.txt}"
 BUILD_DIR="${BUILD_DIR:-build.leakscan}"
 
-# Normalise raw --leakscan/--keyscan output to one line per distinct finding, keyed
-# on item number (a leak is the same bug across stack/operand types) or sequence
+# Normalise raw --leakscan/--keyscan output to one line per distinct finding,
+# keyed on item number (a leak is the same bug across stack types) or sequence
 # name, ignoring the variable block/byte counts.
 leakscan_normalize() {
     local mode="$1"

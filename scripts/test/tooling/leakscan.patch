@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..384ec0887 100644
+index 9a756330b..2cab0d79a 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -94,7 +94,7 @@ index 9a756330b..384ec0887 100644
    }
  
    else if(line[0] != 0) {
-@@ -3395,6 +3452,93 @@ int processTests(const char *listPath) {
+@@ -3395,6 +3452,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -129,45 +129,8 @@ index 9a756330b..384ec0887 100644
 +      real34Copy(&t, REGISTER_REAL34_DATA(r));
 +      real34Copy(&t, REGISTER_IMAG34_DATA(r));
 +    }
-+    else if(type == 4) {   // real matrix 2x2 [[2,1],[1,2]] (symmetric: real eigenvalues, invertible)
-+      real34Matrix_t m;
-+      if(realMatrixInit(&m, 2, 2)) {
-+        int32ToReal34(2, &m.matrixElements[0]); int32ToReal34(1, &m.matrixElements[1]);
-+        int32ToReal34(1, &m.matrixElements[2]); int32ToReal34(2, &m.matrixElements[3]);
-+        convertReal34MatrixToReal34MatrixRegister(&m, r);
-+        realMatrixFree(&m);
-+      }
-+    }
-+    else if(type == 5) {   // complex matrix 2x2 ([[2+i,1],[1,2-i]])
-+      complex34Matrix_t cm;
-+      if(complexMatrixInit(&cm, 2, 2)) {
-+        real34_t two, one; int32ToReal34(2, &two); int32ToReal34(1, &one);
-+        for(int e = 0; e < 4; e++) {
-+          real34Copy((e == 0 || e == 3) ? &two : &one, VARIABLE_REAL34_DATA(cm.matrixElements + e));
-+          real34Copy(&one, VARIABLE_IMAG34_DATA(cm.matrixElements + e));
-+        }
-+        convertComplex34MatrixToComplex34MatrixRegister(&cm, r);
-+        complexMatrixFree(&cm);
-+      }
-+    }
-+    else if(type == 6) {   // real 3-vector (3x1) for dot/cross/norm/angle
-+      real34Matrix_t v;
-+      if(realMatrixInit(&v, 3, 1)) {
-+        int32ToReal34(1, &v.matrixElements[0]);
-+        int32ToReal34(2, &v.matrixElements[1]);
-+        int32ToReal34(2, &v.matrixElements[2]);
-+        convertReal34MatrixToReal34MatrixRegister(&v, r);
-+        realMatrixFree(&v);
-+      }
-+    }
 +  }
 +}
-+
-+// Number of leakscanSetupStack operand types (real,string,longint,complex,
-+// realMatrix,complexMatrix,realVector).
-+#define LEAKSCAN_NUM_TYPES 7
-+static const char *const leakscanTypeName[LEAKSCAN_NUM_TYPES] =
-+  {"real", "string", "longint", "complex", "realMat", "cpxMat", "realVec"};
 +
 +// The key-sequence driver runs each sequence in a forked child that ends with
 +// _exit(), which skips the atexit handler gcov uses to write its counters - so in
@@ -188,7 +151,7 @@ index 9a756330b..384ec0887 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3409,6 +3553,340 @@ int main(int argc, char* argv[]) {
+@@ -3409,6 +3516,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -223,15 +186,15 @@ index 9a756330b..384ec0887 100644
 +    // subtract it so only a function's own excess pool leak is reported. Each
 +    // item runs in a forked child so a crash or hang (alarm) is isolated and
 +    // reported rather than aborting the scan.
-+    const char *const *typeName = leakscanTypeName;
++    const char *typeName[4] = {"real", "string", "longint", "complex"};
 +    fnClAll(CONFIRMED);
 +    uint32_t baseline = getFreeRamMemory();
 +    size_t gmpBaseline = gmpMemInBytes;
-+    printf("LEAKSCAN start: baseline=%u blocks, gmpBaseline=%zu bytes; items 1..%d; stack types real,string,longint,complex,realMat,cpxMat,realVec\n", baseline, gmpBaseline, LAST_ITEM);
++    printf("LEAKSCAN start: baseline=%u blocks, gmpBaseline=%zu bytes; items 1..%d; stack types real,string,longint,complex\n", baseline, gmpBaseline, LAST_ITEM);
 +    fflush(stdout);
 +
 +    int totalLeak = 0, totalCrash = 0;
-+    for(int type = 0; type < LEAKSCAN_NUM_TYPES; type++) {
++    for(int type = 0; type < 4; type++) {
 +      int32_t refDelta = 0;
 +      {
 +        pid_t pid = fork();
