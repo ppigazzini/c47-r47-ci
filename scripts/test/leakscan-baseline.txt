@@ -20,10 +20,12 @@
 # - oomscan LEAK item=1456/1457 EIGVAL/EIGVEC - leak intermediate matrices when an
 #   allocation fails part-way; the upstream EIG leak fix did not free on this path.
 # - oomscan LEAK item=105/1461/1535/1646/1702/1745/1751/2472 - MAGNITUDE, ENORM,
-#   M.LU, M.QR, |M|, VANGLE, >DET<, vector-dist: same intermediate-leak class.
-# - oomscan CRASH item=105 - MAGNITUDE additionally NULL-derefs on the failure path
-#   (ASan-confirmed); reported non-deterministically by the plain build (heap
-#   layout), so it is baselined whether or not a given run reproduces it.
+#   M.LU, M.QR, |M|, VANGLE, >DET<, vector-dist: same intermediate-leak class
+#   (REPORT-11 BUG-11.1, confirmed on both plain and ASan builds).
+# - oomscan CRASH item=105 - UNCONFIRMED. The plain build intermittently SIGSEGVs
+#   here, but it does NOT reproduce under ASan (the authority for memory faults),
+#   so it is not a confirmed bug - baselined defensively so an occasional plain-run
+#   occurrence does not fail the gate. See REPORT-11 section 5.
 # - leakscan LEAK item=1529/2386/2404 - matrix-editor (M.EDIT/EDIT) persistent
 #   state, surfaced now that the leak scan rotates matrix/vector operands too.
 # Remove a line here only when the underlying finding is fixed upstream.
