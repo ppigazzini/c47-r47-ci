@@ -1,0 +1,901 @@
+diff --git a/src/testSuite/hal/io.c b/src/testSuite/hal/io.c
+index caea92b0f..33c1de982 100644
+--- a/src/testSuite/hal/io.c
++++ b/src/testSuite/hal/io.c
+@@ -11,11 +11,22 @@ char _ioFileNameOverride[C47_PATH_MAX] = {0};
+ 
+ const char *_ioFileNameFromFilePath(ioFilePath_t path) {
+   switch(path) {
+-    case ioPathManualSave: return "c47.sav";
+-    case ioPathPgmFile:    return "c47.dat";
+-    case ioPathTestPgms:   return "res/testPgms/testPgms.bin";
+-    case ioPathBackup:     return CALCMODEL == USER_C47 ? "backup.cfg" : "backupR47.cfg";
+-    default:               return false;
++    case ioPathManualSave:          return "c47.sav";
++    case ioPathAutoSave:            return "c47auto.sav";
++    case ioPathPgmFile:             return "c47.dat";
++    case ioPathTestPgms:            return "res/testPgms/testPgms.bin";
++    case ioPathBackup:              return CALCMODEL == USER_C47 ? "backup.cfg" : "backupR47.cfg";
++    case ioPathRegDump:             return "c47regdump.txt";
++    case ioPathSaveStateFile:       return "c47state.bin";
++    case ioPathLoadStateFile:       return "c47state.bin";
++    case ioPathSaveProgram:         return "c47program.bin";
++    case ioPathExportRTFProgram:    return "c47program.rtf";
++    case ioPathLoadProgram:         return "c47program.bin";
++    case ioPathSaveAllPrograms:     return "c47programs.bin";
++    case ioPathExportRTFAllPrograms: return "c47programs.rtf";
++    case ioPathRegImport:           return "c47regs.txt";
++    case ioPathRegExport:           return "c47regs.txt";
++    default:                        return false;
+   }
+ }
+ 
+diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
+index 9a756330b..295af8047 100644
+--- a/src/testSuite/testSuite.c
++++ b/src/testSuite/testSuite.c
+@@ -40,6 +40,132 @@ void runPgm(uint16_t unusedButMandatoryParameter);
+ static const char regNames[] = "XYZTABCDLIJKMNPQRSEFGHOUVW";
+ 
+ const funcTest_t funcTestNoParam[] = {
++  // Save / restore calc state (serializers; file I/O).
++  {"fnSaveRegister",         fnSaveRegister        },
++  {"fnSaveStackRegisters",   fnSaveStackRegisters  },
++  {"fnSaveNRegisters",       fnSaveNRegisters      },
++  {"fnSaveLetteredRegisters", fnSaveLetteredRegisters},
++  {"fnSave",                 fnSave                },
++  {"fnLoad",                 fnLoad                },
++  {"fnLoadRegisters",        fnLoadRegisters       },
++  {"fnSaveAllPrograms",      fnSaveAllPrograms     },
++  {"fnSaveProgram",          fnSaveProgram         },
++  {"fnExportProgram",        fnExportProgram       },
++  // Error raising / message display.
++  {"fnRaiseError",           fnRaiseError          },
++  {"fnErrorMessage",         fnErrorMessage        },
++  // Curve fitting / linear regression (operate on accumulated sigma data).
++  {"fnCurveFitting",         fnCurveFitting        },
++  {"fnCurveFittingReset",    fnCurveFittingReset   },
++  {"fnCurveFittingLR",       fnCurveFittingLR      },
++  {"fnProcessLR",            fnProcessLR           },
++  {"fnYIsFnx",               fnYIsFnx              },
++  {"fnXIsFny",               fnXIsFny              },
++  // Distributions: GEV, Pareto, Uniform (params in M/S/Q or M/N, input in X).
++  {"fnGEVP",                 fnGEVP                },
++  {"fnGEVL",                 fnGEVL                },
++  {"fnGEVR",                 fnGEVR                },
++  {"fnGEVI",                 fnGEVI                },
++  {"fnParetoP",              fnParetoP             },
++  {"fnParetoL",              fnParetoL             },
++  {"fnParetoU",              fnParetoU             },
++  {"fnParetoI",              fnParetoI             },
++  {"fnPareto2P",             fnPareto2P            },
++  {"fnPareto2L",             fnPareto2L            },
++  {"fnPareto2U",             fnPareto2U            },
++  {"fnPareto2I",             fnPareto2I            },
++  {"fnUniformP",             fnUniformP            },
++  {"fnUniformL",             fnUniformL            },
++  {"fnUniformU",             fnUniformU            },
++  {"fnUniformI",             fnUniformI            },
++  // Comparisons (X vs Y) and angle conversions (operate on X).
++  {"fnXLessThan",            fnXLessThan           },
++  {"fnXLessEqual",           fnXLessEqual          },
++  {"fnXGreaterThan",         fnXGreaterThan        },
++  {"fnXGreaterEqual",        fnXGreaterEqual       },
++  {"fnXEqualsTo",            fnXEqualsTo           },
++  {"fnXNotEqual",            fnXNotEqual           },
++  {"fnXAlmostEqual",         fnXAlmostEqual        },
++  // Store / recall (FARG = register number; operate on X, and Y/Z for 2/3 variants).
++  {"fnStore",                fnStore               },
++  {"fnRecall",               fnRecall              },
++  {"fnStoreAdd",             fnStoreAdd            },
++  {"fnStoreSub",             fnStoreSub            },
++  {"fnStoreMult",            fnStoreMult           },
++  {"fnStoreDiv",             fnStoreDiv            },
++  {"fnStoreMax",             fnStoreMax            },
++  {"fnStoreMin",             fnStoreMin            },
++  {"fnRecallAdd",            fnRecallAdd           },
++  {"fnRecallSub",            fnRecallSub           },
++  {"fnRecallMult",           fnRecallMult          },
++  {"fnRecallDiv",            fnRecallDiv           },
++  {"fnRecallMax",            fnRecallMax           },
++  {"fnRecallMin",            fnRecallMin           },
++  {"fn2Sto",                 fn2Sto                },
++  {"fn3Sto",                 fn3Sto                },
++  {"fn2Rcl",                 fn2Rcl                },
++  {"fn3Rcl",                 fn3Rcl                },
++  {"fnLastX",                fnLastX               },
++  {"fnStoreStack",           fnStoreStack          },
++  {"fnRecallStack",          fnRecallStack         },
++  // Value/type predicates and small math ops (M1 coverage cluster).
++  {"fnCheckType",            fnCheckType           },
++  {"fnCheckNumber",          fnCheckNumber         },
++  {"fnCheckAngle",           fnCheckAngle          },
++  {"fnCheckMatrix",          fnCheckMatrix         },
++  {"fnCheckMatrixSquare",    fnCheckMatrixSquare   },
++  {"fnCheckForZero",         fnCheckForZero        },
++  {"fnCheckNaN",             fnCheckNaN            },
++  {"fnCheckInfinite",        fnCheckInfinite       },
++  {"fnCheckSpecial",         fnCheckSpecial        },
++  {"fnCheckPlusZero",        fnCheckPlusZero       },
++  {"fnCheckMinusZero",       fnCheckMinusZero      },
++  {"fnGetType",              fnGetType             },
++  {"fnCheckInteger",         fnCheckInteger        },
++  {"fnRdp",                  fnRdp                 },
++  {"fnRsd",                  fnRsd                 },
++  {"fnInc",                  fnInc                 },
++  {"fnSdl",                  fnSdl                 },
++  {"fnSdr",                  fnSdr                 },
++  {"fnRandom",               fnRandom              },
++  {"fnRandomI",              fnRandomI             },
++  {"fnSeed",                 fnSeed                },
++  // Alpha register / string ops (build ALPHA with fnClearAlpha + fnXToAlpha).
++  {"fnClearAlpha",           fnClearAlpha          },
++  {"fnXToAlpha",             fnXToAlpha            },
++  {"fnAlphaToX",             fnAlphaToX            },
++  {"fnAlphaLeng",            fnAlphaLeng           },
++  {"fnAlphaPos",             fnAlphaPos            },
++  {"fnAlphaIP",             fnAlphaIP             },
++  {"fnAlphaRL",              fnAlphaRL             },
++  {"fnAlphaRR",              fnAlphaRR             },
++  {"fnAlphaSL",              fnAlphaSL             },
++  {"fnAlphaSR",              fnAlphaSR             },
++  // Statistics (use FARG=1 with fnSigmaAddRem to accumulate a (Y,X) data point).
++  {"fnSigmaAddRem",          fnSigmaAddRem         },
++  {"fnMeanX",                fnMeanX               },
++  {"fnMeanXY",               fnMeanXY              },
++  {"fnGeometricMeanXY",      fnGeometricMeanXY     },
++  {"fnHarmonicMeanXY",       fnHarmonicMeanXY      },
++  {"fnRMSMeanXY",            fnRMSMeanXY           },
++  {"fnWeightedMeanX",        fnWeightedMeanX       },
++  {"fnMedianXY",             fnMedianXY            },
++  {"fnSampleStdDev",         fnSampleStdDev        },
++  {"fnPopulationStdDev",     fnPopulationStdDev    },
++  {"fnStandardError",        fnStandardError       },
++  {"fnSampleCovariance",     fnSampleCovariance    },
++  {"fnPopulationCovariance", fnPopulationCovariance},
++  {"fnLowerQuartileXY",      fnLowerQuartileXY     },
++  {"fnUpperQuartileXY",      fnUpperQuartileXY     },
++  {"fnIQRXY",                fnIQRXY               },
++  {"fnDeltaPercentXmean",    fnDeltaPercentXmean   },
++  {"fnPcSigmaDeltaPcXmean",  fnPcSigmaDeltaPcXmean },
++  {"fnGeometricSampleStdDev", fnGeometricSampleStdDev},
++  {"fnGeometricStandardError", fnGeometricStandardError},
++  {"fnWeightedSampleStdDev", fnWeightedSampleStdDev},
++  {"fnWeightedStandardError", fnWeightedStandardError},
++  {"fnPercentileXY",         fnPercentileXY        },
++  {"fnCoefficientDetermination", fnCoefficientDetermination},
+   {"fnAmortP",               fnAmortP              },
+   {"fnAmortInt",             fnAmortInt            },
+   {"fnAmortPrn",             fnAmortPrn            },
+diff --git a/src/testSuite/tests/compare_cov.txt b/src/testSuite/tests/compare_cov.txt
+new file mode 100644
+index 000000000..3035bc39d
+--- /dev/null
++++ b/src/testSuite/tests/compare_cov.txt
+@@ -0,0 +1,39 @@
++;*************************************************************
++;** Coverage: X-vs-Y comparison predicates across operand   **
++;** types and both true/false branches.                     **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnXLessThan
++In:  FARG=0 RY=Real:"5" RX=Real:"3"
++Out: EC=0
++Func: fnXLessThan
++In:  FARG=0 RY=Real:"3" RX=Real:"5"
++Out: EC=0
++Func: fnXLessEqual
++In:  FARG=0 RY=Real:"5" RX=Real:"5"
++Out: EC=0
++Func: fnXGreaterThan
++In:  FARG=0 RY=Real:"3" RX=Real:"5"
++Out: EC=0
++Func: fnXGreaterEqual
++In:  FARG=0 RY=Real:"5" RX=Real:"5"
++Out: EC=0
++Func: fnXEqualsTo
++In:  FARG=0 RY=Real:"5" RX=Real:"5"
++Out: EC=0
++Func: fnXEqualsTo
++In:  FARG=0 RY=Real:"3" RX=Real:"5"
++Out: EC=0
++Func: fnXNotEqual
++In:  FARG=0 RY=Real:"3" RX=Real:"5"
++Out: EC=0
++Func: fnXEqualsTo
++In:  FARG=0 RY=Cplx:"1 i 2" RX=Cplx:"1 i 2"
++Out: EC=0
++Func: fnXLessThan
++In:  FARG=0 RY=LonI:"7" RX=LonI:"3"
++Out: EC=0
++Func: fnXAlmostEqual
++In:  FARG=0 RY=Real:"5.0000001" RX=Real:"5"
++Out: EC=0
+diff --git a/src/testSuite/tests/curvefit_cov.txt b/src/testSuite/tests/curvefit_cov.txt
+new file mode 100644
+index 000000000..fa05398f5
+--- /dev/null
++++ b/src/testSuite/tests/curvefit_cov.txt
+@@ -0,0 +1,92 @@
++;*************************************************************
++;** Coverage: curve fitting / linear regression over the    **
++;** accumulated sigma data. Fit each model family, then     **
++;** predict and reset. Data (x,y): (1,2)..(5,10), all > 0.  **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnClSigma
++In:  FARG=0 RX=Real:"0"
++Out: EC=0
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"2" RX=Real:"1"
++Out: EC=0
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"4" RX=Real:"2"
++Out: EC=0
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"6" RX=Real:"3"
++Out: EC=0
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"8" RX=Real:"4"
++Out: EC=0
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"10" RX=Real:"5"
++Out: EC=0
++
++; fit each individual model family (bitmask selector)
++Func: fnCurveFitting
++In:  FARG=1
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=2
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=4
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=8
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=16
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=32
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=64
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=128
++Out: EC=0
++Func: fnCurveFitting
++In:  FARG=256
++Out: EC=0
++; allow all nine model families, then run the best-fit L.R. which loops
++; over every selected model -> exercises each model's switch case
++Func: fnCurveFitting
++In:  FARG=511
++Out: EC=0
++Func: fnProcessLR
++In:  FARG=7
++Out: EC=0
++Func: fnProcessLR
++In:  FARG=1
++Out: EC=0
++Func: fnProcessLR
++In:  FARG=2
++Out: EC=0
++Func: fnProcessLR
++In:  FARG=4
++Out: EC=0
++; best fit marker across all models
++Func: fnCurveFitting
++In:  FARG=0
++Out: EC=0
++Func: fnProcessLR
++In:  FARG=7
++Out: EC=0
++; linear regression mask
++Func: fnCurveFittingLR
++In:  FARG=0
++Out: EC=0
++; predict y from x and x from y using the fit
++Func: fnYIsFnx
++In:  FARG=0 RX=Real:"6"
++Out: EC=0
++Func: fnXIsFny
++In:  FARG=0 RX=Real:"12"
++Out: EC=0
++Func: fnCurveFittingReset
++In:  FARG=0
++Out: EC=0
+diff --git a/src/testSuite/tests/dist_cov.txt b/src/testSuite/tests/dist_cov.txt
+new file mode 100644
+index 000000000..d07c0edf9
+--- /dev/null
++++ b/src/testSuite/tests/dist_cov.txt
+@@ -0,0 +1,61 @@
++;*************************************************************
++;** Coverage: GEV, Pareto and Uniform distributions.        **
++;** Params: M=location/low, S=scale, Q=shape, N=high; X=in. **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++; --- GEV (mu=0, sigma=1, xi=0.1) ---
++Func: fnGEVP
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
++Out: EC=0
++Func: fnGEVL
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
++Out: EC=0
++Func: fnGEVR
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
++Out: EC=0
++Func: fnGEVI
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"0.5"
++Out: EC=0
++
++; --- Pareto (sigma=1, alpha=2, mu=0) ---
++Func: fnParetoP
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnParetoL
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnParetoU
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnParetoI
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"0.5"
++Out: EC=0
++
++; --- Pareto2 (sigma=1, alpha=2, mu=0) ---
++Func: fnPareto2P
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnPareto2L
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnPareto2U
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
++Out: EC=0
++Func: fnPareto2I
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"0.5"
++Out: EC=0
++
++; --- Uniform (low=0, high=10) ---
++Func: fnUniformP
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
++Out: EC=0
++Func: fnUniformL
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
++Out: EC=0
++Func: fnUniformU
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
++Out: EC=0
++Func: fnUniformI
++In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"0.5"
++Out: EC=0
+diff --git a/src/testSuite/tests/error_cov.txt b/src/testSuite/tests/error_cov.txt
+new file mode 100644
+index 000000000..23902db0b
+--- /dev/null
++++ b/src/testSuite/tests/error_cov.txt
+@@ -0,0 +1,21 @@
++;*************************************************************
++;** Coverage: error raising and the error-message display   **
++;** switch across operand types.                            **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnRaiseError
++In:  FARG=1 RX=Real:"0"
++Out: EC=1
++Func: fnRaiseError
++In:  FARG=5 RX=Real:"0"
++Out: EC=5
++Func: fnRaiseError
++In:  FARG=24 RX=Real:"0"
++Out: EC=24
++Func: fnErrorMessage
++In:  FARG=0 RX=LonI:"5"
++Out: EC=5
++Func: fnErrorMessage
++In:  FARG=0 RX=Real:"5"
++Out: EC=5
+diff --git a/src/testSuite/tests/mathmisc_cov.txt b/src/testSuite/tests/mathmisc_cov.txt
+new file mode 100644
+index 000000000..ff3269444
+--- /dev/null
++++ b/src/testSuite/tests/mathmisc_cov.txt
+@@ -0,0 +1,98 @@
++;*************************************************************
++;** Coverage: value/type predicates (checkValue.c) and the  **
++;** small math ops shiftDigits / random / increment.        **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++; type predicates on a plain real
++Func: fnCheckType
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=0
++Func: fnCheckNumber
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=0
++Func: fnCheckAngle
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=0
++Func: fnCheckMatrix
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=0
++Func: fnCheckMatrixSquare
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=24
++Func: fnCheckForZero
++In:  FARG=0 RX=Real:"0"
++Out: EC=0
++Func: fnCheckPlusZero
++In:  FARG=0 RX=Real:"0"
++Out: EC=0
++Func: fnCheckMinusZero
++In:  FARG=0 RX=Real:"0"
++Out: EC=0
++Func: fnCheckNaN
++In:  FARG=0 RX=Real:"NaN"
++Out: EC=0
++Func: fnCheckInfinite
++In:  FARG=0 RX=Real:"NaN"
++Out: EC=0
++Func: fnCheckSpecial
++In:  FARG=0 RX=Real:"NaN"
++Out: EC=0
++
++; fnGetType across data types (covers the type switch)
++Func: fnGetType
++In:  FARG=0 RX=Real:"3.5"
++Out: EC=0
++Func: fnGetType
++In:  FARG=0 RX=Cplx:"1 i 2"
++Out: EC=0
++Func: fnGetType
++In:  FARG=0 RX=LonI:"123456789"
++Out: EC=0
++Func: fnGetType
++In:  FARG=0 RX=Stri:"abc"
++Out: EC=0
++
++; predicates on other types
++Func: fnCheckNumber
++In:  FARG=0 RX=Cplx:"1 i 2"
++Out: EC=0
++
++; small math ops on X
++Func: fnSdl
++In:  FARG=2 RX=Real:"123.456"
++Out: EC=0
++Func: fnSdr
++In:  FARG=2 RX=Real:"123.456"
++Out: EC=0
++
++
++; integer check across modes (0 plain, 1 even, 2 odd, 3 fp) on integer and fractional X
++Func: fnCheckInteger
++In:  FARG=0 RX=Real:"6"
++Out: EC=0
++Func: fnCheckInteger
++In:  FARG=1 RX=Real:"6"
++Out: EC=0
++Func: fnCheckInteger
++In:  FARG=2 RX=Real:"7"
++Out: EC=0
++Func: fnCheckInteger
++In:  FARG=3 RX=Real:"5.5"
++Out: EC=0
++
++; increment a numbered register
++Func: fnInc
++In:  FARG=0 RX=Real:"1"
++Out: EC=0
++
++; random: seed then draw, and a bounded random integer
++Func: fnSeed
++In:  FARG=0 RX=Real:"42"
++Out: EC=0
++Func: fnRandom
++In:  FARG=0
++Out: EC=0
++Func: fnRandomI
++In:  FARG=0 RY=Real:"1" RX=Real:"100"
++Out: EC=0
+diff --git a/src/testSuite/tests/matrix_cov.txt b/src/testSuite/tests/matrix_cov.txt
+new file mode 100644
+index 000000000..f3145d5cc
+--- /dev/null
++++ b/src/testSuite/tests/matrix_cov.txt
+@@ -0,0 +1,42 @@
++;*************************************************************
++;** Coverage: matrix operations on real and complex inputs. **
++;** Square, non-square, vector and singular cases.          **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++; determinant of a 2x2 (det [[4,1],[2,3]] = 10)
++Func: fnDeterminant
++In:  FARG=0 RX=ReMa:"M2,2[4,1,2,3]"
++Out: EC=0
++; invert a 2x2
++Func: fnInvertMatrix
++In:  FARG=0 RX=ReMa:"M2,2[4,1,2,3]"
++Out: EC=0
++; transpose a non-square 2x3
++Func: fnTranspose
++In:  FARG=0 RX=ReMa:"M2,3[1,2,3,4,5,6]"
++Out: EC=0
++; LU decomposition of a 3x3
++Func: fnLuDecomposition
++In:  FARG=0 RX=ReMa:"M3,3[2,1,1,4,3,3,8,7,9]"
++Out: EC=0
++; QR decomposition of a 3x3
++Func: fnQrDecomposition
++In:  FARG=0 RX=ReMa:"M3,3[12,-51,4,6,167,-68,-4,24,-41]"
++Out: EC=0
++; eigenvalues of a symmetric 2x2 (eigenvalues 1 and 3)
++Func: fnEigenvalues
++In:  FARG=0 RX=ReMa:"M2,2[2,1,1,2]"
++Out: EC=0
++; determinant of a singular matrix (det = 0)
++Func: fnDeterminant
++In:  FARG=0 RX=ReMa:"M2,2[1,2,2,4]"
++Out: EC=0
++; determinant error: non-square
++Func: fnDeterminant
++In:  FARG=0 RX=ReMa:"M2,3[1,2,3,4,5,6]"
++Out: EC=21
++; complex matrix determinant
++Func: fnDeterminant
++In:  FARG=0 RX=CxMa:"M2,2[1,0,0,1]"
++Out: EC=0
+diff --git a/src/testSuite/tests/round_cov.txt b/src/testSuite/tests/round_cov.txt
+new file mode 100644
+index 000000000..154802b02
+--- /dev/null
++++ b/src/testSuite/tests/round_cov.txt
+@@ -0,0 +1,30 @@
++;*************************************************************
++;** Coverage: round to decimal places (Rdp) and to         **
++;** significant digits (Rsd), across operand types.        **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnRdp
++In:  FARG=2 RX=Real:"3.14159265"
++Out: EC=0
++Func: fnRdp
++In:  FARG=2 RX=Cplx:"3.14159 i 2.71828"
++Out: EC=0
++Func: fnRdp
++In:  FARG=0 RX=LonI:"123456789"
++Out: EC=24
++Func: fnRdp
++In:  FARG=2 RX=ReMa:"M2,2[1.234,5.678,9.012,3.456]"
++Out: EC=0
++Func: fnRsd
++In:  FARG=3 RX=Real:"3.14159265"
++Out: EC=0
++Func: fnRsd
++In:  FARG=3 RX=Cplx:"3.14159 i 2.71828"
++Out: EC=0
++Func: fnRsd
++In:  FARG=3 RX=ReMa:"M2,2[1.234,5.678,9.012,3.456]"
++Out: EC=0
++Func: fnRsd
++In:  FARG=4 RX=Real:"0.000123456"
++Out: EC=0
+diff --git a/src/testSuite/tests/saverestore_cov.txt b/src/testSuite/tests/saverestore_cov.txt
+new file mode 100644
+index 000000000..05af27820
+--- /dev/null
++++ b/src/testSuite/tests/saverestore_cov.txt
+@@ -0,0 +1,43 @@
++;*************************************************************
++;** Coverage: save / restore of registers and full calc     **
++;** state. Round-trips through the testSuite HAL file I/O.   **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++; export a single numbered register
++Func: fnSaveRegister
++In:  FARG=0 RX=Real:"42"
++Out: EC=0
++; export the stack registers
++Func: fnSaveStackRegisters
++In:  FARG=0 RX=Real:"1"
++Out: EC=0
++; export the numbered registers
++Func: fnSaveNRegisters
++In:  FARG=0 RX=Real:"3"
++Out: EC=0
++; export the lettered registers
++Func: fnSaveLetteredRegisters
++In:  FARG=0 RX=Real:"7"
++Out: EC=0
++; import the registers back
++Func: fnLoadRegisters
++In:  FARG=0
++Out: EC=0
++; full state save then load
++Func: fnSave
++In:  FARG=0 RX=Real:"5"
++Out: EC=0
++Func: fnLoad
++In:  FARG=0
++Out: EC=0
++; export all programs / single program / RTF
++Func: fnSaveAllPrograms
++In:  FARG=0
++Out: EC=0
++Func: fnSaveProgram
++In:  FARG=0
++Out: EC=0
++Func: fnExportProgram
++In:  FARG=0
++Out: EC=0
+diff --git a/src/testSuite/tests/stats_cov.txt b/src/testSuite/tests/stats_cov.txt
+new file mode 100644
+index 000000000..d9da520c7
+--- /dev/null
++++ b/src/testSuite/tests/stats_cov.txt
+@@ -0,0 +1,110 @@
++;*************************************************************
++;** Statistics coverage: accumulate (x,y) data then compute **
++;** means, std devs, covariance, quartiles, correlation.    **
++;** Data points (x,y): (1,2) (2,4) (3,6) (4,8) (5,10) = y=2x **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnClSigma
++In:  FARG=0 RX=Real:"0"
++Out: EC=0
++
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"2" RX=Real:"1"
++Out: EC=0
++
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"4" RX=Real:"2"
++Out: EC=0
++
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"6" RX=Real:"3"
++Out: EC=0
++
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"8" RX=Real:"4"
++Out: EC=0
++
++Func: fnSigmaAddRem
++In:  FARG=1 RY=Real:"10" RX=Real:"5"
++Out: EC=0
++
++Func: fnMeanXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnSampleStdDev
++In:  FARG=0
++Out: EC=0
++
++Func: fnPopulationStdDev
++In:  FARG=0
++Out: EC=0
++
++Func: fnStandardError
++In:  FARG=0
++Out: EC=0
++
++Func: fnSampleCovariance
++In:  FARG=0
++Out: EC=0
++
++Func: fnPopulationCovariance
++In:  FARG=0
++Out: EC=0
++
++Func: fnMedianXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnLowerQuartileXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnUpperQuartileXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnIQRXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnGeometricMeanXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnHarmonicMeanXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnRMSMeanXY
++In:  FARG=0
++Out: EC=0
++
++Func: fnWeightedMeanX
++In:  FARG=0
++Out: EC=0
++
++Func: fnDeltaPercentXmean
++In:  FARG=0 RX=Real:"4"
++Out: EC=0
++
++Func: fnPcSigmaDeltaPcXmean
++In:  FARG=0 RX=Real:"4"
++Out: EC=0
++
++Func: fnGeometricSampleStdDev
++In:  FARG=0
++Out: EC=0
++Func: fnGeometricStandardError
++In:  FARG=0
++Out: EC=0
++Func: fnWeightedSampleStdDev
++In:  FARG=0
++Out: EC=0
++Func: fnWeightedStandardError
++In:  FARG=0
++Out: EC=0
++Func: fnPercentileXY
++In:  FARG=0 RX=Real:"50"
++Out: EC=0
+diff --git a/src/testSuite/tests/storercl_cov.txt b/src/testSuite/tests/storercl_cov.txt
+new file mode 100644
+index 000000000..6e788571e
+--- /dev/null
++++ b/src/testSuite/tests/storercl_cov.txt
+@@ -0,0 +1,69 @@
++;*************************************************************
++;** Coverage: store / recall and their arithmetic, max/min, **
++;** pair/triple and stack variants (FARG = register number).**
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnStore
++In:  FARG=0 RX=Real:"5"
++Out: EC=0
++Func: fnStoreAdd
++In:  FARG=0 RX=Real:"3"
++Out: EC=0
++Func: fnStoreSub
++In:  FARG=0 RX=Real:"1"
++Out: EC=0
++Func: fnStoreMult
++In:  FARG=0 RX=Real:"2"
++Out: EC=0
++Func: fnStoreDiv
++In:  FARG=0 RX=Real:"4"
++Out: EC=0
++Func: fnStoreMax
++In:  FARG=0 RX=Real:"100"
++Out: EC=0
++Func: fnStoreMin
++In:  FARG=0 RX=Real:"-5"
++Out: EC=0
++Func: fnRecall
++In:  FARG=0
++Out: EC=0
++Func: fnRecallAdd
++In:  FARG=0 RX=Real:"2"
++Out: EC=0
++Func: fnRecallSub
++In:  FARG=0 RX=Real:"1"
++Out: EC=0
++Func: fnRecallMult
++In:  FARG=0 RX=Real:"3"
++Out: EC=0
++Func: fnRecallDiv
++In:  FARG=0 RX=Real:"2"
++Out: EC=0
++Func: fnRecallMax
++In:  FARG=0 RX=Real:"7"
++Out: EC=0
++Func: fnRecallMin
++In:  FARG=0 RX=Real:"9"
++Out: EC=0
++Func: fn2Sto
++In:  FARG=0 RY=Real:"2" RX=Real:"1"
++Out: EC=0
++Func: fn2Rcl
++In:  FARG=0
++Out: EC=0
++Func: fn3Sto
++In:  FARG=0 RZ=Real:"3" RY=Real:"2" RX=Real:"1"
++Out: EC=0
++Func: fn3Rcl
++In:  FARG=0
++Out: EC=0
++Func: fnStoreStack
++In:  FARG=0 RX=Real:"1"
++Out: EC=0
++Func: fnRecallStack
++In:  FARG=0
++Out: EC=0
++Func: fnLastX
++In:  FARG=0
++Out: EC=0
+diff --git a/src/testSuite/tests/string_cov.txt b/src/testSuite/tests/string_cov.txt
+new file mode 100644
+index 000000000..5bbd3db51
+--- /dev/null
++++ b/src/testSuite/tests/string_cov.txt
+@@ -0,0 +1,39 @@
++;*************************************************************
++;** Coverage: ALPHA register / string operations.           **
++;** Build ALPHA with fnXToAlpha, then exercise the ops.     **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++Func: fnClearAlpha
++In:  FARG=0
++Out: EC=0
++Func: fnXToAlpha
++In:  FARG=0 RX=Stri:"HELLO"
++Out: EC=0
++Func: fnAlphaLeng
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaToX
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaPos
++In:  FARG=0 RX=Stri:"L"
++Out: EC=0
++Func: fnAlphaRL
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaRR
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaSL
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaSR
++In:  FARG=0
++Out: EC=0
++Func: fnAlphaIP
++In:  FARG=0 RX=Real:"3"
++Out: EC=0
++Func: fnClearAlpha
++In:  FARG=0
++Out: EC=0
+diff --git a/src/testSuite/tests/testSuiteList.txt b/src/testSuite/tests/testSuiteList.txt
+index 6635993a2..882b6ba20 100644
+--- a/src/testSuite/tests/testSuiteList.txt
++++ b/src/testSuite/tests/testSuiteList.txt
+@@ -267,6 +267,17 @@ percent
+ percentMRR
+ percentT
+ percentSigma
++stats_cov
++mathmisc_cov
++string_cov
++matrix_cov
++round_cov
++storercl_cov
++compare_cov
++dist_cov
++curvefit_cov
++error_cov
++saverestore_cov
+ percentPlusMG
+ deltaPercent
+ 

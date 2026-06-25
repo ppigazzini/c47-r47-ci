@@ -27,6 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/common.sh"
 
 TOOLING_PATCH="${TOOLING_PATCH:-$SCRIPT_DIR/tooling/leakscan.patch}"
+COVERAGE_PATCH="${COVERAGE_PATCH:-$SCRIPT_DIR/tooling/coverage.patch}"
 BUILD_DIR="${BUILD_DIR:-build.coverage}"
 COVERAGE_MIN="${COVERAGE_MIN:-0}"
 
@@ -45,6 +46,22 @@ main() {
     fi
     git -C "$UPSTREAM_DIR" apply "$TOOLING_PATCH"
     harness_log "overlaid leak-scanner tooling (for --keyscan/--leakscan)"
+
+    # Overlay the coverage corpus extension on top of the leak-scanner tooling: it
+    # registers ~70 previously-unexposed functions in the testSuite whitelist,
+    # completes the testSuite I/O HAL so the save/restore serializers are testable,
+    # and adds corpus test files (stats / store-recall / compare / distributions /
+    # curve fitting / round / error / save-restore) that lift whole 0% subsystems.
+    # Applies on top of leakscan.patch; regenerate if either side moves.
+    if [[ -f "$COVERAGE_PATCH" ]]; then
+        if ! git -C "$UPSTREAM_DIR" apply --check "$COVERAGE_PATCH" 2> /dev/null; then
+            harness_die "coverage.patch does not apply on upstream $commit (after
+            leakscan.patch); regenerate scripts/test/tooling/coverage.patch from the
+            test/stats-coverage branch rebased onto current upstream"
+        fi
+        git -C "$UPSTREAM_DIR" apply "$COVERAGE_PATCH"
+        harness_log "overlaid coverage corpus extension (whitelist + HAL + tests)"
+    fi
 
     command -v gcovr > /dev/null || harness_die "gcovr not found (pip install gcovr or apt-get install gcovr)"
 
