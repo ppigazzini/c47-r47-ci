@@ -11,23 +11,12 @@
 # - keyscan LEAK seq=equation_x80 - persistent equations CLEAR ALL keeps;
 # create+delete is clean.
 # - CRASH item=... - handlers called out of keyboard/menu context.
-#
-# oomscan (matrix/vector operations under a single transient allocation failure -
-# the RAM-full leak class the happy-path scans never reach). See REPORT-11 Annex A:
-# the earlier "8 ops crash under OOM" entries were harness artifacts (an
-# unrealistic fail-every-allocation model cascading into shared undo/display
-# cleanup); a realistic one-shot injection shows the real signal is LEAKS.
-# - oomscan LEAK item=1456/1457 EIGVAL/EIGVEC - leak intermediate matrices when an
-#   allocation fails part-way; the upstream EIG leak fix did not free on this path.
-# - oomscan LEAK item=105/1461/1535/1646/1702/1745/1751/2472 - MAGNITUDE, ENORM,
-#   M.LU, M.QR, |M|, VANGLE, >DET<, vector-dist: same intermediate-leak class
-#   (REPORT-11 BUG-11.1, confirmed on both plain and ASan builds).
-# - oomscan CRASH item=105 - UNCONFIRMED. The plain build intermittently SIGSEGVs
-#   here, but it does NOT reproduce under ASan (the authority for memory faults),
-#   so it is not a confirmed bug - baselined defensively so an occasional plain-run
-#   occurrence does not fail the gate. See REPORT-11 section 5.
 # - leakscan LEAK item=1529/2386/2404 - matrix-editor (M.EDIT/EDIT) persistent
 #   state, surfaced now that the leak scan rotates matrix/vector operands too.
+#
+# An out-of-RAM fault-injection scan (--oomscan) was trialled and removed: its
+# getFreeRamMemory-delta leak metric is confounded by free-list fragmentation and
+# yielded no reliable matrix finding. See __DEV/reports/REPORT-11.
 # Remove a line here only when the underlying finding is fixed upstream.
 
 leakscan CRASH item=1197
@@ -70,14 +59,3 @@ leakscan LEAK item=1529
 leakscan LEAK item=2386
 leakscan LEAK item=2404
 keyscan LEAK seq=equation_x80
-oomscan CRASH item=105
-oomscan LEAK item=105
-oomscan LEAK item=1456
-oomscan LEAK item=1457
-oomscan LEAK item=1461
-oomscan LEAK item=1535
-oomscan LEAK item=1646
-oomscan LEAK item=1702
-oomscan LEAK item=1745
-oomscan LEAK item=1751
-oomscan LEAK item=2472

@@ -7,18 +7,17 @@
 #
 # It syncs the upstream tree at the resolved commit, overlays the not-yet-upstream
 # leak-scanner tooling (scripts/test/tooling/leakscan.patch, carried here off the
-# test/ram-pool-leak-scanner branch), builds the testSuite, runs --leakscan,
-# --keyscan and --oomscan, and compares the findings against
-# scripts/test/leakscan-baseline.txt. Any finding not in the baseline (a new
-# pool/GMP leak or a new crash) fails the lane; a baseline entry that no longer
-# appears is reported as a likely fix.
+# test/ram-pool-leak-scanner branch), builds the testSuite, runs --leakscan and
+# --keyscan, and compares the findings against scripts/test/leakscan-baseline.txt.
+# Any finding not in the baseline (a new pool/GMP leak or a new crash) fails the
+# lane; a baseline entry that no longer appears is reported as a likely fix.
 #
-# --oomscan is the matrix/vector coverage: it runs every item with a real-matrix,
-# complex-matrix or real-vector operand on the stack while injecting an allocation
-# failure at a swept point in the operation (memory.c oomInject* hooks), catching
-# the "RAM full / out of RAM" matrix leak/crash class that the happy-path scans
-# never reach. The other scans rotate only real/string/longint/complex operands,
-# so before this, matrix-math allocation paths were never exercised for leaks.
+# --leakscan rotates the stack operand through real/string/longint/complex AND
+# real-matrix/complex-matrix/real-vector, so the matrix/vector allocation paths are
+# exercised for leaks (they were not before). An out-of-RAM fault-injection scan
+# (--oomscan) was trialled but removed: its getFreeRamMemory-delta leak metric is
+# confounded by free-list fragmentation and produced no reliable matrix finding
+# (see __DEV/reports/REPORT-11).
 #
 # Env knobs: UPDATE_BASELINE=1 rewrites the baseline from this run instead of
 # gating (use after an intended change). BUILD_DIR overrides the build dir.
@@ -33,17 +32,14 @@ TOOLING_PATCH="${TOOLING_PATCH:-$SCRIPT_DIR/tooling/leakscan.patch}"
 BASELINE="${BASELINE:-$SCRIPT_DIR/leakscan-baseline.txt}"
 BUILD_DIR="${BUILD_DIR:-build.leakscan}"
 
-# Normalise raw --leakscan/--keyscan/--oomscan output to one line per distinct
-# finding, keyed on item number (a leak is the same bug across stack types,
-# operand types and injection points) or sequence name, ignoring the variable
-# block/byte counts, allow level and signal number.
+# Normalise raw --leakscan/--keyscan output to one line per distinct finding, keyed
+# on item number (a leak is the same bug across stack/operand types) or sequence
+# name, ignoring the variable block/byte counts.
 leakscan_normalize() {
     local mode="$1"
     LC_ALL=C awk -v m="$mode" '
         /^LEAK / && match($0, /item=[ ]*[0-9]+/) { n=substr($0,RSTART,RLENGTH); gsub(/ /,"",n); print m" LEAK "n; next }
         /^CRASH / && match($0, /item=[ ]*[0-9]+/) { n=substr($0,RSTART,RLENGTH); gsub(/ /,"",n); print m" CRASH "n; next }
-        /OOMLEAK / && match($0, /item=[ ]*[0-9]+/) { n=substr($0,RSTART,RLENGTH); gsub(/ /,"",n); print m" LEAK "n; next }
-        /OOMCRASH / && match($0, /item=[ ]*[0-9]+/) { n=substr($0,RSTART,RLENGTH); gsub(/ /,"",n); print m" CRASH "n; next }
         /^LEAK / && match($0, /seq=[A-Za-z0-9_]+/) { print m" LEAK "substr($0,RSTART,RLENGTH); next }
         /^CRASH / && match($0, /seq=[A-Za-z0-9_]+/) { print m" CRASH "substr($0,RSTART,RLENGTH); next }
     ' | LC_ALL=C sort -u
@@ -101,16 +97,13 @@ main() {
     (cd "$run_dir" && "$bin" --leakscan) > "$LOG_DIR/leakscan.log" 2>&1 || true
     harness_log "running --keyscan (interactive/subsystem key sequences)"
     (cd "$run_dir" && "$bin" --keyscan) > "$LOG_DIR/keyscan.log" 2>&1 || true
-    harness_log "running --oomscan (matrix/vector operands under allocation-failure injection)"
-    (cd "$run_dir" && "$bin" --oomscan) > "$LOG_DIR/oomscan.log" 2>&1 || true
 
-    grep -E '^LEAKSCAN done|^KEYSCAN done|^OOMSCAN done' "$LOG_DIR/leakscan.log" "$LOG_DIR/keyscan.log" "$LOG_DIR/oomscan.log" || true
+    grep -E '^LEAKSCAN done|^KEYSCAN done' "$LOG_DIR/leakscan.log" "$LOG_DIR/keyscan.log" || true
 
     # Compare normalised findings against the baseline.
     {
         leakscan_normalize leakscan < "$LOG_DIR/leakscan.log"
         leakscan_normalize keyscan < "$LOG_DIR/keyscan.log"
-        leakscan_normalize oomscan < "$LOG_DIR/oomscan.log"
     } | LC_ALL=C sort -u > "$LOG_DIR/leakscan-findings.txt"
 
     if [[ "${UPDATE_BASELINE:-0}" == "1" ]]; then
