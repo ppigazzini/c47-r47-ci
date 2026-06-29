@@ -12,10 +12,10 @@
 # (scripts/test/tooling/leakscan.patch), so --keyscan/--leakscan exist.
 #
 # This lane is report-first: it always publishes the coverage summary, macro
-# sector coverage, and the least-covered leak-prone modules (solver,
-# integrator/mathematics, graphing/ui, program engine), so the next leak hunt can
-# be aimed at the lowest-covered module. Set COVERAGE_MIN to a percentage to
-# additionally gate on overall line coverage.
+# sector coverage, direct function reachability, and the least-covered leak-prone
+# modules (solver, integrator/mathematics, graphing/ui, program engine), so the
+# next leak hunt can be aimed at the lowest-covered module. Set COVERAGE_MIN to a
+# percentage to additionally gate on overall line coverage.
 #
 # Env knobs: COVERAGE_MIN (gate threshold, default 0 = report only). BUILD_DIR
 # overrides the build dir.
@@ -156,7 +156,11 @@ PY
     harness_log "macro sector coverage:"
     python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" | tee "$cov_sectors"
 
-    harness_log "artifacts: $cov_txt , $cov_json , $cov_sectors , $cov_html (and ci-artifacts upload)"
+    local reachability="$LOG_DIR/function-reachability.txt"
+    harness_log "direct function reachability:"
+    python3 "$SCRIPT_DIR/tooling/function-reachability.py" "$UPSTREAM_DIR" | tee "$reachability"
+
+    harness_log "artifacts: $cov_txt , $cov_json , $cov_sectors , $reachability , $cov_html (and ci-artifacts upload)"
 
     # Optional gate: fail if overall line coverage is below COVERAGE_MIN.
     if [[ "$COVERAGE_MIN" != "0" ]]; then

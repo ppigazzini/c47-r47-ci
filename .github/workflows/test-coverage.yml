@@ -3,8 +3,9 @@ name: Coverage Map
 # the toolchain and calls scripts/test/run-coverage.sh, which builds the upstream
 # testSuite with gcc coverage instrumentation, exercises it (the 278-file corpus,
 # --keyscan and --leakscan), and publishes a gcovr coverage map plus the
-# macro-sector report and least-covered leak-prone modules. Report-only by
-# default; set COVERAGE_MIN to gate on overall line coverage.
+# macro-sector report, direct-reachability report, and least-covered leak-prone
+# modules. Report-only by default; set COVERAGE_MIN to gate on overall line
+# coverage.
 
 on:
   workflow_dispatch:

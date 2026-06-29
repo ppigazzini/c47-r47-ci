@@ -21,8 +21,9 @@ machine, so a CI failure is reproducible locally.
   `testmem-baseline.txt`.
 - `run-coverage.sh` - builds the testSuite with gcc coverage,
   exercises it (corpus, `--keyscan`, `--leakscan`), and publishes a gcovr
-  coverage map, macro-sector coverage, and the least-covered leak-prone modules.
-  Report-only by default; set `COVERAGE_MIN` to gate on overall line coverage.
+  coverage map, macro-sector coverage, direct function reachability, and the
+  least-covered leak-prone modules. Report-only by default; set `COVERAGE_MIN`
+  to gate on overall line coverage.
 - `run-fuzz.sh` - builds the libFuzzer harness over
   `decodeOneStep` under clang (ASan gate, UBSan report) and runs a time-boxed
   campaign over a seed corpus, uploading any crash reproducer and the evolved
@@ -45,6 +46,9 @@ machine, so a CI failure is reproducible locally.
   dictionary, applied by the fuzz lane.
 - `tooling/coverage-sectors.py` - summarizes gcovr JSON by macro sector so the
   coverage lane reports CLI-relevant gaps instead of only a global percentage.
+- `tooling/function-reachability.py` - summarizes the effective testSuite
+  `funcTestNoParam[]` whitelist against c47 `LAST_ITEM`, so the coverage lane
+  reports how much of the catalog is directly callable from corpus tests.
 - `tooling/valgrind.supp` - curated Valgrind suppressions (GTK/GLib/GMP noise)
   used by the Valgrind lane.
 - `tooling/cppcheck-suppressions.txt` - confirmed cppcheck false positives
@@ -83,8 +87,9 @@ bash scripts/test/run-smoke.sh
 - `run-leakscan.sh` + `test-leakscan.yml`: pool/GMP leak gate. Done.
 - `run-testmem.sh` + `test-testmem.yml`: per-test pool/GMP attribution. Done.
 - `run-coverage.sh` + `test-coverage.yml`: coverage map over the suite,
-  `--keyscan` and `--leakscan`, with macro-sector reporting. Done (baseline
-  37.5% c47 line coverage before the expanded coverage corpus).
+  `--keyscan` and `--leakscan`, with macro-sector and direct-reachability
+  reporting. Done (baseline 37.5% c47 line coverage before the expanded coverage
+  corpus).
 - `run-fuzz.sh` + `test-fuzz.yml`: libFuzzer over `decodeOneStep`. Done
   (the campaign immediately found a real decoder stack-buffer-overflow).
 - breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 310
