@@ -54,6 +54,8 @@ main() {
     # curve fitting / round / error / save-restore) that lift whole 0% subsystems.
     # Applies on top of leakscan.patch; regenerate if either side moves.
     if [[ -f "$COVERAGE_PATCH" ]]; then
+        python3 "$SCRIPT_DIR/tooling/coverage-patch-audit.py" "$COVERAGE_PATCH" \
+            | tee "$LOG_DIR/coverage-patch-audit.txt"
         if ! git -C "$UPSTREAM_DIR" apply --check "$COVERAGE_PATCH" 2> /dev/null; then
             harness_die "coverage.patch does not apply on upstream $commit (after
             leakscan.patch); regenerate scripts/test/tooling/coverage.patch from the
