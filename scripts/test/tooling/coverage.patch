@@ -646,7 +646,7 @@ new file mode 100644
 index 000000000..d9da520c7
 --- /dev/null
 +++ b/src/testSuite/tests/stats_cov.txt
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,114 @@
 +;*************************************************************
 +;** Statistics coverage: accumulate (x,y) data then compute **
 +;** means, std devs, covariance, quartiles, correlation.    **
@@ -680,7 +680,11 @@ index 000000000..d9da520c7
 +
 +Func: fnMeanXY
 +In:  FARG=0
-+Out: EC=0
++Out: EC=0 RX=Real:"3" RY=Real:"6"
++
++Func: fnMeanX
++In:  FARG=0
++Out: EC=0 RX=Real:"3"
 +
 +Func: fnSampleStdDev
 +In:  FARG=0
@@ -704,7 +708,7 @@ index 000000000..d9da520c7
 +
 +Func: fnMedianXY
 +In:  FARG=0
-+Out: EC=0
++Out: EC=0 RX=Real:"3" RY=Real:"6"
 +
 +Func: fnLowerQuartileXY
 +In:  FARG=0
@@ -756,7 +760,7 @@ index 000000000..d9da520c7
 +Out: EC=0
 +Func: fnPercentileXY
 +In:  FARG=0 RX=Real:"50"
-+Out: EC=0
++Out: EC=0 RX=Real:"3" RY=Real:"6"
 diff --git a/src/testSuite/tests/storercl_cov.txt b/src/testSuite/tests/storercl_cov.txt
 new file mode 100644
 index 000000000..6e788571e
