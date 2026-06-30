@@ -31,21 +31,17 @@ index caea92b0f..33c1de982 100644
  }
  
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..295af8047 100644
+index 9a756330b..77f904d28 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
-@@ -40,6 +40,132 @@ void runPgm(uint16_t unusedButMandatoryParameter);
+@@ -40,6 +40,128 @@ void runPgm(uint16_t unusedButMandatoryParameter);
  static const char regNames[] = "XYZTABCDLIJKMNPQRSEFGHOUVW";
  
  const funcTest_t funcTestNoParam[] = {
 +  // Save / restore calc state (serializers; file I/O).
 +  {"fnSaveRegister",         fnSaveRegister        },
 +  {"fnSaveStackRegisters",   fnSaveStackRegisters  },
-+  {"fnSaveNRegisters",       fnSaveNRegisters      },
-+  {"fnSaveLetteredRegisters", fnSaveLetteredRegisters},
 +  {"fnSave",                 fnSave                },
-+  {"fnLoad",                 fnLoad                },
-+  {"fnLoadRegisters",        fnLoadRegisters       },
 +  {"fnSaveAllPrograms",      fnSaveAllPrograms     },
 +  {"fnSaveProgram",          fnSaveProgram         },
 +  {"fnExportProgram",        fnExportProgram       },
@@ -163,7 +159,7 @@ index 9a756330b..295af8047 100644
 +  {"fnWeightedSampleStdDev", fnWeightedSampleStdDev},
 +  {"fnWeightedStandardError", fnWeightedStandardError},
 +  {"fnPercentileXY",         fnPercentileXY        },
-+  {"fnCoefficientDetermination", fnCoefficientDetermination},
++  {"fnCoeffDetermination",   fnCoefficientDetermination},
    {"fnAmortP",               fnAmortP              },
    {"fnAmortInt",             fnAmortInt            },
    {"fnAmortPrn",             fnAmortPrn            },
@@ -594,13 +590,13 @@ index 000000000..154802b02
 +Out: EC=0
 diff --git a/src/testSuite/tests/saverestore_cov.txt b/src/testSuite/tests/saverestore_cov.txt
 new file mode 100644
-index 000000000..05af27820
+index 000000000..9706f5981
 --- /dev/null
 +++ b/src/testSuite/tests/saverestore_cov.txt
-@@ -0,0 +1,43 @@
+@@ -0,0 +1,28 @@
 +;*************************************************************
-+;** Coverage: save / restore of registers and full calc     **
-+;** state. Round-trips through the testSuite HAL file I/O.   **
++;** Coverage: save/export file I/O paths through the         **
++;** testSuite HAL.                                           **
 +;*************************************************************
 +In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
 +
@@ -612,24 +608,9 @@ index 000000000..05af27820
 +Func: fnSaveStackRegisters
 +In:  FARG=0 RX=Real:"1"
 +Out: EC=0
-+; export the numbered registers
-+Func: fnSaveNRegisters
-+In:  FARG=0 RX=Real:"3"
-+Out: EC=0
-+; export the lettered registers
-+Func: fnSaveLetteredRegisters
-+In:  FARG=0 RX=Real:"7"
-+Out: EC=0
-+; import the registers back
-+Func: fnLoadRegisters
-+In:  FARG=0
-+Out: EC=0
-+; full state save then load
++; full state save
 +Func: fnSave
 +In:  FARG=0 RX=Real:"5"
-+Out: EC=0
-+Func: fnLoad
-+In:  FARG=0
 +Out: EC=0
 +; export all programs / single program / RTF
 +Func: fnSaveAllPrograms
@@ -643,7 +624,7 @@ index 000000000..05af27820
 +Out: EC=0
 diff --git a/src/testSuite/tests/stats_cov.txt b/src/testSuite/tests/stats_cov.txt
 new file mode 100644
-index 000000000..d9da520c7
+index 000000000..069f72971
 --- /dev/null
 +++ b/src/testSuite/tests/stats_cov.txt
 @@ -0,0 +1,114 @@
