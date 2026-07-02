@@ -31,10 +31,10 @@ index caea92b0f..33c1de982 100644
  }
  
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..e8bdaa11f 100644
+index 9a756330b..746a506ad 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
-@@ -40,6 +40,131 @@ void runPgm(uint16_t unusedButMandatoryParameter);
+@@ -40,6 +40,133 @@ void runPgm(uint16_t unusedButMandatoryParameter);
  static const char regNames[] = "XYZTABCDLIJKMNPQRSEFGHOUVW";
  
  const funcTest_t funcTestNoParam[] = {
@@ -135,8 +135,10 @@ index 9a756330b..e8bdaa11f 100644
 +  {"fnAlphaRR",              fnAlphaRR             },
 +  {"fnAlphaSL",              fnAlphaSL             },
 +  {"fnAlphaSR",              fnAlphaSR             },
-+  // Program engine: clear the local variables of the current program (walks the
-+  // loaded program steps; needs res/testPgms/testPgms.bin staged in the CWD).
++  // Program engine: navigate to a global step (selects the current program) and
++  // clear the local variables of the current program (walks the loaded program
++  // steps; needs res/testPgms/testPgms.bin staged in the CWD).
++  {"fnGotoDot",              fnGotoDot             },
 +  {"fnClCVar",               fnClCVar              },
 +  // Statistics (use FARG=1 with fnSigmaAddRem to accumulate a (Y,X) data point).
 +  {"fnSigmaAddRem",          fnSigmaAddRem         },
@@ -168,19 +170,44 @@ index 9a756330b..e8bdaa11f 100644
    {"fnAmortPrn",             fnAmortPrn            },
 diff --git a/src/testSuite/tests/clcvar_cov.txt b/src/testSuite/tests/clcvar_cov.txt
 new file mode 100644
-index 000000000..b42d5159f
+index 000000000..e05885033
 --- /dev/null
 +++ b/src/testSuite/tests/clcvar_cov.txt
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,37 @@
 +;*************************************************************
-+;** Coverage: program-engine clear-local-variables walk.    **
-+;** fnClCVar walks the current program's steps and clears    **
-+;** the referenced local variables/registers. Requires the   **
-+;** sample programs (res/testPgms/testPgms.bin) to be loaded. **
++;** Coverage: program-engine navigation and clear-variables. **
++;** fnGotoDot selects the program containing a global step;   **
++;** fnClCVar then walks the current program and clears its    **
++;** local variables. Sweeping several step numbers visits     **
++;** more than one loaded program. Requires the sample programs **
++;** (res/testPgms/testPgms.bin) to be staged in the CWD, but   **
++;** stays green with no program loaded.                        **
 +;*************************************************************
 +In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
 +
-+; walk the current program and clear its local variables
++; first program
++Func: fnGotoDot
++In:  FARG=1
++Out: EC=0
++Func: fnClCVar
++In:  FARG=0
++Out: EC=0
++; step deeper in the program space (later programs)
++Func: fnGotoDot
++In:  FARG=10
++Out: EC=0
++Func: fnClCVar
++In:  FARG=0
++Out: EC=0
++Func: fnGotoDot
++In:  FARG=30
++Out: EC=0
++Func: fnClCVar
++In:  FARG=0
++Out: EC=0
++Func: fnGotoDot
++In:  FARG=60
++Out: EC=0
 +Func: fnClCVar
 +In:  FARG=0
 +Out: EC=0
