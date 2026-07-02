@@ -4,8 +4,9 @@ name: Coverage Map
 # testSuite with gcc coverage instrumentation, exercises it (the 278-file corpus,
 # --keyscan and --leakscan), audits the carried coverage patch, and publishes a
 # gcovr coverage map plus the macro-sector report, direct-reachability report,
-# and least-covered leak-prone modules. Report-only by default; set COVERAGE_MIN
-# to gate on overall line coverage.
+# and least-covered leak-prone modules. Ratchet-gated: COVERAGE_MIN gates overall
+# line coverage and SECTOR_GATE=1 gates the per-sector floors in
+# scripts/test/coverage-floors.txt, so a coverage regression fails the lane.
 
 on:
   workflow_dispatch:
@@ -26,6 +27,12 @@ jobs:
     timeout-minutes: 60
     env:
       LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+      # Ratchet gates: fail the lane on a coverage regression below the global
+      # floor (COVERAGE_MIN) or any per-sector floor (scripts/test/coverage-floors.txt).
+      # Raising a floor after a corpus lift, or lowering one, is an explicit,
+      # documented change to those files.
+      COVERAGE_MIN: "45"
+      SECTOR_GATE: "1"
     steps:
       - name: Configure Git init defaults
         shell: bash

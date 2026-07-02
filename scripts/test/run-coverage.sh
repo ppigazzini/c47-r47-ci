@@ -17,8 +17,10 @@
 # next leak hunt can be aimed at the lowest-covered module. Set COVERAGE_MIN to a
 # percentage to additionally gate on overall line coverage.
 #
-# Env knobs: COVERAGE_MIN (gate threshold, default 0 = report only). BUILD_DIR
-# overrides the build dir.
+# Env knobs: COVERAGE_MIN (global line-% gate, default 0 = report only),
+# SECTOR_GATE=1 with SECTOR_FLOORS (per-sector floors file, default
+# coverage-floors.txt) to gate sector regressions, BUILD_DIR overrides the build
+# dir.
 
 set -Eeuo pipefail
 
@@ -30,6 +32,10 @@ TOOLING_PATCH="${TOOLING_PATCH:-$SCRIPT_DIR/tooling/leakscan.patch}"
 COVERAGE_PATCH="${COVERAGE_PATCH:-$SCRIPT_DIR/tooling/coverage.patch}"
 BUILD_DIR="${BUILD_DIR:-build.coverage}"
 COVERAGE_MIN="${COVERAGE_MIN:-0}"
+# Per-sector ratchet floors. SECTOR_GATE=1 fails the lane when any sector with a
+# configured floor drops below it (a coverage regression); report-only otherwise.
+SECTOR_FLOORS="${SECTOR_FLOORS:-$SCRIPT_DIR/coverage-floors.txt}"
+SECTOR_GATE="${SECTOR_GATE:-0}"
 
 main() {
     harness_init
@@ -168,7 +174,14 @@ PY
 
     local cov_sectors="$LOG_DIR/coverage-sectors.txt"
     harness_log "macro sector coverage:"
-    python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" | tee "$cov_sectors"
+    # Always publish the sector report. When SECTOR_GATE=1 and a floors file
+    # exists, also pass the floors so a sector below its floor exits non-zero.
+    local sector_rc=0
+    if [[ "$SECTOR_GATE" == "1" && -f "$SECTOR_FLOORS" ]]; then
+        python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" "$SECTOR_FLOORS" | tee "$cov_sectors" || sector_rc=$?
+    else
+        python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" | tee "$cov_sectors"
+    fi
 
     local reachability="$LOG_DIR/function-reachability.txt"
     harness_log "direct function reachability:"
@@ -176,13 +189,20 @@ PY
 
     harness_log "artifacts: $cov_txt , $cov_json , $cov_sectors , $reachability , $cov_html (and ci-artifacts upload)"
 
-    # Optional gate: fail if overall line coverage is below COVERAGE_MIN.
+    # Optional global gate: fail if overall line coverage is below COVERAGE_MIN.
     if [[ "$COVERAGE_MIN" != "0" ]]; then
         awk -v c="$line_pct" -v m="$COVERAGE_MIN" 'BEGIN { exit !(c + 0 >= m + 0) }' \
             || harness_die "coverage gate failed: ${line_pct}% < ${COVERAGE_MIN}% required"
         harness_log "coverage gate PASSED: ${line_pct}% >= ${COVERAGE_MIN}%"
     else
         harness_log "coverage map published (report-only; set COVERAGE_MIN to gate)"
+    fi
+
+    # Optional per-sector ratchet gate: sector_rc is non-zero when a sector fell
+    # below its floor (a regression). Fail last so the full report is published.
+    if [[ "$SECTOR_GATE" == "1" ]]; then
+        [[ "$sector_rc" == "0" ]] || harness_die "sector coverage gate failed (see the sector report above; a sector dropped below its floor in $SECTOR_FLOORS)"
+        harness_log "sector coverage gate PASSED (no sector below its floor)"
     fi
 }
 

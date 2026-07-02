@@ -1,0 +1,26 @@
+# Per-sector coverage ratchet floors (line %) for the c47 coverage lane.
+# run-coverage.sh gates on these when SECTOR_GATE=1. The overall global floor is
+# the true whole-tree line percentage, gated separately by COVERAGE_MIN (this
+# file's sectors sum only the files a sector matches, a different denominator).
+#
+# Each floor sits a point or two below the measured baseline so gcov noise does
+# not flap the gate, but a real regression fails CI. Raise a floor when the
+# corpus lifts a sector; lowering one is an explicit, documented acceptance of a
+# regression.
+#
+# Baseline: upstream master fae370c9, gcc 13, full corpus + keyscan + leakscan,
+# sample programs staged. Global (COVERAGE_MIN) 46.60% -> 45. Sectors measured ->
+# floor:
+#
+#   core math          79.85% -> 78      matrix             67.12% -> 65
+#   programming / cli  36.11% -> 34      serializers        17.07% -> 15
+#   strings / alpha    27.84% -> 26
+#
+# Gated: the CLI-critical sectors (serializers, program management, parser/string
+# paths, core math) plus matrix. Left ungated by design (host-test ceilings /
+# lower priority): solver/graph, input/editors, ui/display/printing, addons/dmcp.
+core math = 78
+matrix = 65
+programming / cli = 34
+serializers = 15
+strings / alpha = 26
