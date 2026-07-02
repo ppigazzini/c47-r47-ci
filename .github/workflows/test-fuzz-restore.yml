@@ -1,0 +1,80 @@
+name: Fuzz Restore
+# Thin CI caller for the backup-restore fuzzing lane. The lane
+# sets up clang + the toolchain and calls scripts/test/run-fuzz.sh, which builds
+# the libFuzzer harness over restoreCalc and runs a time-boxed campaign over a
+# seed corpus, uploading any crash reproducer and the evolved corpus. Report-
+# first: a finding is surfaced but does not fail the lane unless FUZZ_GATE=1.
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz-restore:
+    name: Fuzz restoreCalc
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+      FUZZ_TIME: "120"
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            clang \
+            cmake \
+            git \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            unzip \
+            wget \
+            zip
+
+      - name: Cache xlsxio toolchain
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/c43/xlsxio
+          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
+
+      - name: Run fuzz lane
+        shell: bash
+        run: bash scripts/test/run-fuzz-restore.sh
+
+      - name: Upload fuzz artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-restore
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14

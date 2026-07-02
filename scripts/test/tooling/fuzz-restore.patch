@@ -1,0 +1,172 @@
+diff --git a/meson_options.txt b/meson_options.txt
+index 55515d376..758395114 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -27,3 +27,9 @@ option('DMCP_PACKAGE',
+   value       : '',
+   description : 'define variable acc. to defines.h to save space for DM42 dmcp builds'
+ )
++
++option('fuzz_restore',
++  type        : 'boolean',
++  value       : false,
++  description : 'Build the libFuzzer harness over restoreCalc (needs CC=clang)'
++)
+diff --git a/src/fuzz/fuzz_restore.c b/src/fuzz/fuzz_restore.c
+new file mode 100644
+index 000000000..6f592ec76
+--- /dev/null
++++ b/src/fuzz/fuzz_restore.c
+@@ -0,0 +1,67 @@
++// src/fuzz/fuzz_restore.c
++//
++// libFuzzer harness over the backup-state restore parser restoreCalc().
++// restoreCalc() reads backup.cfg - the persisted calculator state loaded at
++// startup - line by line into a parameter list, then extracts every field by
++// key and type. A corrupt or truncated backup.cfg is untrusted input that
++// reaches the calculator on every boot, which makes the restore parser a
++// high-yield robustness target.
++//
++// The harness writes the fuzz bytes to backup.cfg in the working directory and
++// calls restoreCalc(), which resets the calculator itself (doFnReset) and frees
++// its parameter list, so no per-input teardown is needed. Seed the corpus with a
++// real backup.cfg produced by the genBackup helper so mutations start from a
++// structurally valid file and reach the deeper field parsers.
++//
++// Built only under clang with -fsanitize=fuzzer,address,undefined (see the
++// fuzzRestore meson target). libFuzzer supplies main(); this file supplies the
++// init hook and the per-input entry point.
++
++#include <stdint.h>
++#include <stddef.h>
++#include <stdio.h>
++#include <string.h>
++#include <gmp.h>
++
++#include "c47.h"
++
++// The c47 library expects its host (the simulator main, or testSuite.c) to
++// provide these GUI/screen globals. The fuzz target replaces that translation
++// unit, so define them here as zeroed stand-ins.
++GtkWidget      *screen;
++calcKeyboard_t  calcKeyboard[43];
++int             currentBezel;
++int16_t         screenStride;
++uint32_t       *screenData;
++bool_t          screenChange;
++
++int LLVMFuzzerInitialize(int *argc, char ***argv) {
++  (void) argc;
++  (void) argv;
++  c47MemInBlocks = 0;
++  gmpMemInBytes = 0;
++  mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
++  fnReset(CONFIRMED);
++  // restoreCalc() bails immediately when the sample programs are loaded; keep
++  // that flag clear so the campaign actually parses the file.
++  loadTestPrograms = false;
++  return 0;
++}
++
++int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
++  // Materialise the input as backup.cfg, the file restoreCalc() opens through
++  // the HAL (ioPathBackup, resolved relative to the working directory).
++  FILE *f = fopen("backup.cfg", "wb");
++  if(f == NULL) {
++    return 0;
++  }
++  if(size > 0) {
++    fwrite(data, 1, size, f);
++  }
++  fclose(f);
++
++  // restoreCalc() resets the calculator, reads backup.cfg into its parameter
++  // list, extracts every field, and frees the list before returning.
++  restoreCalc();
++  return 0;
++}
+diff --git a/src/fuzz/gen_backup.c b/src/fuzz/gen_backup.c
+new file mode 100644
+index 000000000..15bcafd19
+--- /dev/null
++++ b/src/fuzz/gen_backup.c
+@@ -0,0 +1,38 @@
++// src/fuzz/gen_backup.c
++//
++// Seed generator for the restore fuzz lane. Resets the calculator, seeds a
++// little state, and calls saveCalc() to write a structurally valid backup.cfg
++// into the working directory - the seed the fuzzRestore campaign mutates.
++//
++// A normal native program (its own main), separate from the libFuzzer harness.
++
++#include <stdint.h>
++#include <gmp.h>
++
++#include "c47.h"
++
++GtkWidget      *screen;
++calcKeyboard_t  calcKeyboard[43];
++int             currentBezel;
++int16_t         screenStride;
++uint32_t       *screenData;
++bool_t          screenChange;
++
++int main(void) {
++  c47MemInBlocks = 0;
++  gmpMemInBytes = 0;
++  mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
++  fnReset(CONFIRMED);
++
++  // A touch of non-default state so the saved file exercises more field writers.
++  longInteger_t li;
++  longIntegerInit(li);
++  uInt32ToLongInteger(1234567u, li);
++  convertLongIntegerToLongIntegerRegister(li, REGISTER_X);
++  longIntegerFree(li);
++  fnStore(0);
++
++  // saveCalc() writes backup.cfg through the HAL (ioPathBackup).
++  saveCalc();
++  return 0;
++}
+diff --git a/src/testSuite/meson.build b/src/testSuite/meson.build
+index 6cb49dab7..970fe85d7 100644
+--- a/src/testSuite/meson.build
++++ b/src/testSuite/meson.build
+@@ -22,3 +22,36 @@ test(
+   workdir : meson.project_source_root(),
+   timeout : 800
+ )
++
++# libFuzzer harness over the backup-state restore parser, plus the native seed
++# generator that writes a valid backup.cfg. Reuses the testSuite HAL stubs and
++# the full c47 + decNumber sources, minus testSuite.c's main(). Build with
++# CC=clang; gated on get_option('fuzz_restore') to stay out of the gcc build.
++if get_option('fuzz_restore')
++  fuzz_rs_hal_src = files(
++    'hal/audio.c',
++    'hal/gui.c',
++    'hal/lcd.c',
++    'hal/io.c',
++    'hal/print_ir.c')
++
++  fuzzRestore = executable('fuzzRestore',
++    build_by_default    : false,
++    sources             : decNumber_src + c47_src + fuzz_rs_hal_src + files('../fuzz/fuzz_restore.c') + [rasterFontsData_c, softmenuCatalogs_h, constantPointers_ch],
++    c_args              : ['-DTESTSUITE_BUILD', '-fsanitize=fuzzer-no-link,address,undefined', '-fno-sanitize=alignment', '-fsanitize-recover=undefined', '-fno-omit-frame-pointer'],
++    link_args           : ['-fsanitize=fuzzer,address,undefined'],
++    include_directories : [decNumber_inc, c47_inc],
++    dependencies        : [gtk_dep, gmp_dep, m_dep],
++    native              : true
++  )
++
++  # Native seed generator (its own main; no libFuzzer). Writes a valid backup.cfg.
++  genBackup = executable('genBackup',
++    build_by_default    : false,
++    sources             : decNumber_src + c47_src + fuzz_rs_hal_src + files('../fuzz/gen_backup.c') + [rasterFontsData_c, softmenuCatalogs_h, constantPointers_ch],
++    c_args              : ['-DTESTSUITE_BUILD'],
++    include_directories : [decNumber_inc, c47_inc],
++    dependencies        : [gtk_dep, gmp_dep, m_dep],
++    native              : true
++  )
++endif
