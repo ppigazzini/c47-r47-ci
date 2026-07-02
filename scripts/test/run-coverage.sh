@@ -88,16 +88,28 @@ main() {
             -Dc_args="-Wno-deprecated-declarations -DKEYSCAN_COVERAGE_FLUSH" > "$LOG_DIR/coverage-build.log" 2>&1
         ninja -C "$BUILD_DIR" src/c47/vcs.h >> "$LOG_DIR/coverage-build.log" 2>&1
         ninja -C "$BUILD_DIR" "-j$(harness_jobs)" src/testSuite/testSuite >> "$LOG_DIR/coverage-build.log" 2>&1
+        # Generate the sample-program fixture (native tool). The testSuite loads
+        # res/testPgms/testPgms.bin from its CWD at startup; without it the
+        # program-execution corpus (programs.txt) cannot resolve its labels, so
+        # the whole program engine - decode execution, step walking, PEM, and
+        # XEQ dispatch - is never exercised and reads as dead in the coverage map.
+        ninja -C "$BUILD_DIR" "-j$(harness_jobs)" testPgms >> "$LOG_DIR/coverage-build.log" 2>&1
     ) || harness_die "coverage build failed (see $LOG_DIR/coverage-build.log)"
 
     local bin="$UPSTREAM_DIR/$BUILD_DIR/src/testSuite/testSuite"
     [[ -x "$bin" ]] || harness_die "testSuite binary not built"
+    local test_pgms="$UPSTREAM_DIR/$BUILD_DIR/src/generateTestPgms/testPgms.bin"
+    [[ -f "$test_pgms" ]] || harness_die "testPgms.bin fixture not generated"
 
     # Exercise three ways from a scratch dir (the testSuite writes state files
     # into its CWD). Each run appends to the .gcda counters in $BUILD_DIR.
     local run_dir="$HARNESS_WORK/run"
     rm -rf "$run_dir"
     mkdir -p "$run_dir"
+    # Stage the sample programs where the testSuite looks for them (CWD-relative),
+    # so programs.txt actually runs and the program engine is covered.
+    mkdir -p "$run_dir/res/testPgms"
+    cp "$test_pgms" "$run_dir/res/testPgms/testPgms.bin"
     harness_log "running the regression corpus (278 files)"
     (cd "$run_dir" && "$bin" "$UPSTREAM_DIR/src/testSuite/tests/testSuiteList.txt") > "$LOG_DIR/coverage-suite.log" 2>&1 || true
     harness_log "running --keyscan (key-sequence/subsystem driver)"
