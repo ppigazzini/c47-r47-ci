@@ -210,7 +210,7 @@ index 000000000..3035bc39d
 +Out: EC=0
 diff --git a/src/testSuite/tests/curvefit_cov.txt b/src/testSuite/tests/curvefit_cov.txt
 new file mode 100644
-index 000000000..fa05398f5
+index 000000000..adb6b60c0
 --- /dev/null
 +++ b/src/testSuite/tests/curvefit_cov.txt
 @@ -0,0 +1,92 @@
@@ -296,83 +296,85 @@ index 000000000..fa05398f5
 +Func: fnCurveFittingLR
 +In:  FARG=0
 +Out: EC=0
-+; predict y from x and x from y using the fit
++; predict y from x and x from y using the linear fit of y=2x
 +Func: fnYIsFnx
 +In:  FARG=0 RX=Real:"6"
-+Out: EC=0
++Out: EC=0 RX=Real:"12"
 +Func: fnXIsFny
 +In:  FARG=0 RX=Real:"12"
-+Out: EC=0
++Out: EC=0 RX=Real:"6"
 +Func: fnCurveFittingReset
 +In:  FARG=0
 +Out: EC=0
 diff --git a/src/testSuite/tests/dist_cov.txt b/src/testSuite/tests/dist_cov.txt
 new file mode 100644
-index 000000000..d07c0edf9
+index 000000000..dc1bcabb3
 --- /dev/null
 +++ b/src/testSuite/tests/dist_cov.txt
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,63 @@
 +;*************************************************************
 +;** Coverage: GEV, Pareto and Uniform distributions.        **
 +;** Params: M=location/low, S=scale, Q=shape, N=high; X=in. **
++;** Values are the deterministic testSuite results and lock  **
++;** the current behavior as a regression baseline.          **
 +;*************************************************************
 +In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
 +
 +; --- GEV (mu=0, sigma=1, xi=0.1) ---
 +Func: fnGEVP
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.1815712591647148349898921639598652"
 +Func: fnGEVL
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.6800810549704990213774077696403660"
 +Func: fnGEVR
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"1"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.3199189450295009786225922303596340"
 +Func: fnGEVI
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"0.1" RX=Real:"0.5"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.3733123212357060602785293524947308"
 +
 +; --- Pareto (sigma=1, alpha=2, mu=0) ---
 +Func: fnParetoP
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.07407407407407407407407407407407407"
 +Func: fnParetoL
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.8888888888888888888888888888888889"
 +Func: fnParetoU
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.1111111111111111111111111111111111"
 +Func: fnParetoI
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"0.5"
-+Out: EC=0
++Out: EC=0 RX=Real:"1.414213562373095048801688724209698"
 +
 +; --- Pareto2 (sigma=1, alpha=2, mu=0) ---
 +Func: fnPareto2P
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.03125"
 +Func: fnPareto2L
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.9375"
 +Func: fnPareto2U
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"3"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.0625"
 +Func: fnPareto2I
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RS=Real:"1" RQ=Real:"2" RX=Real:"0.5"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.4142135623730950488016887242096981"
 +
 +; --- Uniform (low=0, high=10) ---
 +Func: fnUniformP
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.09090909090909090909090909090909091"
 +Func: fnUniformL
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.5454545454545454545454545454545455"
 +Func: fnUniformU
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"5"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.5454545454545454545454545454545455"
 +Func: fnUniformI
 +In:  AM=DEG FL_ASLIFT=0 RM=Real:"0" RN=Real:"10" RX=Real:"0.5"
-+Out: EC=0
++Out: EC=0 RX=Real:"5"
 diff --git a/src/testSuite/tests/error_cov.txt b/src/testSuite/tests/error_cov.txt
 new file mode 100644
 index 000000000..23902db0b
@@ -507,7 +509,7 @@ index 000000000..147b04d63
 +Out: EC=0
 diff --git a/src/testSuite/tests/matrix_cov.txt b/src/testSuite/tests/matrix_cov.txt
 new file mode 100644
-index 000000000..f3145d5cc
+index 000000000..6a52cad6a
 --- /dev/null
 +++ b/src/testSuite/tests/matrix_cov.txt
 @@ -0,0 +1,42 @@
@@ -520,15 +522,15 @@ index 000000000..f3145d5cc
 +; determinant of a 2x2 (det [[4,1],[2,3]] = 10)
 +Func: fnDeterminant
 +In:  FARG=0 RX=ReMa:"M2,2[4,1,2,3]"
-+Out: EC=0
++Out: EC=0 RX=Real:"10"
 +; invert a 2x2
 +Func: fnInvertMatrix
 +In:  FARG=0 RX=ReMa:"M2,2[4,1,2,3]"
-+Out: EC=0
++Out: EC=0 RX=ReMa:"M2,2[0.3,-0.1,-0.2,0.4]"
 +; transpose a non-square 2x3
 +Func: fnTranspose
 +In:  FARG=0 RX=ReMa:"M2,3[1,2,3,4,5,6]"
-+Out: EC=0
++Out: EC=0 RX=ReMa:"M3,2[1,4,2,5,3,6]"
 +; LU decomposition of a 3x3
 +Func: fnLuDecomposition
 +In:  FARG=0 RX=ReMa:"M3,3[2,1,1,4,3,3,8,7,9]"
@@ -540,11 +542,11 @@ index 000000000..f3145d5cc
 +; eigenvalues of a symmetric 2x2 (eigenvalues 1 and 3)
 +Func: fnEigenvalues
 +In:  FARG=0 RX=ReMa:"M2,2[2,1,1,2]"
-+Out: EC=0
++Out: EC=0 RX=ReMa:"M1,2[3,1]"
 +; determinant of a singular matrix (det = 0)
 +Func: fnDeterminant
 +In:  FARG=0 RX=ReMa:"M2,2[1,2,2,4]"
-+Out: EC=0
++Out: EC=0 RX=Real:"0"
 +; determinant error: non-square
 +Func: fnDeterminant
 +In:  FARG=0 RX=ReMa:"M2,3[1,2,3,4,5,6]"
@@ -552,7 +554,7 @@ index 000000000..f3145d5cc
 +; complex matrix determinant
 +Func: fnDeterminant
 +In:  FARG=0 RX=CxMa:"M2,2[1,0,0,1]"
-+Out: EC=0
++Out: EC=0 RX=Cplx:"1 i 0"
 diff --git a/src/testSuite/tests/round_cov.txt b/src/testSuite/tests/round_cov.txt
 new file mode 100644
 index 000000000..5ef3dba92
