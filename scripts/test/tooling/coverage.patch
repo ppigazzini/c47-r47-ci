@@ -822,49 +822,58 @@ index 000000000..97adac55e
 +Out: EC=0 RX=Real:"77"
 diff --git a/src/testSuite/tests/string_cov.txt b/src/testSuite/tests/string_cov.txt
 new file mode 100644
-index 000000000..5bbd3db51
+index 000000000..54643ed73
 --- /dev/null
 +++ b/src/testSuite/tests/string_cov.txt
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,48 @@
 +;*************************************************************
 +;** Coverage: ALPHA register / string operations.           **
-+;** Build ALPHA with fnXToAlpha, then exercise the ops.     **
++;** Each case seeds the working string register (R00) fresh  **
++;** so the mutated string or pushed result is deterministic  **
++;** and asserted by value. FARG selects the string register. **
 +;*************************************************************
 +In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
 +
++; clear the register to the empty string
 +Func: fnClearAlpha
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"XX"
++Out: EC=0 R00=Stri:""
++; append the X string to the register
 +Func: fnXToAlpha
-+In:  FARG=0 RX=Stri:"HELLO"
-+Out: EC=0
++In:  FARG=0 R00=Stri:"AB" RX=Stri:"CD"
++Out: EC=0 R00=Stri:"ABCD"
++; length of the register content (glyph count) pushed to X
 +Func: fnAlphaLeng
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"0"
++Out: EC=0 RX=LonI:"5"
++; ATOX: remove the first glyph; its code goes to X, the rest stays in R00
 +Func: fnAlphaToX
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"0"
++Out: EC=0 R00=Stri:"ELLO"
++; position (0-based) of the X string inside the register
 +Func: fnAlphaPos
-+In:  FARG=0 RX=Stri:"L"
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Stri:"L"
++Out: EC=0 RX=LonI:"2"
++; rotate the register left by X glyphs
 +Func: fnAlphaRL
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"1"
++Out: EC=0 R00=Stri:"ELLOH"
++; rotate the register right by X glyphs
 +Func: fnAlphaRR
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"1"
++Out: EC=0 R00=Stri:"OHELL"
++; shift the register left by X glyphs (drop from the front)
 +Func: fnAlphaSL
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"1"
++Out: EC=0 R00=Stri:"ELLO"
++; shift the register right by X glyphs (drop from the end)
 +Func: fnAlphaSR
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"1"
++Out: EC=0 R00=Stri:"HELL"
++; append the integer part of X to the register
 +Func: fnAlphaIP
-+In:  FARG=0 RX=Real:"3"
-+Out: EC=0
-+Func: fnClearAlpha
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Stri:"HELLO" RX=Real:"3"
++Out: EC=0 R00=Stri:"HELLO3"
 diff --git a/src/testSuite/tests/testSuiteList.txt b/src/testSuite/tests/testSuiteList.txt
 index 6635993a2..882b6ba20 100644
 --- a/src/testSuite/tests/testSuiteList.txt
