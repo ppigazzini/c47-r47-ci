@@ -402,10 +402,10 @@ index 000000000..23902db0b
 +Out: EC=5
 diff --git a/src/testSuite/tests/mathmisc_cov.txt b/src/testSuite/tests/mathmisc_cov.txt
 new file mode 100644
-index 000000000..ff3269444
+index 000000000..147b04d63
 --- /dev/null
 +++ b/src/testSuite/tests/mathmisc_cov.txt
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,99 @@
 +;*************************************************************
 +;** Coverage: value/type predicates (checkValue.c) and the  **
 +;** small math ops shiftDigits / random / increment.        **
@@ -447,7 +447,8 @@ index 000000000..ff3269444
 +In:  FARG=0 RX=Real:"NaN"
 +Out: EC=0
 +
-+; fnGetType across data types (covers the type switch)
++; fnGetType across data types (covers the type switch). The pushed type code
++; folds the angular/polar mode into its fraction, so it is not asserted by value.
 +Func: fnGetType
 +In:  FARG=0 RX=Real:"3.5"
 +Out: EC=0
@@ -466,13 +467,13 @@ index 000000000..ff3269444
 +In:  FARG=0 RX=Cplx:"1 i 2"
 +Out: EC=0
 +
-+; small math ops on X
++; small math ops on X: shift the decimal 2 places left (x100) and right (/100)
 +Func: fnSdl
 +In:  FARG=2 RX=Real:"123.456"
-+Out: EC=0
++Out: EC=0 RX=Real:"12345.6"
 +Func: fnSdr
 +In:  FARG=2 RX=Real:"123.456"
-+Out: EC=0
++Out: EC=0 RX=Real:"1.23456"
 +
 +
 +; integer check across modes (0 plain, 1 even, 2 odd, 3 fp) on integer and fractional X
@@ -489,10 +490,10 @@ index 000000000..ff3269444
 +In:  FARG=3 RX=Real:"5.5"
 +Out: EC=0
 +
-+; increment a numbered register
++; increment a numbered register (R00: 41 -> 42)
 +Func: fnInc
-+In:  FARG=0 RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"41" RX=Real:"1"
++Out: EC=0 R00=Real:"42"
 +
 +; random: seed then draw, and a bounded random integer
 +Func: fnSeed
@@ -554,7 +555,7 @@ index 000000000..f3145d5cc
 +Out: EC=0
 diff --git a/src/testSuite/tests/round_cov.txt b/src/testSuite/tests/round_cov.txt
 new file mode 100644
-index 000000000..154802b02
+index 000000000..5ef3dba92
 --- /dev/null
 +++ b/src/testSuite/tests/round_cov.txt
 @@ -0,0 +1,30 @@
@@ -566,7 +567,7 @@ index 000000000..154802b02
 +
 +Func: fnRdp
 +In:  FARG=2 RX=Real:"3.14159265"
-+Out: EC=0
++Out: EC=0 RX=Real:"3.14"
 +Func: fnRdp
 +In:  FARG=2 RX=Cplx:"3.14159 i 2.71828"
 +Out: EC=0
@@ -578,7 +579,7 @@ index 000000000..154802b02
 +Out: EC=0
 +Func: fnRsd
 +In:  FARG=3 RX=Real:"3.14159265"
-+Out: EC=0
++Out: EC=0 RX=Real:"3.14"
 +Func: fnRsd
 +In:  FARG=3 RX=Cplx:"3.14159 i 2.71828"
 +Out: EC=0
@@ -587,7 +588,7 @@ index 000000000..154802b02
 +Out: EC=0
 +Func: fnRsd
 +In:  FARG=4 RX=Real:"0.000123456"
-+Out: EC=0
++Out: EC=0 RX=Real:"0.0001235"
 diff --git a/src/testSuite/tests/saverestore_cov.txt b/src/testSuite/tests/saverestore_cov.txt
 new file mode 100644
 index 000000000..9706f5981
@@ -744,79 +745,81 @@ index 000000000..069f72971
 +Out: EC=0 RX=Real:"3" RY=Real:"6"
 diff --git a/src/testSuite/tests/storercl_cov.txt b/src/testSuite/tests/storercl_cov.txt
 new file mode 100644
-index 000000000..6e788571e
+index 000000000..97adac55e
 --- /dev/null
 +++ b/src/testSuite/tests/storercl_cov.txt
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,71 @@
 +;*************************************************************
 +;** Coverage: store / recall and their arithmetic, max/min, **
 +;** pair/triple and stack variants (FARG = register number).**
++;** Each case seeds R00.. and the stack so the stored/       **
++;** recalled result is deterministic and asserted by value.  **
 +;*************************************************************
 +In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
 +
 +Func: fnStore
-+In:  FARG=0 RX=Real:"5"
-+Out: EC=0
++In:  FARG=0 R00=Real:"111" RX=Real:"5"
++Out: EC=0 R00=Real:"5" RX=Real:"5"
 +Func: fnStoreAdd
-+In:  FARG=0 RX=Real:"3"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 R00=Real:"13"
 +Func: fnStoreSub
-+In:  FARG=0 RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 R00=Real:"7"
 +Func: fnStoreMult
-+In:  FARG=0 RX=Real:"2"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 R00=Real:"30"
 +Func: fnStoreDiv
-+In:  FARG=0 RX=Real:"4"
-+Out: EC=0
++In:  FARG=0 R00=Real:"12" RX=Real:"4"
++Out: EC=0 R00=Real:"3"
 +Func: fnStoreMax
-+In:  FARG=0 RX=Real:"100"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 R00=Real:"10"
 +Func: fnStoreMin
-+In:  FARG=0 RX=Real:"-5"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 R00=Real:"3"
 +Func: fnRecall
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Real:"42" RX=Real:"7"
++Out: EC=0 RX=Real:"42" RY=Real:"7"
 +Func: fnRecallAdd
-+In:  FARG=0 RX=Real:"2"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 RX=Real:"13"
 +Func: fnRecallSub
-+In:  FARG=0 RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 RX=Real:"-7"
 +Func: fnRecallMult
-+In:  FARG=0 RX=Real:"3"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 RX=Real:"30"
 +Func: fnRecallDiv
-+In:  FARG=0 RX=Real:"2"
-+Out: EC=0
++In:  FARG=0 R00=Real:"12" RX=Real:"4"
++Out: EC=0 RX=Real:"0.3333333333333333333333333333333333"
 +Func: fnRecallMax
-+In:  FARG=0 RX=Real:"7"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 RX=Real:"10"
 +Func: fnRecallMin
-+In:  FARG=0 RX=Real:"9"
-+Out: EC=0
++In:  FARG=0 R00=Real:"10" RX=Real:"3"
++Out: EC=0 RX=Real:"3"
 +Func: fn2Sto
-+In:  FARG=0 RY=Real:"2" RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"111" R01=Real:"222" RY=Real:"2" RX=Real:"1"
++Out: EC=0 R00=Real:"1" R01=Real:"2"
 +Func: fn2Rcl
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Real:"8" R01=Real:"9" RX=Real:"0"
++Out: EC=0 RX=Real:"8" RY=Real:"9"
 +Func: fn3Sto
-+In:  FARG=0 RZ=Real:"3" RY=Real:"2" RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"111" R01=Real:"222" R02=Real:"333" RZ=Real:"3" RY=Real:"2" RX=Real:"1"
++Out: EC=0 R00=Real:"1" R01=Real:"2" R02=Real:"3"
 +Func: fn3Rcl
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Real:"4" R01=Real:"5" R02=Real:"6" RX=Real:"0"
++Out: EC=0 RX=Real:"4" RY=Real:"5" RZ=Real:"6"
 +Func: fnStoreStack
-+In:  FARG=0 RX=Real:"1"
-+Out: EC=0
++In:  FARG=0 R00=Real:"0" R01=Real:"0" R02=Real:"0" R03=Real:"0" RT=Real:"4" RZ=Real:"3" RY=Real:"2" RX=Real:"1"
++Out: EC=0 R00=Real:"1" R01=Real:"2" R02=Real:"3" R03=Real:"4"
 +Func: fnRecallStack
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 R00=Real:"11" R01=Real:"12" R02=Real:"13" R03=Real:"14" RX=Real:"0"
++Out: EC=0 RX=Real:"11" RY=Real:"12" RZ=Real:"13" RT=Real:"14"
 +Func: fnLastX
-+In:  FARG=0
-+Out: EC=0
++In:  FARG=0 RL=Real:"77" RX=Real:"5"
++Out: EC=0 RX=Real:"77"
 diff --git a/src/testSuite/tests/string_cov.txt b/src/testSuite/tests/string_cov.txt
 new file mode 100644
 index 000000000..5bbd3db51
