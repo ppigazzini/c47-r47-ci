@@ -1,0 +1,133 @@
+diff --git a/meson_options.txt b/meson_options.txt
+index 55515d376..7fac11769 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -27,3 +27,9 @@ option('DMCP_PACKAGE',
+   value       : '',
+   description : 'define variable acc. to defines.h to save space for DM42 dmcp builds'
+ )
++
++option('fuzz_equation',
++  type        : 'boolean',
++  value       : false,
++  description : 'Build the libFuzzer harness over parseEquation (needs CC=clang)'
++)
+diff --git a/src/fuzz/fuzz_equation.c b/src/fuzz/fuzz_equation.c
+new file mode 100644
+index 000000000..751967ee5
+--- /dev/null
++++ b/src/fuzz/fuzz_equation.c
+@@ -0,0 +1,78 @@
++// src/fuzz/fuzz_equation.c
++//
++// libFuzzer harness over the equation/formula parser parseEquation().
++// parseEquation tokenises a stored formula string - the text a user types in the
++// equation editor and, more importantly, the text restored from an imported
++// calculator state (allFormulae round-trips through save/restore). That makes it
++// a parser of adversarial input and a high-yield robustness target.
++//
++// The harness stores the fuzz bytes as the current formula through the real
++// storage path setEquation(), then parses in EQUATION_PARSER_MVAR mode, which
++// tokenises the formula and builds the MVAR list without evaluating it (no
++// recursion into the math engine, so a campaign stays on the parser).
++//
++// Built only under clang with -fsanitize=fuzzer,address,undefined (see the
++// fuzzEquation meson target). libFuzzer supplies main(); this file supplies the
++// init hook and the per-input entry point.
++
++#include <stdint.h>
++#include <stddef.h>
++#include <string.h>
++#include <gmp.h>
++
++#include "c47.h"
++#include "solver/equation.h"
++
++// The c47 library expects its host (the simulator main, or testSuite.c) to
++// provide these GUI/screen globals. The fuzz target replaces that translation
++// unit, so define them here as zeroed stand-ins; the parser does not draw, but
++// display/keyboard code linked alongside it references the symbols.
++GtkWidget      *screen;
++calcKeyboard_t  calcKeyboard[43];
++int             currentBezel;
++int16_t         screenStride;
++uint32_t       *screenData;
++bool_t          screenChange;
++
++// Initialise the calculator once, then create a single empty formula slot the
++// per-input hook overwrites. Mirrors the testSuite main() preamble: zero the
++// RAM-pool and GMP accounting, install the GMP allocator hooks, and full reset.
++int LLVMFuzzerInitialize(int *argc, char ***argv) {
++  (void) argc;
++  (void) argv;
++  c47MemInBlocks = 0;
++  gmpMemInBytes = 0;
++  mp_set_memory_functions(allocGmp, reallocGmp, freeGmp);
++  fnReset(CONFIRMED);
++
++  // One formula slot. setEquation() reallocates its data on every call, so the
++  // per-input hook reuses this slot without growing the pool.
++  allFormulae = allocC47Blocks(TO_BLOCKS(sizeof(formulaHeader_t)));
++  numberOfFormulae = 1;
++  currentFormula = 0;
++  allFormulae[0].pointerToFormulaData = C47_NULL;
++  allFormulae[0].sizeInBlocks = 0;
++  return 0;
++}
++
++int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
++  // The formula is a NUL-terminated string; a stored formula never contains an
++  // interior NUL, so stop at the first one to keep the input a single formula.
++  char formula[AIM_BUFFER_LENGTH];
++  size_t n = size < sizeof(formula) - 1 ? size : sizeof(formula) - 1;
++  memcpy(formula, data, n);
++  formula[n] = 0;
++  size_t terminated = strlen(formula);
++  (void) terminated;
++
++  // Store it through the real formula-storage path (allocC47Blocks + xcopy),
++  // then tokenise it. EQUATION_PARSER_MVAR builds the MVAR list without running
++  // the formula, so the campaign exercises the tokeniser, not the evaluator.
++  setEquation(0, formula);
++
++  // parseEquation writes its work into two caller buffers; give it a scratch
++  // area sized like the editor's (tmpString, tmpString + AIM_BUFFER_LENGTH).
++  static char parseBuffer[AIM_BUFFER_LENGTH * 3];
++  parseEquation(0, EQUATION_PARSER_MVAR, parseBuffer, parseBuffer + AIM_BUFFER_LENGTH);
++  return 0;
++}
+diff --git a/src/testSuite/meson.build b/src/testSuite/meson.build
+index 6cb49dab7..e5d043baa 100644
+--- a/src/testSuite/meson.build
++++ b/src/testSuite/meson.build
+@@ -22,3 +22,30 @@ test(
+   workdir : meson.project_source_root(),
+   timeout : 800
+ )
++
++# libFuzzer harness over the equation/formula parser.
++# Reuses the testSuite HAL stubs and the full c47 + decNumber sources, minus
++# testSuite.c's main(), which libFuzzer supplies via -fsanitize=fuzzer. Build
++# with CC=clang; gating on get_option('fuzz_equation') keeps it out of the
++# default gcc build, where the fuzzer sanitizer is unavailable.
++if get_option('fuzz_equation')
++  fuzz_eq_hal_src = files(
++    'hal/audio.c',
++    'hal/gui.c',
++    'hal/lcd.c',
++    'hal/io.c',
++    'hal/print_ir.c')
++
++  fuzzEquation = executable('fuzzEquation',
++    build_by_default    : false,
++    sources             : decNumber_src + c47_src + fuzz_eq_hal_src + files('../fuzz/fuzz_equation.c') + [rasterFontsData_c, softmenuCatalogs_h, constantPointers_ch],
++    # ASan is the crash gate; UBSan runs in report-recover mode (repo policy),
++    # and the alignment check is dropped because the calculator intentionally
++    # packs data unaligned - that UB is a known design, not a bug.
++    c_args              : ['-DTESTSUITE_BUILD', '-fsanitize=fuzzer-no-link,address,undefined', '-fno-sanitize=alignment', '-fsanitize-recover=undefined', '-fno-omit-frame-pointer'],
++    link_args           : ['-fsanitize=fuzzer,address,undefined'],
++    include_directories : [decNumber_inc, c47_inc],
++    dependencies        : [gtk_dep, gmp_dep, m_dep],
++    native              : true
++  )
++endif
