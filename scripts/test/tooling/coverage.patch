@@ -31,10 +31,10 @@ index caea92b0f..33c1de982 100644
  }
  
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 9a756330b..77f904d28 100644
+index 9a756330b..e8bdaa11f 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
-@@ -40,6 +40,128 @@ void runPgm(uint16_t unusedButMandatoryParameter);
+@@ -40,6 +40,131 @@ void runPgm(uint16_t unusedButMandatoryParameter);
  static const char regNames[] = "XYZTABCDLIJKMNPQRSEFGHOUVW";
  
  const funcTest_t funcTestNoParam[] = {
@@ -135,6 +135,9 @@ index 9a756330b..77f904d28 100644
 +  {"fnAlphaRR",              fnAlphaRR             },
 +  {"fnAlphaSL",              fnAlphaSL             },
 +  {"fnAlphaSR",              fnAlphaSR             },
++  // Program engine: clear the local variables of the current program (walks the
++  // loaded program steps; needs res/testPgms/testPgms.bin staged in the CWD).
++  {"fnClCVar",               fnClCVar              },
 +  // Statistics (use FARG=1 with fnSigmaAddRem to accumulate a (Y,X) data point).
 +  {"fnSigmaAddRem",          fnSigmaAddRem         },
 +  {"fnMeanX",                fnMeanX               },
@@ -163,6 +166,24 @@ index 9a756330b..77f904d28 100644
    {"fnAmortP",               fnAmortP              },
    {"fnAmortInt",             fnAmortInt            },
    {"fnAmortPrn",             fnAmortPrn            },
+diff --git a/src/testSuite/tests/clcvar_cov.txt b/src/testSuite/tests/clcvar_cov.txt
+new file mode 100644
+index 000000000..b42d5159f
+--- /dev/null
++++ b/src/testSuite/tests/clcvar_cov.txt
+@@ -0,0 +1,12 @@
++;*************************************************************
++;** Coverage: program-engine clear-local-variables walk.    **
++;** fnClCVar walks the current program's steps and clears    **
++;** the referenced local variables/registers. Requires the   **
++;** sample programs (res/testPgms/testPgms.bin) to be loaded. **
++;*************************************************************
++In: FL_SPCRES=0 FL_CPXRES=0 SD=0 RMODE=0 IM=2compl SS=4 WS=64
++
++; walk the current program and clear its local variables
++Func: fnClCVar
++In:  FARG=0
++Out: EC=0
 diff --git a/src/testSuite/tests/compare_cov.txt b/src/testSuite/tests/compare_cov.txt
 new file mode 100644
 index 000000000..3035bc39d
@@ -877,10 +898,10 @@ index 000000000..54643ed73
 +In:  FARG=0 R00=Stri:"HELLO" RX=Real:"3"
 +Out: EC=0 R00=Stri:"HELLO3"
 diff --git a/src/testSuite/tests/testSuiteList.txt b/src/testSuite/tests/testSuiteList.txt
-index 6635993a2..882b6ba20 100644
+index 6635993a2..123b3b098 100644
 --- a/src/testSuite/tests/testSuiteList.txt
 +++ b/src/testSuite/tests/testSuiteList.txt
-@@ -267,6 +267,17 @@ percent
+@@ -267,6 +267,18 @@ percent
  percentMRR
  percentT
  percentSigma
@@ -895,6 +916,7 @@ index 6635993a2..882b6ba20 100644
 +curvefit_cov
 +error_cov
 +saverestore_cov
++clcvar_cov
  percentPlusMG
  deltaPercent
  
