@@ -74,13 +74,16 @@ main() {
     [[ -x "$gen" ]] || harness_die "genBackup seed generator not built"
 
     # Run from a scratch dir; generate the seed corpus with genBackup, which writes
-    # a structurally valid backup.cfg so mutations start from a parseable file and
-    # reach the deeper field parsers instead of failing the version/ramSize checks.
+    # a structurally valid backupTest.cfg so mutations start from a parseable file
+    # and reach the deeper field parsers instead of failing the version/ramSize
+    # checks. The testSuite HAL suffixes every writable path with "Test"
+    # (ioPathBackup -> backupTest.cfg), so the seed and the harness both use that
+    # name; restoreCalc() opens the same path through the HAL.
     local run_dir="$HARNESS_WORK/run"
     rm -rf "$run_dir"
     mkdir -p "$run_dir/corpus"
     (cd "$run_dir/corpus" && "$gen") > "$LOG_DIR/fuzz-seed-gen.log" 2>&1 || true
-    [[ -s "$run_dir/corpus/backup.cfg" ]] || harness_die "genBackup did not produce a seed backup.cfg"
+    [[ -s "$run_dir/corpus/backupTest.cfg" ]] || harness_die "genBackup did not produce a seed backupTest.cfg"
 
     local dict_arg=()
     [[ -f "$DICT" ]] && dict_arg=("-dict=$DICT")
