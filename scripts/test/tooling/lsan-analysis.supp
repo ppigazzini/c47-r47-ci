@@ -11,6 +11,13 @@
 # malloc'd on reset and never freed (40 bytes, 1 allocation).
 leak:_dynmenuConstructUser
 
+# fnReset -> doFnReset (src/c47/config.c:1578): the not-found-glyph buffer
+# (glyphNotFound.data) is malloc'd on reset and never freed (38 bytes, 1
+# allocation). Newly exercised by the merged coverage corpus. Real one-shot
+# upstream leak; fix pending on c43 branch fix/restore-glyphnotfound-leak
+# (MR !1485). Remove this entry once that MR merges upstream.
+leak:doFnReset
+
 # GTK/GUI toolkit caches. The analysis lane launches the real GTK app
 # (./c47 --writeexportall, ./r47 --writeexportall under xvfb); on exit the
 # toolkit's font/layout/widget caches are never torn down, so LeakSanitizer
