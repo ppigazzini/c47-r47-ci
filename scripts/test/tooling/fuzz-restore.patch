@@ -69,9 +69,8 @@ index 000000000..6f592ec76
 +}
 +
 +int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-+  // Materialise the input as backupTest.cfg, the file restoreCalc() opens through
-+  // the HAL (ioPathBackup, resolved relative to the working directory; the
-+  // testSuite HAL suffixes writable paths with "Test").
++  // Materialise the input as backupTest.cfg, the file restoreCalc() opens
++  // through the HAL (ioPathBackup; the HAL suffixes writable paths with Test).
 +  FILE *f = fopen("backupTest.cfg", "wb");
 +  if(f == NULL) {
 +    return 0;
