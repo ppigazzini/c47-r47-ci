@@ -46,9 +46,11 @@ machine, so a CI failure is reproducible locally.
   dictionary, applied by the fuzz lane.
 - `tooling/coverage-sectors.py` - summarizes gcovr JSON by macro sector so the
   coverage lane reports CLI-relevant gaps instead of only a global percentage.
-- `tooling/coverage-patch-audit.py` - audits `coverage.patch` before it is
-  applied, failing fast if a newly added coverage corpus file is not also added
-  to `testSuiteList.txt`.
+- `tooling/coverage-patch-audit.py` - audits a carried coverage-corpus patch,
+  failing fast if a newly added corpus file is not also wired into
+  `testSuiteList.txt`. The corpus itself merged upstream on 2026-07-09 (MR !1487),
+  so `coverage.patch` is retired and the coverage lane no longer overlays it; this
+  audit is retained for any future carried corpus patch.
 - `tooling/function-reachability.py` - summarizes the effective testSuite
   `funcTestNoParam[]` whitelist against c47 `LAST_ITEM`, so the coverage lane
   reports how much of the catalog is directly callable from corpus tests.

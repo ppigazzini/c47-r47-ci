@@ -29,7 +29,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/common.sh"
 
 TOOLING_PATCH="${TOOLING_PATCH:-$SCRIPT_DIR/tooling/leakscan.patch}"
-COVERAGE_PATCH="${COVERAGE_PATCH:-$SCRIPT_DIR/tooling/coverage.patch}"
 BUILD_DIR="${BUILD_DIR:-build.coverage}"
 COVERAGE_MIN="${COVERAGE_MIN:-0}"
 # Per-sector ratchet floors. SECTOR_GATE=1 fails the lane when any sector with a
@@ -53,23 +52,13 @@ main() {
     git -C "$UPSTREAM_DIR" apply "$TOOLING_PATCH"
     harness_log "overlaid leak-scanner tooling (for --keyscan/--leakscan)"
 
-    # Overlay the coverage corpus extension on top of the leak-scanner tooling: it
-    # registers ~70 previously-unexposed functions in the testSuite whitelist,
-    # completes the testSuite I/O HAL so the save/restore serializers are testable,
-    # and adds corpus test files (stats / store-recall / compare / distributions /
-    # curve fitting / round / error / save-restore) that lift whole 0% subsystems.
-    # Applies on top of leakscan.patch; regenerate if either side moves.
-    if [[ -f "$COVERAGE_PATCH" ]]; then
-        python3 "$SCRIPT_DIR/tooling/coverage-patch-audit.py" "$COVERAGE_PATCH" \
-            | tee "$LOG_DIR/coverage-patch-audit.txt"
-        if ! git -C "$UPSTREAM_DIR" apply --check "$COVERAGE_PATCH" 2> /dev/null; then
-            harness_die "coverage.patch does not apply on upstream $commit (after
-            leakscan.patch); regenerate scripts/test/tooling/coverage.patch from the
-            test/stats-coverage branch rebased onto current upstream"
-        fi
-        git -C "$UPSTREAM_DIR" apply "$COVERAGE_PATCH"
-        harness_log "overlaid coverage corpus extension (whitelist + HAL + tests)"
-    fi
+    # The coverage corpus - the testSuite whitelist registrations, the testSuite
+    # I/O HAL completion for the save/restore serializers, and the *_cov.txt corpus
+    # files - merged upstream on 2026-07-09 as MR !1487, so it is now part of the
+    # synced upstream tree and no overlay is applied here. The carried
+    # tooling/coverage.patch and its coverage-patch-audit preflight are retired; if
+    # a future corpus is ever carried again, reintroduce an apply/audit block here
+    # (on top of leakscan.patch) using tooling/coverage-patch-audit.py.
 
     command -v gcovr > /dev/null || harness_die "gcovr not found (pip install gcovr or apt-get install gcovr)"
 
