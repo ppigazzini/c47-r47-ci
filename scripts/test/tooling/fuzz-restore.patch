@@ -69,9 +69,9 @@ index 000000000..6f592ec76
 +}
 +
 +int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-+  // Materialise the input as backupTest.cfg, the file restoreCalc() opens
-+  // through the HAL (ioPathBackup; the HAL suffixes writable paths with Test).
-+  FILE *f = fopen("backupTest.cfg", "wb");
++  // Materialise the input as backup.cfg, the file restoreCalc() opens through
++  // the HAL (ioPathBackup, resolved relative to the working directory).
++  FILE *f = fopen("backup.cfg", "wb");
 +  if(f == NULL) {
 +    return 0;
 +  }
@@ -130,7 +130,7 @@ index 000000000..15bcafd19
 +  return 0;
 +}
 diff --git a/src/testSuite/meson.build b/src/testSuite/meson.build
-index 6cb49dab7..970fe85d7 100644
+index 800927839..182d461c0 100644
 --- a/src/testSuite/meson.build
 +++ b/src/testSuite/meson.build
 @@ -22,3 +22,36 @@ test(

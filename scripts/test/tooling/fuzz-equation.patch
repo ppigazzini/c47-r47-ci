@@ -97,7 +97,7 @@ index 000000000..751967ee5
 +  return 0;
 +}
 diff --git a/src/testSuite/meson.build b/src/testSuite/meson.build
-index 6cb49dab7..e5d043baa 100644
+index 800927839..202c6c492 100644
 --- a/src/testSuite/meson.build
 +++ b/src/testSuite/meson.build
 @@ -22,3 +22,30 @@ test(
