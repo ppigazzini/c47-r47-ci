@@ -4,17 +4,26 @@
 # scripts/test/run-valgrind.sh. Lines here are KNOWN, accepted upstream c47
 # findings; the lane FAILS on any c47-owned uninitialised read, invalid access,
 # or leak that is not listed here. Keep this set minimal and file the entries
-# upstream. c47 stays malloc-clean (definite/indirect/possible lost all zero);
-# every entry below is an uninitialised-value read, not a leak.
+# upstream. c47 stays malloc-clean (definite/indirect/possible lost all zero on
+# current master); every entry below is an uninitialised-value read, not a leak.
 #
 # Regenerate after a legitimate upstream change (for example a line shift or an
 # upstream fix) with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
 #
-# Known upstream uninitialised-value reads in c47 display/formatting paths,
-# surfaced over the full 9672-test corpus. Display-only: every math test passes
-# and no memory is corrupted or lost. To be filed upstream.
+# Known upstream uninitialised-value reads in c47 display/formatting paths.
+# Display-only: every math test passes and no memory is corrupted. To be filed
+# upstream.
 #   - matrixEditor.c:984  displayVectorAngle, via showRealMatrix register redraw
 #   - display.c:581/584   real34ToDisplayString2, via eigenvalue/real formatting
 Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:984
 Conditional jump or move depends on uninitialised value(s) @ display.c:581
 Conditional jump or move depends on uninitialised value(s) @ display.c:584
+
+# Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
+# global-register and free-region arrays (globalRegister, freeMemoryRegions at
+# config.c:1523-1525) without memset, so their unused entries stay uninitialised;
+# saveCalc then hexDumps each array whole and the dump's ASCII column reads every
+# byte. Dump-only: the uninitialised bytes are written to the .cfg as hex and are
+# harmless on restore (only the used entries matter). Verified on current master
+# 797b4f54c. To be filed upstream (memset the arrays after malloc in doFnReset).
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:193
