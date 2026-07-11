@@ -8,6 +8,8 @@
 # guards in graphs.c (dead but correct), and the decNumber macro parse limits.
 # The invalidFunctionArgBool (abs-of-comparison) and oppositeInnerCondition
 # (dead running-average) logic bugs are fixed upstream and no longer appear.
+# Still current at upstream master 7d4308229: the merge since d1b643e7a is
+# test-only (src/testSuite/ only, zero src/c47 files), so these findings hold.
 src/c47/c47Extensions/graphs.c:1099: identicalInnerCondition
 src/c47/c47Extensions/graphs.c:1116: identicalInnerCondition
 src/c47/core/freeList.c:128: invalidPrintfArgType_sint

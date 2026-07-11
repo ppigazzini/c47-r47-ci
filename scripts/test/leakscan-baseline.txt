@@ -4,7 +4,9 @@
 # Format: <mode> <kind> <identifier>
 #
 # Re-verified against upstream master d1b643e7a: item-keyed, so no line drift;
-# every entry still reproduces, zero new. keyscan integrate_pgm_x20 still crashes
+# every entry still reproduces, zero new. Still current at 7d4308229: the merge
+# since d1b643e7a is test-only, and the item sweep and keyscan sequences are
+# corpus-independent, so this set is unchanged. keyscan integrate_pgm_x20 still crashes
 # (see __DEV/reports/REPORT-13-CI-LANES.md - a findKey2ndParam out-of-bounds read
 # plus unbounded integrator recursion).
 #

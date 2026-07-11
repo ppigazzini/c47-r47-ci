@@ -5,6 +5,9 @@
 # 97 -Wcast-qual, 58 -Wformat-nonliteral, 19 -Wdouble-promotion, 5 -Wundef. All
 # are style/hardening findings, none a defect; -Wdouble-promotion fell 42 -> 19
 # as upstream moved graph limits from float to real34.
+# Still current at upstream master 7d4308229: the merge since d1b643e7a is
+# test-only (src/testSuite/ only, zero src/c47 files), so these sites are
+# unchanged.
 src/c47/assign.c:752 [-Wcast-qual]
 src/c47/assign.c:824 [-Wcast-qual]
 src/c47/assign.c:833 [-Wcast-qual]

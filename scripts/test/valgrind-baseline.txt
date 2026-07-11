@@ -12,6 +12,9 @@
 #
 # Re-verified against upstream master d1b643e7a: all four sites reproduce at the
 # same lines, and definitely/indirectly/possibly lost stay zero.
+# Still current at upstream master 7d4308229: the merge since d1b643e7a is
+# test-only (src/testSuite/ only, zero src/c47 files), so matrixEditor.c,
+# display.c and saveRestoreBackup.c are byte-identical and the sites are unchanged.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed

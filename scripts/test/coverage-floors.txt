@@ -12,6 +12,11 @@
 # sample programs staged. Global (COVERAGE_MIN) 46.60% -> 45. Sectors measured ->
 # floor:
 #
+# These floors still gate green on 7d4308229: the serializer/TVM/equation
+# coverage merged since only lifts the measured percentages, so the floors are
+# conservative there now. Ratcheting them up to lock in the gain needs a fresh
+# full coverage run and is left as a follow-up.
+#
 #   core math          79.85% -> 78      matrix             67.12% -> 65
 #   programming / cli  36.11% -> 34      serializers        17.07% -> 15
 #   strings / alpha    27.84% -> 26
