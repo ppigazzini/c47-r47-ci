@@ -10,6 +10,9 @@
 # Regenerate after a legitimate upstream change (for example a line shift or an
 # upstream fix) with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
 #
+# Re-verified against upstream master d1b643e7a: all four sites reproduce at the
+# same lines, and definitely/indirectly/possibly lost stay zero.
+#
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
 # upstream.
@@ -25,5 +28,5 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:584
 # saveCalc then hexDumps each array whole and the dump's ASCII column reads every
 # byte. Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
-# 797b4f54c. To be filed upstream (memset the arrays after malloc in doFnReset).
+# d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
 Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:193

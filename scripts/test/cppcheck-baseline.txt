@@ -2,26 +2,31 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-src/c47/c47Extensions/graphs.c:1366: invalidFunctionArgBool
-src/c47/c47Extensions/graphs.c:1374: invalidFunctionArgBool
-src/c47/c47Extensions/graphs.c:1378: invalidFunctionArgBool
-src/c47/c47Extensions/graphs.c:1387: invalidFunctionArgBool
-src/c47/core/freeList.c:132: invalidPrintfArgType_sint
-src/c47/core/freeList.c:241: invalidPrintfArgType_sint
-src/c47/defines.h:2390: preprocessorErrorDirective
+# Regenerated against upstream master d1b643e7a. 22 findings, all benign: printf
+# int/uint width nits, two nullPointer false positives (verifySqrtMatrix, drifted
+# past their line-scoped suppression), two identicalInnerCondition redundant
+# guards in graphs.c (dead but correct), and the decNumber macro parse limits.
+# The invalidFunctionArgBool (abs-of-comparison) and oppositeInnerCondition
+# (dead running-average) logic bugs are fixed upstream and no longer appear.
+src/c47/c47Extensions/graphs.c:1099: identicalInnerCondition
+src/c47/c47Extensions/graphs.c:1116: identicalInnerCondition
+src/c47/core/freeList.c:128: invalidPrintfArgType_sint
+src/c47/core/freeList.c:237: invalidPrintfArgType_sint
+src/c47/defines.h:2376: preprocessorErrorDirective
+src/c47/mathematics/matrix.c:4362: nullPointer
+src/c47/mathematics/matrix.c:4363: nullPointer
 src/c47/mathematics/matrix.c:447: invalidPrintfArgType_sint
 src/c47/mathematics/matrix.c:497: invalidPrintfArgType_sint
 src/c47/mathematics/matrix.c:502: invalidPrintfArgType_sint
-src/c47/programming/input.c:447: invalidPrintfArgType_uint
-src/c47/programming/input.c:454: invalidPrintfArgType_uint
-src/c47/programming/input.c:460: invalidPrintfArgType_uint
-src/c47/programming/input.c:466: invalidPrintfArgType_uint
-src/c47/programming/input.c:472: invalidPrintfArgType_uint
-src/c47/programming/input.c:478: invalidPrintfArgType_uint
+src/c47/programming/input.c:477: invalidPrintfArgType_uint
 src/c47/programming/input.c:484: invalidPrintfArgType_uint
-src/c47/solver/graph.c:1564: invalidPrintfArgType_uint
-src/c47/solver/graph.c:1583: invalidPrintfArgType_uint
-src/c47/solver/graph.c:1605: invalidPrintfArgType_uint
-src/c47/solver/graph.c:1635: invalidPrintfArgType_uint
-src/c47/solver/graph.c:843: oppositeInnerCondition
-src/c47/solver/integrate.c:898: syntaxError
+src/c47/programming/input.c:490: invalidPrintfArgType_uint
+src/c47/programming/input.c:496: invalidPrintfArgType_uint
+src/c47/programming/input.c:502: invalidPrintfArgType_uint
+src/c47/programming/input.c:508: invalidPrintfArgType_uint
+src/c47/programming/input.c:514: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2258: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2277: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2299: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2329: invalidPrintfArgType_uint
+src/c47/solver/integrate.c:918: syntaxError
