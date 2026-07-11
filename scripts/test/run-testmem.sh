@@ -29,7 +29,7 @@ BUILD_DIR="${BUILD_DIR:-build.testmem}"
 testmem_normalize() {
     LC_ALL=C awk '
         /^TESTMEM GROWTH file=/ { match($0, /file=[^ ]+/); f=substr($0, RSTART+5, RLENGTH-5); next }
-        /^ case: / { c=$0; sub(/^ case: /, "", c); if(f != "") print f"|"c; f="" }
+        /^[[:space:]]*case: / { c=$0; sub(/^[[:space:]]*case: /, "", c); if(f != "") print f"|"c; f="" }
     ' | LC_ALL=C sort -u
 }
 

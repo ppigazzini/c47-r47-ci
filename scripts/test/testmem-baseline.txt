@@ -3,9 +3,33 @@
 # run-testmem.sh fails on any growth case NOT listed here.
 # Format: <file>|<IN parameter line>
 #
-# Regenerated against upstream master d1b643e7a: empty. The matrix-op per-call
-# pool leaks previously listed (add/subtract dimension mismatch, cross product,
-# real-matrix conjugate, singular LU, prime factorisation, eigenvalue error path)
-# are fixed upstream. The toReal growth the scanner still prints is allocated in
-# the tooling's own testMemClearWorkingState, not a corpus case, so it carries no
-# case line and is not a baselineable growth.
+# Regenerated against upstream master 7d4308229 (gcc 13, full corpus). Every case
+# below grows only the RAM pool (gmp=+0, so no GMP/bignum leak) and the residue is
+# a one-shot allocation retained for the rest of the run, not a per-iteration leak:
+#
+#   toReal.txt        the SHOI->real conversion caches a scratch real in the pool.
+#   programs.txt      loading the Prime sample program stores it in program memory.
+#   eq_cov/deriv_cov/solve_cov/integrate_cov/pgm_solve_cov  the formula-coverage
+#                     drivers leave shared state the per-test In: reset does not
+#                     clear - a formula in the pool, the named variables A and X,
+#                     the reserved TVM registers, or an appended program - exactly
+#                     the residue testSuiteList.txt documents when it orders these
+#                     files after programs.txt.
+#
+# The normalize in run-testmem.sh keys on <file>|<case>, not on the growth
+# magnitude, so an existing case that grows further is not re-flagged; only a
+# brand-new growing case fails the gate.
+deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
+eq_cov.txt|IN: FARG=0 RX=REAL:"0"
+eq_cov.txt|IN: FARG=1 RX=REAL:"0"
+eq_cov.txt|IN: FARG=10 RX=REAL:"0"
+eq_cov.txt|IN: FARG=13 RX=REAL:"0"
+eq_cov.txt|IN: FARG=17 RX=REAL:"4"
+eq_cov.txt|IN: FARG=2 RX=REAL:"0"
+eq_cov.txt|IN: FARG=5 RX=REAL:"0"
+integrate_cov.txt|IN: FARG=1 RY=REAL:"0" RX=REAL:"3"
+integrate_cov.txt|IN: FARG=3 RY=REAL:"0" RX=REAL:"2"
+pgm_solve_cov.txt|IN: FARG=0
+programs.txt|IN: FL_ASLIFT=1 RX=REAL:"123.0" PGM="Prime"
+solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
+toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"
