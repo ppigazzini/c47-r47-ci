@@ -1,6 +1,9 @@
 name: Valgrind Memcheck
-# Thin CI caller for Sets up the toolchain and calls
-# scripts/test/run-valgrind.sh, a report-first breadth lane (set its *_GATE to gate).
+# Thin CI caller for the Valgrind memcheck lane. Sets up the toolchain and calls
+# scripts/test/run-valgrind.sh, which runs the testSuite under memcheck
+# (leak-check=full, track-origins) and GATES on any new c47-owned error site vs
+# the baseline. Gating by default (VALGRIND_GATE=1); set VALGRIND_GATE=0 for a
+# report-only run.
 
 on:
   workflow_dispatch:

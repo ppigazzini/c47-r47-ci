@@ -166,7 +166,11 @@ PY
     # Always publish the sector report. When SECTOR_GATE=1 and a floors file
     # exists, also pass the floors so a sector below its floor exits non-zero.
     local sector_rc=0
-    if [[ "$SECTOR_GATE" == "1" && -f "$SECTOR_FLOORS" ]]; then
+    if [[ "$SECTOR_GATE" == "1" ]]; then
+        # A missing floors file must not silently downgrade to a report-only run:
+        # that would print "gate PASSED" below having gated nothing.
+        [[ -f "$SECTOR_FLOORS" ]] \
+            || harness_die "SECTOR_GATE=1 but no floors file at $SECTOR_FLOORS"
         python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" "$SECTOR_FLOORS" | tee "$cov_sectors" || sector_rc=$?
     else
         python3 "$SCRIPT_DIR/tooling/coverage-sectors.py" "$cov_json" | tee "$cov_sectors"

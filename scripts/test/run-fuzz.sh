@@ -93,7 +93,7 @@ main() {
     tar -czf "$LOG_DIR/fuzz-corpus.tar.gz" -C "$run_dir" corpus 2> /dev/null || true
 
     local crashes
-    crashes="$(ls "$LOG_DIR"/fuzz-crash-* "$LOG_DIR"/fuzz-leak-* "$LOG_DIR"/fuzz-oom-* 2> /dev/null || true)"
+    crashes="$(ls "$LOG_DIR"/fuzz-crash-* "$LOG_DIR"/fuzz-leak-* "$LOG_DIR"/fuzz-oom-* "$LOG_DIR"/fuzz-timeout-* 2> /dev/null || true)"
     if [[ -n "$crashes" ]]; then
         harness_log "FUZZ FINDING(s) - reproducers saved (re-run: fuzzDecode <file>):"
         printf ' %s\n' $crashes

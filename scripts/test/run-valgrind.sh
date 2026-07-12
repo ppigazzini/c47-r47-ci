@@ -95,7 +95,18 @@ main() {
         NR == FNR { c47[$0] = 1; next }
         /^==[0-9]+== (Invalid|Use of|Conditional|Syscall|Mismatched|Source and destination|.*lost)/ {
             kind = $0; sub(/^==[0-9]+== */, "", kind)
-            isleak = (kind ~ /lost/); pending = 1; first = 1; next
+            isleak = (kind ~ /lost/)
+            # A leak header embeds a run-varying byte/block count and a "loss
+            # record X of Y" index; collapse it to the stable loss category so the
+            # same leak site yields the same signature run-to-run (otherwise a real
+            # c47 leak would read as a NEW finding on every run, or a baselined one
+            # would silently stop matching).
+            if (isleak) {
+                if (kind ~ /definitely lost/)      kind = "definitely lost"
+                else if (kind ~ /indirectly lost/) kind = "indirectly lost"
+                else if (kind ~ /possibly lost/)   kind = "possibly lost"
+            }
+            pending = 1; first = 1; next
         }
         pending && /^==[0-9]+== +(at|by) 0x/ {
             f = $0; sub(/^.*\(/, "", f); sub(/\).*$/, "", f)   # f = "file:line"

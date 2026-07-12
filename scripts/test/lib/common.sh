@@ -41,6 +41,12 @@ harness_init() { mkdir -p "$HARNESS_WORK" "$LOG_DIR"; }
 # of UPSTREAM_REF. Network call (git ls-remote); no working tree touched.
 harness_resolve_commit() {
     if [[ -n "$UPSTREAM_COMMIT" ]]; then
+        # harness_sync_upstream fetches this exact object over the wire; a shallow
+        # `want` for an abbreviated SHA is rejected ("not allow request for
+        # unadvertised object"), so require the full 40-hex form up front with an
+        # actionable message rather than a cryptic fetch failure.
+        [[ "$UPSTREAM_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+            || harness_die "UPSTREAM_COMMIT must be a full 40-char SHA, got '$UPSTREAM_COMMIT'"
         printf '%s\n' "$UPSTREAM_COMMIT"
         return 0
     fi

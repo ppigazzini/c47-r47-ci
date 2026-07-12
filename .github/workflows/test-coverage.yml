@@ -2,7 +2,7 @@ name: Coverage Map
 # Thin CI caller for the coverage lane. The lane sets up
 # the toolchain and calls scripts/test/run-coverage.sh, which builds the upstream
 # testSuite with gcc coverage instrumentation, exercises it (the 278-file corpus,
-# --keyscan and --leakscan), audits the carried coverage patch, and publishes a
+# --keyscan and --leakscan) and publishes a
 # gcovr coverage map plus the macro-sector report, direct-reachability report,
 # and least-covered leak-prone modules. Ratchet-gated: COVERAGE_MIN gates overall
 # line coverage and SECTOR_GATE=1 gates the per-sector floors in

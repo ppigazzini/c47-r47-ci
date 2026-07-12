@@ -73,7 +73,9 @@ main() {
 
     [[ -f "$BASELINE" ]] || harness_die "no baseline at $BASELINE; run once with UPDATE_BASELINE=1"
     local base_sorted="$LOG_DIR/cppcheck-baseline.sorted"
-    grep -vE '^\s*(#|$)' "$BASELINE" | LC_ALL=C sort -u > "$base_sorted"
+    # Tolerate an all-comment baseline (every finding fixed): grep -v then matches
+    # nothing and exits 1, which pipefail+set -e would turn into a spurious abort.
+    { grep -vE '^\s*(#|$)' "$BASELINE" || true; } | LC_ALL=C sort -u > "$base_sorted"
 
     local new
     new="$(LC_ALL=C comm -13 "$base_sorted" "$LOG_DIR/cppcheck-found.txt")"

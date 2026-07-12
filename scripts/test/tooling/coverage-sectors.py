@@ -9,9 +9,15 @@ from collections.abc import Iterable
 from pathlib import Path
 
 
+# Sectors partition the c47 sources: each file is assigned to the FIRST sector
+# whose needles match (see main()), so the order is specific-before-general.
+# `matrix` precedes `core math` because mathematics/matrix.c matches both
+# `/matrix.c` and `/mathematics/`; it must land only in `matrix`, or its 4k lines
+# would be double-counted across two gated sectors and skew both.
 SECTORS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("core math", ("/mathematics/", "/conversions/", "/distributions/")),
     ("matrix", ("/matrix.c", "/matrix/")),
+    ("core math", ("/mathematics/", "/conversionUnits.c", "/conversionAngles.c",
+                   "/registerValueConversions.c", "/distributions/")),
     ("solver / graph", ("/solver/", "/graph/")),
     ("programming / cli", ("/programming/", "/registers.c", "/items.c")),
     ("serializers", ("saveRestore", "save_restore", "/io/")),
@@ -75,24 +81,31 @@ def main(argv: list[str]) -> int:
     total_all = 0
     matched_files: set[str] = set()
     sector_percent: dict[str, float] = {}
+    # covered, total, files per sector.
+    sector_acc: dict[str, list[int]] = {name: [0, 0, 0] for name, _ in SECTORS}
 
-    for sector, needles in SECTORS:
-        sector_covered = 0
-        sector_total = 0
-        sector_files = 0
-        for file_entry in files:
-            filename = str(file_entry.get("filename", ""))
+    # Assign each file to the first sector it matches (a partition), so a file
+    # covered by two sectors' needles is counted once and `matched total` sums the
+    # union rather than double-adding the overlap.
+    for file_entry in files:
+        filename = str(file_entry.get("filename", ""))
+        for sector, needles in SECTORS:
             if not matches_sector(filename, needles):
                 continue
             covered, total = line_totals(file_entry)
-            sector_covered += covered
-            sector_total += total
-            sector_files += 1
+            acc = sector_acc[sector]
+            acc[0] += covered
+            acc[1] += total
+            acc[2] += 1
             matched_files.add(filename)
+            covered_all += covered
+            total_all += total
+            break
+
+    for sector, _ in SECTORS:
+        sector_covered, sector_total, sector_files = sector_acc[sector]
         percent = (sector_covered * 100 / sector_total) if sector_total else 0
         sector_percent[sector] = percent
-        covered_all += sector_covered
-        total_all += sector_total
         print(f"{sector} | {sector_files} | {sector_covered} | {sector_total} | {percent:.2f}%")
 
     unmatched_covered = 0

@@ -91,7 +91,14 @@ main() {
     harness_log "running --keyscan (interactive/subsystem key sequences)"
     (cd "$run_dir" && "$bin" --keyscan) > "$LOG_DIR/keyscan.log" 2>&1 || true
 
-    grep -E '^LEAKSCAN done|^KEYSCAN done' "$LOG_DIR/leakscan.log" "$LOG_DIR/keyscan.log" || true
+    # The scans exit non-zero by design when they find leaks, so their exit code
+    # cannot gate completion. Assert each printed its end-of-run sentinel instead:
+    # a scan truncated by a crash/abort mid-corpus emits fewer findings and would
+    # otherwise sail through the baseline diff as a false PASS.
+    grep -qa '^LEAKSCAN done' "$LOG_DIR/leakscan.log" \
+        || harness_die "leakscan did not complete (no 'LEAKSCAN done'): run truncated"
+    grep -qa '^KEYSCAN done' "$LOG_DIR/keyscan.log" \
+        || harness_die "keyscan did not complete (no 'KEYSCAN done'): run truncated"
 
     # Compare normalised findings against the baseline.
     {
@@ -105,8 +112,11 @@ main() {
         return 0
     fi
 
+    [[ -f "$BASELINE" ]] || harness_die "no baseline at $BASELINE; run once with UPDATE_BASELINE=1"
     local base_sorted="$LOG_DIR/baseline.sorted"
-    grep -vE '^\s*(#|$)' "$BASELINE" | LC_ALL=C sort -u > "$base_sorted"
+    # Tolerate an all-comment baseline (every finding fixed): grep -v then matches
+    # nothing and exits 1, which pipefail+set -e would turn into a spurious abort.
+    { grep -vE '^\s*(#|$)' "$BASELINE" || true; } | LC_ALL=C sort -u > "$base_sorted"
 
     local new missing
     new="$(LC_ALL=C comm -13 "$base_sorted" "$LOG_DIR/leakscan-findings.txt")"
@@ -114,12 +124,12 @@ main() {
 
     if [[ -n "$missing" ]]; then
         harness_log "findings in the baseline no longer present (likely fixed - update the baseline):"
-        printf ' %s\n' $missing
+        printf ' %s\n' "$missing"
     fi
 
     if [[ -n "$new" ]]; then
         harness_log "NEW pool/GMP findings not in the baseline (gate FAILED):"
-        printf ' %s\n' $new
+        printf ' %s\n' "$new"
         harness_die "leak gate failed: $(printf '%s\n' "$new" | grep -c .) new finding(s)"
     fi
 

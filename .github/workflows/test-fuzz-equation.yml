@@ -1,7 +1,7 @@
 name: Fuzz Equation
 # Thin CI caller for the equation-parser fuzzing lane. The lane
-# sets up clang + the toolchain and calls scripts/test/run-fuzz.sh, which builds
-# the libFuzzer harness over parseEquation and runs a time-boxed campaign over a
+# sets up clang + the toolchain and calls scripts/test/run-fuzz-equation.sh, which
+# builds the libFuzzer harness over parseEquation and runs a time-boxed campaign over a
 # seed corpus, uploading any crash reproducer and the evolved corpus. Report-
 # first: a finding is surfaced but does not fail the lane unless FUZZ_GATE=1.
 

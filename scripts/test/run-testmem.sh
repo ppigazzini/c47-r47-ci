@@ -76,7 +76,11 @@ main() {
     mkdir -p "$run_dir"
     harness_log "running --testmem over the corpus"
     (cd "$run_dir" && "$bin" --testmem "$UPSTREAM_DIR/src/testSuite/tests/testSuiteList.txt") > "$LOG_DIR/testmem.log" 2>&1 || true
-    grep -E '^TESTMEM done' "$LOG_DIR/testmem.log" || true
+    # --testmem exits non-zero by design on growth, so its exit code cannot gate
+    # completion. Assert the end-of-run sentinel: a run truncated by a crash/abort
+    # mid-corpus emits fewer growth cases and would pass the diff as a false PASS.
+    grep -qa '^TESTMEM done' "$LOG_DIR/testmem.log" \
+        || harness_die "testmem did not complete (no 'TESTMEM done'): run truncated"
 
     testmem_normalize < "$LOG_DIR/testmem.log" > "$LOG_DIR/testmem-growth.txt"
 
@@ -86,8 +90,11 @@ main() {
         return 0
     fi
 
+    [[ -f "$BASELINE" ]] || harness_die "no baseline at $BASELINE; run once with UPDATE_BASELINE=1"
     local base_sorted="$LOG_DIR/testmem-baseline.sorted"
-    grep -vE '^\s*(#|$)' "$BASELINE" | LC_ALL=C sort -u > "$base_sorted"
+    # Tolerate an all-comment baseline (every growth case fixed): grep -v then
+    # matches nothing and exits 1, which pipefail+set -e would turn into an abort.
+    { grep -vE '^\s*(#|$)' "$BASELINE" || true; } | LC_ALL=C sort -u > "$base_sorted"
 
     local new missing
     new="$(LC_ALL=C comm -13 "$base_sorted" "$LOG_DIR/testmem-growth.txt")"
