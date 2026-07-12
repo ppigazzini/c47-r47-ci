@@ -8,25 +8,22 @@
 # corpus lifts a sector; lowering one is an explicit, documented acceptance of a
 # regression.
 #
-# Baseline: upstream master 7d4308229, gcc 13, full corpus + keyscan + leakscan,
-# sample programs staged. Global (COVERAGE_MIN) 50.60% -> 48.
-# Sectors measured -> floor:
+# Baseline: upstream master 9c9ac6549, gcc 13, full corpus + keyscan + leakscan,
+# sample programs staged. Sectors measured -> floor:
 #
-#   core math          81.99% -> 80      matrix             69.69% -> 68
-#   programming / cli  36.24% -> 34      serializers        69.06% -> 67
+#   core math          81.99% -> 80      matrix             69.70% -> 68
+#   programming / cli  37.06% -> 35      serializers        69.06% -> 67
 #   strings / alpha    27.84% -> 26
 #
-# Serializers rose from 17% as the save/restore HAL completion and the state and
-# program serializer coverage merged upstream; this floor now locks that in.
-# Core math and matrix each gained ~2 points from the TVM, equation and
-# integrator drivers. programming/cli and strings/alpha were unmoved, so their
-# floors hold.
+# programming/cli rose from 36.24%: the plot-regression graph drivers merged
+# since 7d4308229 exercise more of the program/plot path, so its floor ratchets
+# 34 -> 35. core math, matrix, serializers and strings/alpha are unchanged.
 #
 # Gated: the CLI-critical sectors (serializers, program management, parser/string
 # paths, core math) plus matrix. Left ungated by design (host-test ceilings /
 # lower priority): solver/graph, input/editors, ui/display/printing, addons/dmcp.
 core math = 80
 matrix = 68
-programming / cli = 34
+programming / cli = 35
 serializers = 67
 strings / alpha = 26

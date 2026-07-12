@@ -3,22 +3,21 @@
 # run-testmem.sh fails on any growth case NOT listed here.
 # Format: <file>|<IN parameter line>
 #
-# Regenerated against upstream master 7d4308229 (gcc 13, full corpus). Every case
-# below grows only the RAM pool (gmp=+0, so no GMP/bignum leak) and the residue is
-# a one-shot allocation retained for the rest of the run, not a per-iteration leak:
+# Regenerated against upstream master 9c9ac6549 (gcc 13, full corpus). Every case below
+# grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
+# one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
 #   toReal.txt        the SHOI->real conversion caches a scratch real in the pool.
-#   programs.txt      loading the Prime sample program stores it in program memory.
 #   eq_cov/deriv_cov/solve_cov/integrate_cov/pgm_solve_cov  the formula-coverage
 #                     drivers leave shared state the per-test In: reset does not
-#                     clear - a formula in the pool, the named variables A and X,
-#                     the reserved TVM registers, or an appended program - exactly
-#                     the residue testSuiteList.txt documents when it orders these
-#                     files after programs.txt.
+#                     clear (a formula in the pool, named variables A and X, the
+#                     reserved TVM registers, an appended program).
+#   graphs_cov.txt    the plot-regression cases load the G1..G4 graph programs and
+#                     render bitmaps, state kept for the rest of the run.
 #
 # The normalize in run-testmem.sh keys on <file>|<case>, not on the growth
-# magnitude, so an existing case that grows further is not re-flagged; only a
-# brand-new growing case fails the gate.
+# magnitude, so only a brand-new growing case fails the gate.
+
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
@@ -27,9 +26,13 @@ eq_cov.txt|IN: FARG=13 RX=REAL:"0"
 eq_cov.txt|IN: FARG=17 RX=REAL:"4"
 eq_cov.txt|IN: FARG=2 RX=REAL:"0"
 eq_cov.txt|IN: FARG=5 RX=REAL:"0"
+graphs_cov.txt|IN: FARG=0
+graphs_cov.txt|IN: FARG=1
+graphs_cov.txt|IN: FL_ASLIFT=1 R00=STRI:"S" RY=REAL:"-5" RX=REAL:"5" PGM="G2"
+graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"SIN(X)" PGM="G1"
+graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
 integrate_cov.txt|IN: FARG=1 RY=REAL:"0" RX=REAL:"3"
 integrate_cov.txt|IN: FARG=3 RY=REAL:"0" RX=REAL:"2"
 pgm_solve_cov.txt|IN: FARG=0
-programs.txt|IN: FL_ASLIFT=1 RX=REAL:"123.0" PGM="Prime"
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
 toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"

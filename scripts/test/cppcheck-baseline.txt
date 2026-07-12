@@ -2,14 +2,12 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-# Regenerated against upstream master d1b643e7a. 22 findings, all benign: printf
-# int/uint width nits, two nullPointer false positives (verifySqrtMatrix, drifted
-# past their line-scoped suppression), two identicalInnerCondition redundant
-# guards in graphs.c (dead but correct), and the decNumber macro parse limits.
-# The invalidFunctionArgBool (abs-of-comparison) and oppositeInnerCondition
-# (dead running-average) logic bugs are fixed upstream and no longer appear.
-# Still current at upstream master 7d4308229: the merge since d1b643e7a is
-# test-only (src/testSuite/ only, zero src/c47 files), so these findings hold.
+# Regenerated against upstream master 9c9ac6549. All findings benign: printf int/uint
+# width nits, two nullPointer false positives (verifySqrtMatrix), two
+# identicalInnerCondition redundant-but-correct guards in graphs.c, and the
+# decNumber macro parse limits. Unchanged from 7d4308229 (the merges since then
+# did not touch the analysed lines).
+
 src/c47/c47Extensions/graphs.c:1099: identicalInnerCondition
 src/c47/c47Extensions/graphs.c:1116: identicalInnerCondition
 src/c47/core/freeList.c:128: invalidPrintfArgType_sint

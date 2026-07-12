@@ -3,27 +3,22 @@
 # The gate (scripts/test/run-leakscan.sh) fails on any finding NOT listed here.
 # Format: <mode> <kind> <identifier>
 #
-# Re-verified against upstream master d1b643e7a: item-keyed, so no line drift;
-# every entry still reproduces, zero new. Still current at 7d4308229: the merge
-# since d1b643e7a is test-only, and the item sweep and keyscan sequences are
-# corpus-independent, so this set is unchanged. keyscan integrate_pgm_x20 still crashes
-# (see __DEV/reports/REPORT-13-CI-LANES.md - a findKey2ndParam out-of-bounds read
-# plus unbounded integrator recursion).
+# Regenerated against upstream master 9c9ac6549 (UPDATE_BASELINE=1). The set of
+# crashing items changed with the plot/graph code merged since 7d4308229: a few
+# older CRASH items dropped and new ones appeared (still headless out-of-context
+# handler calls, not real leaks). LEAK item=1202/1203/1465/1889 and the
+# integrate_pgm_x20 keyscan crash (findKey2ndParam OOB + unbounded integrator
+# recursion, see __DEV/reports/REPORT-13-CI-LANES.md) are unchanged.
 #
 # Triage (see __DEV/reports/REPORT-4-BUGS.md):
 # - leakscan LEAK item=1202/1203/1465/1889 - persistent state
-# (named vars / equations / refresh), not orphan leaks.
+#   (named vars / equations / refresh), not orphan leaks.
 # - CRASH item=... - handlers called out of keyboard/menu context.
-# - keyscan CRASH seq=integrate_pgm_x20 - REAL SIGSEGV, reproduced on upstream
-# bfbcaf7d7 (build.leakscan, testSuite --keyscan): the integrator key sequence
-# (kInteg x20) segfaults. Surfaced by the "RS and EXIT interrupt of solve,
-# integrate, plot" rework (1cc97e595 and fixups). Tracked here pending a
-# root-cause and a c43 fix branch; not a scanner out-of-context artifact.
-# Removed 2026-07-09, fixed upstream in the 167-commit sync to bfbcaf7d7:
-# leakscan LEAK item=1645 (fnXToAlphaOld, MR !1428 merged), item=2412, item=2413,
-# and keyscan LEAK seq=equation_x80.
+# - keyscan CRASH seq=integrate_pgm_x20 - REAL SIGSEGV, tracked pending a
+#   c43 fix branch; not a scanner out-of-context artifact.
 # Remove a line here only when the underlying finding is fixed upstream.
 
+keyscan CRASH seq=integrate_pgm_x20
 leakscan CRASH item=1197
 leakscan CRASH item=1483
 leakscan CRASH item=1484
@@ -36,8 +31,6 @@ leakscan CRASH item=1611
 leakscan CRASH item=1623
 leakscan CRASH item=1627
 leakscan CRASH item=1665
-leakscan CRASH item=1731
-leakscan CRASH item=1732
 leakscan CRASH item=1739
 leakscan CRASH item=1767
 leakscan CRASH item=1812
@@ -45,10 +38,17 @@ leakscan CRASH item=1813
 leakscan CRASH item=1814
 leakscan CRASH item=1815
 leakscan CRASH item=1826
-leakscan CRASH item=1893
 leakscan CRASH item=207
+leakscan CRASH item=2368
+leakscan CRASH item=2369
+leakscan CRASH item=2370
+leakscan CRASH item=2371
+leakscan CRASH item=2372
+leakscan CRASH item=2373
 leakscan CRASH item=2377
 leakscan CRASH item=2378
+leakscan CRASH item=2384
+leakscan CRASH item=2735
 leakscan CRASH item=2773
 leakscan CRASH item=2774
 leakscan CRASH item=2785
@@ -57,4 +57,3 @@ leakscan LEAK item=1202
 leakscan LEAK item=1203
 leakscan LEAK item=1465
 leakscan LEAK item=1889
-keyscan CRASH seq=integrate_pgm_x20

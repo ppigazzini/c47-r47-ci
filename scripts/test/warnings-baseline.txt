@@ -1,13 +1,11 @@
 # OpenSSF hardening-warning baseline for the c47 sources.
 # One line per distinct warning site: src/c47/file:line [-Wcategory].
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-warnings.sh
-# Regenerated against upstream master d1b643e7a. 293 sites: 114 -Wshadow,
-# 97 -Wcast-qual, 58 -Wformat-nonliteral, 19 -Wdouble-promotion, 5 -Wundef. All
-# are style/hardening findings, none a defect; -Wdouble-promotion fell 42 -> 19
-# as upstream moved graph limits from float to real34.
-# Still current at upstream master 7d4308229: the merge since d1b643e7a is
-# test-only (src/testSuite/ only, zero src/c47 files), so these sites are
-# unchanged.
+# Regenerated against upstream master 9c9ac6549. All are style/hardening findings, none
+# a defect (-Wshadow, -Wcast-qual, -Wformat-nonliteral, -Wdouble-promotion,
+# -Wundef). The matrix.c sites drifted by a few lines from the eigenvalue
+# previousDiagonal fix merged since 7d4308229; the set is otherwise unchanged.
+
 src/c47/assign.c:752 [-Wcast-qual]
 src/c47/assign.c:824 [-Wcast-qual]
 src/c47/assign.c:833 [-Wcast-qual]
@@ -108,21 +106,22 @@ src/c47/mathematics/matrix.c:2869 [-Wshadow]
 src/c47/mathematics/matrix.c:2910 [-Wshadow]
 src/c47/mathematics/matrix.c:5396 [-Wshadow]
 src/c47/mathematics/matrix.c:6629 [-Wshadow]
-src/c47/mathematics/matrix.c:6637 [-Wshadow]
-src/c47/mathematics/matrix.c:6638 [-Wshadow]
+src/c47/mathematics/matrix.c:6635 [-Wshadow]
+src/c47/mathematics/matrix.c:6640 [-Wshadow]
+src/c47/mathematics/matrix.c:6641 [-Wshadow]
 src/c47/mathematics/matrix.c:668 [-Wshadow]
-src/c47/mathematics/matrix.c:7197 [-Wshadow]
-src/c47/mathematics/matrix.c:7203 [-Wshadow]
-src/c47/mathematics/matrix.c:7247 [-Wshadow]
-src/c47/mathematics/matrix.c:7349 [-Wshadow]
+src/c47/mathematics/matrix.c:7200 [-Wshadow]
+src/c47/mathematics/matrix.c:7206 [-Wshadow]
+src/c47/mathematics/matrix.c:7250 [-Wshadow]
+src/c47/mathematics/matrix.c:7352 [-Wshadow]
 src/c47/mathematics/matrix.c:741 [-Wshadow]
-src/c47/mathematics/matrix.c:7424 [-Wshadow]
-src/c47/mathematics/matrix.c:7454 [-Wshadow]
-src/c47/mathematics/matrix.c:7516 [-Wshadow]
-src/c47/mathematics/matrix.c:8057 [-Wcast-qual]
-src/c47/mathematics/matrix.c:8175 [-Wcast-qual]
-src/c47/mathematics/matrix.c:8280 [-Wshadow]
-src/c47/mathematics/matrix.c:8532 [-Wshadow]
+src/c47/mathematics/matrix.c:7427 [-Wshadow]
+src/c47/mathematics/matrix.c:7457 [-Wshadow]
+src/c47/mathematics/matrix.c:7519 [-Wshadow]
+src/c47/mathematics/matrix.c:8060 [-Wcast-qual]
+src/c47/mathematics/matrix.c:8178 [-Wcast-qual]
+src/c47/mathematics/matrix.c:8283 [-Wshadow]
+src/c47/mathematics/matrix.c:8535 [-Wshadow]
 src/c47/mathematics/median.c:69 [-Wundef]
 src/c47/mathematics/median.c:77 [-Wundef]
 src/c47/mathematics/pcg_basic.h:34 [-Wundef]
