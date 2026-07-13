@@ -2,10 +2,10 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-# Regenerated against upstream master 9c9ac6549. All findings benign: printf int/uint
+# Regenerated against upstream master ef694abb0. All findings benign: printf int/uint
 # width nits, two nullPointer false positives (verifySqrtMatrix), two
 # identicalInnerCondition redundant-but-correct guards in graphs.c, and the
-# decNumber macro parse limits. Unchanged from 7d4308229 (the merges since then
+# decNumber macro parse limits. Unchanged from 9c9ac6549 (the merges since then
 # did not touch the analysed lines).
 
 src/c47/c47Extensions/graphs.c:1099: identicalInnerCondition

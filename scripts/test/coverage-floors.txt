@@ -8,28 +8,24 @@
 # corpus lifts a sector; lowering one is an explicit, documented acceptance of a
 # regression.
 #
-# Baseline: upstream master 9c9ac6549, gcc 13, full corpus + keyscan + leakscan,
+# Baseline: upstream master ef694abb0, gcc 13, full corpus + keyscan + leakscan,
 # sample programs staged. Sectors measured -> floor:
 #
-#   core math          84.88% -> 83      matrix             69.70% -> 68
-#   programming / cli  37.06% -> 35      serializers        69.06% -> 67
+#   core math          85.02% -> 84      matrix             69.70% -> 68
+#   programming / cli  39.65% -> 38      serializers        68.94% -> 67
 #   strings / alpha    27.84% -> 26
 #
-# programming/cli rose from 36.24%: the plot-regression graph drivers merged
-# since 7d4308229 exercise more of the program/plot path, so its floor ratchets
-# 34 -> 35. matrix, serializers and strings/alpha are unchanged.
-#
-# core math jumped 81.99 -> 84.88 and its floor ratchets 80 -> 83: the sector
-# report now partitions files (mathematics/matrix.c is counted only in `matrix`,
-# not double-counted into core math) and folds in the conversion units that the
-# retired /conversions/ needle used to miss. This is a measurement correction,
-# not a corpus lift.
+# Since 9c9ac6549: programming/cli rose 37.06 -> 39.65 and core math 84.88 ->
+# 85.02 as the new coverage corpus (bits/flags/statsx/regmgmt/histo/clearvars
+# _cov) exercises more of the bit-op, flag, register and stats paths. Their
+# floors ratchet 35 -> 38 and 83 -> 84; matrix, serializers and strings/alpha
+# are unchanged.
 #
 # Gated: the CLI-critical sectors (serializers, program management, parser/string
 # paths, core math) plus matrix. Left ungated by design (host-test ceilings /
 # lower priority): solver/graph, input/editors, ui/display/printing, addons/dmcp.
-core math = 83
+core math = 84
 matrix = 68
-programming / cli = 35
+programming / cli = 38
 serializers = 67
 strings / alpha = 26

@@ -3,7 +3,7 @@
 # run-testmem.sh fails on any growth case NOT listed here.
 # Format: <file>|<IN parameter line>
 #
-# Regenerated against upstream master 9c9ac6549 (gcc 13, full corpus). Every case below
+# Regenerated against upstream master ef694abb0 (gcc 13, full corpus). Every case below
 # grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
 # one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
