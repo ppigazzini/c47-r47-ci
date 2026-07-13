@@ -12,20 +12,32 @@
 # normalised to the loss category, not the run-varying byte/block count and
 # loss-record index, so a leak site keys to a stable signature across runs.
 #
-# Regenerate after a legitimate upstream change (for example a line shift or an
-# upstream fix) with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
+# The uninitialised-read (conditional-jump) line set is TOOLCHAIN-DEPENDENT: how
+# many jumps memcheck attributes inside a function, and at which lines, varies
+# with the valgrind and gcc versions. This baseline therefore reflects the CI
+# runner (ubuntu-latest), not a local machine - the CI toolchain flags more
+# sites in real34ToDisplayString2 than a typical local valgrind. Regenerate ON
+# THE RUNNER after a legitimate upstream change: run the lane with
+# UPDATE_BASELINE=1 and take valgrind-found.txt from the uploaded ci-artifacts,
+# rather than regenerating locally (a local set will be missing runner-only
+# sites and the gate will fail).
 #
 # History: re-verified at d1b643e7a and 7d4308229 (a test-only merge, zero
-# src/c47 files). Regenerated at upstream master 9c9ac6549: the four uninit-read
-# sites reproduce at the same lines; one possibly-lost site is newly surfaced (a
-# one-time LCD buffer, below) - definitely/indirectly lost stay zero.
+# src/c47 files). Regenerated at upstream master 9c9ac6549 from the CI runner:
+# real34ToDisplayString2 flags display.c:557/558/564/581/584; matrixEditor.c:984
+# and saveRestoreBackup.c:193 are unchanged; one possibly-lost site is newly
+# surfaced (a one-time LCD buffer, below) - definitely/indirectly lost stay zero.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
 # upstream.
-#   - matrixEditor.c:984  displayVectorAngle, via showRealMatrix register redraw
-#   - display.c:581/584   real34ToDisplayString2, via eigenvalue/real formatting
+#   - matrixEditor.c:984          displayVectorAngle, via showRealMatrix redraw
+#   - display.c:557/558/564/581/584  real34ToDisplayString2, via register-line
+#                                    refresh and real/eigenvalue formatting
 Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:984
+Conditional jump or move depends on uninitialised value(s) @ display.c:557
+Conditional jump or move depends on uninitialised value(s) @ display.c:558
+Conditional jump or move depends on uninitialised value(s) @ display.c:564
 Conditional jump or move depends on uninitialised value(s) @ display.c:581
 Conditional jump or move depends on uninitialised value(s) @ display.c:584
 
