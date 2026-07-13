@@ -4,17 +4,21 @@
 # scripts/test/run-valgrind.sh. Lines here are KNOWN, accepted upstream c47
 # findings; the lane FAILS on any c47-owned uninitialised read, invalid access,
 # or leak that is not listed here. Keep this set minimal and file the entries
-# upstream. c47 stays malloc-clean (definite/indirect/possible lost all zero on
-# current master); every entry below is an uninitialised-value read, not a leak.
+# upstream.
+#
+# c47 is per-operation malloc-clean: definitely/indirectly lost stay zero on
+# current master. The single possibly-lost entry is a one-time frame-buffer
+# allocation held for process life (see config.c:1704 below). The leak kind is
+# normalised to the loss category, not the run-varying byte/block count and
+# loss-record index, so a leak site keys to a stable signature across runs.
 #
 # Regenerate after a legitimate upstream change (for example a line shift or an
 # upstream fix) with: UPDATE_BASELINE=1 bash scripts/test/run-valgrind.sh
 #
-# Re-verified against upstream master d1b643e7a: all four sites reproduce at the
-# same lines, and definitely/indirectly/possibly lost stay zero.
-# Still current at upstream master 7d4308229: the merge since d1b643e7a is
-# test-only (src/testSuite/ only, zero src/c47 files), so matrixEditor.c,
-# display.c and saveRestoreBackup.c are byte-identical and the sites are unchanged.
+# History: re-verified at d1b643e7a and 7d4308229 (a test-only merge, zero
+# src/c47 files). Regenerated at upstream master 9c9ac6549: the four uninit-read
+# sites reproduce at the same lines; one possibly-lost site is newly surfaced (a
+# one-time LCD buffer, below) - definitely/indirectly lost stay zero.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
@@ -26,10 +30,19 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:581
 Conditional jump or move depends on uninitialised value(s) @ display.c:584
 
 # Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
-# global-register and free-region arrays (globalRegister, freeMemoryRegions at
-# config.c:1523-1525) without memset, so their unused entries stay uninitialised;
-# saveCalc then hexDumps each array whole and the dump's ASCII column reads every
-# byte. Dump-only: the uninitialised bytes are written to the .cfg as hex and are
+# global-register and free-region arrays (globalRegister, freeMemoryRegions in
+# doFnReset) without memset, so their unused entries stay uninitialised; saveCalc
+# then hexDumps each array whole and the dump's ASCII column reads every byte.
+# Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
 Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:193
+
+# One-time LCD frame-buffer allocation, not a per-operation leak. On the first
+# reset, doFnReset (config.c:1704) calls lcd_fill_rect -> bitblt24 ->
+# ensureLcdBuffer, which lazily calloc's the ~12 KB simulator frame buffer and
+# holds it for the process lifetime. memcheck reports it "possibly lost"
+# (reachable only through an interior pointer at exit). Benign and deterministic:
+# it appears exactly once per run. lcd.c is not c47-owned, so the finding is
+# attributed to the first c47 frame, doFnReset.
+possibly lost @ config.c:1704
