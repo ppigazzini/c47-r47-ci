@@ -3,7 +3,7 @@
 # The gate (scripts/test/run-leakscan.sh) fails on any finding NOT listed here.
 # Format: <mode> <kind> <identifier>
 #
-# Regenerated against upstream master ef694abb0 (UPDATE_BASELINE=1). The crash/
+# Regenerated against upstream master a361b6797 (UPDATE_BASELINE=1). The crash/
 # leak set is unchanged from the 9c9ac6549 baseline: the short-integer word-size,
 # config and stats merges since then did not change it (the crashes remain
 # headless out-of-context handler calls, not real leaks). LEAK item=1202/1203/1465/1889 and the

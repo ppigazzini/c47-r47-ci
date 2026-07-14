@@ -1,11 +1,10 @@
 # OpenSSF hardening-warning baseline for the c47 sources.
 # One line per distinct warning site: src/c47/file:line [-Wcategory].
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-warnings.sh
-# Regenerated against upstream master ef694abb0. All are style/hardening findings,
+# Regenerated against upstream master a361b6797. All are style/hardening findings,
 # none a defect (-Wshadow, -Wcast-qual, -Wformat-nonliteral, -Wdouble-promotion,
-# -Wundef). config.c and registers.c sites shifted a few lines from the
-# short-integer word-size fixes (MR 1530) merged since 9c9ac6549; the set is
-# otherwise unchanged.
+# -Wundef). Three c47Extensions/addons.c sites shifted a few lines from an
+# addons.c edit merged since ef694abb0; the 294-site set is otherwise unchanged.
 
 src/c47/assign.c:752 [-Wcast-qual]
 src/c47/assign.c:824 [-Wcast-qual]
@@ -16,9 +15,9 @@ src/c47/bufferize.c:2503 [-Wformat-nonliteral]
 src/c47/bufferize.c:2571 [-Wformat-nonliteral]
 src/c47/bufferize.c:2661 [-Wformat-nonliteral]
 src/c47/bufferize.c:2722 [-Wundef]
-src/c47/c47Extensions/addons.c:1416 [-Wformat-nonliteral]
-src/c47/c47Extensions/addons.c:1920 [-Wshadow]
-src/c47/c47Extensions/addons.c:3392 [-Wshadow]
+src/c47/c47Extensions/addons.c:1425 [-Wformat-nonliteral]
+src/c47/c47Extensions/addons.c:1929 [-Wshadow]
+src/c47/c47Extensions/addons.c:3401 [-Wshadow]
 src/c47/c47Extensions/addons.c:58 [-Wformat-nonliteral]
 src/c47/c47Extensions/addons.c:702 [-Wshadow]
 src/c47/c47Extensions/addons.c:84 [-Wformat-nonliteral]

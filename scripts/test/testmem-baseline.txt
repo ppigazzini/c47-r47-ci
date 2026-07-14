@@ -3,7 +3,7 @@
 # run-testmem.sh fails on any growth case NOT listed here.
 # Format: <file>|<IN parameter line>
 #
-# Regenerated against upstream master ef694abb0 (gcc 13, full corpus). Every case below
+# Regenerated against upstream master a361b6797 (gcc 13, full corpus). Every case below
 # grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
 # one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
@@ -12,6 +12,9 @@
 #                     drivers leave shared state the per-test In: reset does not
 #                     clear (a formula in the pool, named variables A and X, the
 #                     reserved TVM registers, an appended program).
+#   program_flow_cov/shortint_restore_cov  the flow-control and short-integer
+#                     restore drivers append/clear programs and save/reload state,
+#                     leaving one-shot residue like the other coverage drivers.
 #   graphs_cov.txt    the plot-regression cases load the G1..G4 graph programs and
 #                     render bitmaps, state kept for the rest of the run.
 #
@@ -34,5 +37,8 @@ graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
 integrate_cov.txt|IN: FARG=1 RY=REAL:"0" RX=REAL:"3"
 integrate_cov.txt|IN: FARG=3 RY=REAL:"0" RX=REAL:"2"
 pgm_solve_cov.txt|IN: FARG=0
+program_flow_cov.txt|IN: FARG=0
+program_flow_cov.txt|IN: FARG=4
+shortint_restore_cov.txt|IN: FARG=6
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
 toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"

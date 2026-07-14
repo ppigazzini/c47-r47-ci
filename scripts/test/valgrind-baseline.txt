@@ -24,11 +24,13 @@
 #
 # History: re-verified at d1b643e7a and 7d4308229. Regenerated at 9c9ac6549 from
 # the CI runner (real34ToDisplayString2 flags display.c:557/558/564/581/584).
-# Re-verified at upstream master ef694abb0: display.c and matrixEditor.c are
-# byte-identical since 9c9ac6549 so those sites are unchanged; saveRestoreBackup.c
-# changed only below line 193 so :193 holds; the config.c LCD-buffer leak shifted
-# 1704 -> 1713 as config.c grew from the short-integer word-size fix (MR 1530).
-# definitely/indirectly lost stay zero.
+# Re-verified at ef694abb0: display.c and matrixEditor.c are byte-identical since
+# 9c9ac6549 so those sites are unchanged; saveRestoreBackup.c changed only below
+# line 193 so :193 holds; the config.c LCD-buffer leak shifted 1704 -> 1713 as
+# config.c grew from the short-integer word-size fix (MR 1530). Re-verified
+# unchanged at upstream master a361b6797 (config.c, saveRestoreBackup.c, display.c
+# and matrixEditor.c are all untouched since ef694abb0). definitely/indirectly
+# lost stay zero.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed

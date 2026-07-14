@@ -8,24 +8,23 @@
 # corpus lifts a sector; lowering one is an explicit, documented acceptance of a
 # regression.
 #
-# Baseline: upstream master ef694abb0, gcc 13, full corpus + keyscan + leakscan,
+# Baseline: upstream master a361b6797, gcc 13, full corpus + keyscan + leakscan,
 # sample programs staged. Sectors measured -> floor:
 #
-#   core math          85.02% -> 84      matrix             69.70% -> 68
-#   programming / cli  39.65% -> 38      serializers        68.94% -> 67
+#   core math          85.14% -> 84      matrix             69.70% -> 68
+#   programming / cli  41.74% -> 40      serializers        68.75% -> 67
 #   strings / alpha    27.84% -> 26
 #
-# Since 9c9ac6549: programming/cli rose 37.06 -> 39.65 and core math 84.88 ->
-# 85.02 as the new coverage corpus (bits/flags/statsx/regmgmt/histo/clearvars
-# _cov) exercises more of the bit-op, flag, register and stats paths. Their
-# floors ratchet 35 -> 38 and 83 -> 84; matrix, serializers and strings/alpha
-# are unchanged.
+# Since ef694abb0: programming/cli rose 39.65 -> 41.74 as program_flow_cov (the
+# merged flow-control coverage driver) exercises more of the program engine, so
+# its floor ratchets 38 -> 40. core math holds (85.02 -> 85.14, floor 84);
+# matrix, serializers and strings/alpha are unchanged.
 #
 # Gated: the CLI-critical sectors (serializers, program management, parser/string
 # paths, core math) plus matrix. Left ungated by design (host-test ceilings /
 # lower priority): solver/graph, input/editors, ui/display/printing, addons/dmcp.
 core math = 84
 matrix = 68
-programming / cli = 38
+programming / cli = 40
 serializers = 67
 strings / alpha = 26
