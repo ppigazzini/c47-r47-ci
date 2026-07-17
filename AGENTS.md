@@ -144,9 +144,13 @@ catalogue. Read it before trusting any lane result.
   A stale copy silently shadows a freshly generated header.
 - **The testSuite links GTK** even though it has no GUI, because the library
   defines GTK callbacks inside itself.
-- **`./t47` is the `r47` build**, not a separate program, and its `press`
-  command only exists when a window does. Keyboard-level tests need the GTK
-  binary under `xvfb-run`, from the repo root.
+- **`c47` and `t47` are one binary, byte for byte** - the front end is picked
+  from `argv[0]`, with `t47` forcing headless. Build both with `make simc47 t47`
+  exactly: a bare `make t47` builds the R47-based t47 instead. `press` needs a
+  realized window, so keyboard tests run `./c47` under `xvfb-run`, **from the
+  repo root** on Linux - the chdir that would lift that is `__APPLE__`-only
+  (`c47-gtk.c:73`). Upstream's `res/SCRIPTS/cli_automation_examples.txt` is the
+  DSL's own reference; read it before writing a script.
 - **The corpus tests computation only.** Nothing asserts the screen. A display
   regression will pass CI.
 - **The lanes share one upstream tree** at `/tmp/c43-test-harness` and each wipes

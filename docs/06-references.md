@@ -12,6 +12,7 @@ upstream c43 files over any note in this repository when the two disagree.
 - `meson.build`, `meson_options.txt`, `src/c47-dmcp*/cross_arm_gcc.build` - the build graph and cross files
 - `.gitlab-ci.yml` - upstream's own CI: stages, artifacts, runner tags, release rules
 - `docs/appnotes/` - first-party application notes, including the `.d47` file-format spec
+- `res/SCRIPTS/cli_automation_examples.txt` - the DSL's own reference, maintained by upstream: worked `--exec` examples for screenshots, stat graphs, programmed solve/draw, state save/load, the keyboard path and the power cycle. Read it before writing a script; it is the source for which names are scriptable and which need `press`. One caveat measured on Linux: it says `c47` chdirs to its own folder, but that chdir is `__APPLE__`-only (`c47-gtk.c:73`), so on Linux `c47` still needs the repo root as cwd
 - Community wiki build instructions: <https://gitlab.com/h2x/c47-wiki/-/wikis/Build-instructions>
 - Project wiki: <https://gitlab.com/rpncalculators/c43/-/wikis/home>
 

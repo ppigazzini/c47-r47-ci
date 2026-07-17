@@ -20,8 +20,8 @@ nothing on its own; two of those six have moved before.
 | driver | what it is | use it when |
 |---|---|---|
 | `testSuite` | the corpus runner: reads `.txt` files, calls functions directly | asserting a computed value |
-| `t47` | the `r47` simulator plus a Jim/Tcl DSL, headless | you need state set up, a program run, or a register read |
-| `c47` under `xvfb-run` | the real GTK simulator, real key presses | the path is only reachable through the keyboard or a menu |
+| `t47` | the simulator plus a Jim/Tcl DSL, forced headless | you need state set up, a program run, or a register read |
+| `c47` under `xvfb-run` | the same binary with its GTK front end, so real key presses work | the path is only reachable through the keyboard or a menu |
 
 The corpus never touches the keyboard, the menus, or the screen. Anything
 reached only through those is verified by human inspection unless you drive the
@@ -184,12 +184,37 @@ cd ~/_git/c43            # MUST run from the repo root: res/ CSS is cwd-relative
 xvfb-run -a ./c47 --reset --exec 'press 1; press ENTER; puts "X=[reg X]"'
 ```
 
+`c47` and `t47` are **the same binary**, byte for byte (`md5sum c47 t47`
+matches): `main` reads `argv[0]` and `t47` forces headless, which is why `press`
+is absent there and present here. Build both with `make simc47 t47` **exactly** -
+a bare `make t47` builds the R47-based t47 instead.
+
+**Only `press` reaches the keyboard and menu decode.** `item` and `xeq` call the
+function directly, so anything behind TAM parameter entry or a softmenu is
+unreachable without it - a name taking a TAM argument (`M.EDITN`) is not
+scriptable at all. Driving the matrix editor to cell 2;2, which `snap` then
+shows as `2;2=`:
+
+```bash
+xvfb-run -a ./c47 --reset --exec 'nim 3; nim 3; item 1526 00; item 51 00; item 1529; press F6; press @f; press F6; snap'
+```
+
+`1526` is M.DIM, `51` RCL, `1529` M.EDIT; in M_EDIT `F5`/`F6` are left/right and
+the f-shifted pair is up/down. M.EDIT indexes X, so a later `nim` pushes the
+matrix out of X - index a numbered register instead when the test needs the
+stack, and note a program stops at M.EDIT.
+
 - `gtk_init` runs unconditionally (`c47-gtk.c:428`), so a DISPLAY or `xvfb-run`
   is required **even headless**.
 - The repo root is mandatory for the GUI: `prepareCssData()` (`gtkGui.c:1974`)
   does `fopen(CSSFILE, "rb")` on `res/c47_pre.css` and calls `exit(1)` on
   failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
-  `DATA/` are cwd-relative too.
+  `DATA/` are cwd-relative too. **On macOS only**, `main` chdirs to the
+  binary's own directory first (`c47-gtk.c:73`, `#if defined(__APPLE__)`, and it
+  skips the chdir when `argv[0]` is `t47`), so a Mac tolerates any cwd and Linux
+  does not. Upstream's own DSL notes describe the chdir without that condition;
+  on Linux, `c47` from a foreign cwd dies with
+  `error opening file res/c47_pre.css!`.
 - **`press` takes ONE key per call** (`press 1; press ENTER`), or a Tcl list.
   Not registered headless because `scriptInjectGtkKey` needs a realized window.
 - Tokens: `F1`..`F6` (softkeys); `@f` / `@g` (shift toggles); `@k NN`; a single
