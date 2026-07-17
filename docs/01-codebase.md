@@ -316,7 +316,7 @@ other files appear locally because `make sim` copies them out of the build dir
 `src/c47/meson.build:245` sets
 `c47_inc = include_directories('.', '../generated')`, so the source
 `src/generated/` is on the include path alongside the build-dir copies. A stale
-copy shadows a freshly generated header. [04-debugging.md](04-debugging.md) s22.7 records the
+copy shadows a freshly generated header. [04-debugging.md](04-debugging.md) Section 12 records the
 failure mode and the remedy.
 
 ## 5. The spine: one library, one header, one table

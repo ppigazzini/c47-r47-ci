@@ -38,7 +38,7 @@ realistic one that can reach the bug.
 ```bash
 cd ~/_git/c43
 meson setup build.sim --buildtype=custom -DRASPBERRY=`tools/onARaspberry` -DDECNUMBER_FASTMUL=true
-ninja -C build.sim src/c47/vcs.h                       # ALWAYS first, see hazard 22.8
+ninja -C build.sim src/c47/vcs.h                       # ALWAYS first (04-debugging Section 12)
 ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
@@ -72,7 +72,7 @@ re-count rather than quoting this line.)
 
 `t47` is **not a separate program**: it is a copy of the `c47` or `r47` GTK
 binary built into `build.sim.t47` with `-DT47`, which only silences debug output
-(`defines.h:400-439`). Headless is selected by **the binary's basename**
+(`defines.h:419-458`). Headless is selected by **the binary's basename**
 (`c47-gtk.c:371-380`), so `./c47 --headless ...` is identical to `./t47 ...`.
 
 ```bash
@@ -135,45 +135,36 @@ bug-finding tool on this page; needs no instrumented build.
                       puts "I=[reg I] J=[reg J]"'
 ```
 
-`item 44 I` is STO I (verified live: the sim echoes
-`Calling catalog function STO(J), index 44`).
+`item 44 I` is STO I. This prints **`I=7 J=9`**: the matrix editor keeps its
+cursor in a shadow pair (`shadowI`/`shadowJ` in `ui/matrixEditor.c`, routed by
+`ijIsShadowed()`), so it does not touch the user's I/J, and the vector functions
+(STOVEL/RCLVEL/STOVEC/RCLVEC) bracket their index access the same way. INDEX
+writes I/J by purpose; nothing else should. A register that **drifts** here is a
+scratch value escaping into user space - the exact failure the battery exists to
+catch.
 
-**The result depends on the branch, and that is the control.** On upstream
-`master` this prints `I=1 J=1` - `fnEditMatrix` (`ui/matrixEditor.c:91-92`)
-unconditionally does `setIRegisterAsInt(true,0)`/`setJRegisterAsInt(true,0)`,
-which store I=1/J=1 (`asArrayPointer=true` increments), and nothing restores
-them. Where the editor keeps its cursor off the user's registers it prints
-`I=7 J=9`. Drop `item 1529` and I/J survive on both.
-**Check which branch is checked out before reading any result** - a "clean"
-result may mean the fix is applied, not that the bug is absent.
+**Check which branch is built before reading any result** - a "clean" result may
+mean a fix is applied, not that a regression is absent.
 
-Two real bugs found this way, both initially misdiagnosed as pool corruption:
+Why this class matters: SPIRALk reads I as scaling factor and J as growth rate
+with **0 as the "use default" sentinel**, so a stray scratch write of 0 or 1
+into I/J silently changes radius = I*e^(J*angle) - a wrong graph with no error,
+no crash, and nothing for a value assertion to flag. Register collisions read
+like data corruption but are not; before reaching for a memory tool, ask whether
+a scratch value escaped.
 
-- **The matrix editor clobbers I/J.** SPIRALk reads I as scaling factor and J as
-  growth rate with **0 as the "use default" sentinel**, so merely *opening* the
-  editor makes radius = I*e^(J*angle) hit the program's limit after ~0.8 turns
-  instead of ~9.65 - the "totally wrong graph". A register collision, not
-  corruption. The battery proved everything else preserves I/J
-  (det/transpose/invert/M.LU/M.QR/M.GETM/M.PUTM/RCLEL/STOEL/M.DIM/M.INSR/
-  M.DELR/SIM_EQ all return 7/9); only M.EDIT and its `Mat_A`/`Mat_B`/`Mat_X`
-  wrappers, plus INDEX (whose purpose it is), write them.
-- **STOVEL/RCLVEL/STOVEC/RCLVEC decrement I and J by 1 on every call.** The
-  save/restore idiom saves 0-based (`getIRegisterAsInt(true)` does `ret--`) and
-  restores raw (`setIRegisterAsInt(false, iBak)`), so `STOVEL_1` x1 gives
-  I=6 J=8, x3 gives I=4 J=6, x9 gives I=-2 J=0. Walking I to exactly 0 flips
-  SPIRALk's sentinel back to defaults, so the symptom is intermittent.
-  **Matching the convention is not the fix.** The backup is an `int16_t`, so it
-  cannot carry a register whatever the convention: I=0.35 comes back -1,
-  I=99999 comes back -31074, a complex 3+ix4 comes back as the long integer -1.
-  The value is truncated before the restore runs. An integer sentinel hides this
-  entirely - **probe 0.35 and 99999, not just 7 and 9**. The fix is to stop
-  writing the registers, not to write them back better.
+**Choose the sentinel adversarially.** An integer like 7 round-trips cleanly
+through code that silently corrupts fractions, wide values and non-real types -
+a lossy `int16_t` save/restore, a type coercion. Probe `0.35`, `99999` and a
+complex `3+ix4`, not just `7` and `9`: `0.35` returning `-1`, or `3+ix4`
+returning a long integer, exposes a truncating round-trip that integer sentinels
+sail straight through.
 
-Two "clobbers" the same battery flagged are **by design - do not fix them**:
-FACTORS (1477) rolls G<-H<-K deliberately (commit `6879c1562`, "Storing the last
-three factors in G, H, K"), and monadic XFN zeroes T/A/B because XFN owns six
-registers as two triples. Safe spare registers for user-program parameters are
-**E, F, O, U, V, W** only.
+Two register writes the battery flags are **by design - do not fix them**:
+FACTORS (1477) rolls G<-H<-K deliberately (it stores the last three factors in
+G, H, K), and monadic XFN zeroes T/A/B because XFN owns six registers as two
+triples. Safe spare registers for user-program parameters are **E, F, O, U, V,
+W** only.
 
 ## 3. GTK simulator under xvfb (when only a real key press will do)
 
@@ -293,12 +284,12 @@ leaves the program area empty, every `PGM=` test fails to resolve its label, and
 | `lblGtoXeq.c` | 0.0% | **41.0%** |
 | `nextStep.c` | 7.6% | **40.8%** |
 
-and the suite goes 9834 pass / 6 fail -> 9840 pass / **0 fail**. Those six
-"failures" were pure fixture artifacts. Generate the fixture from the **same
-synced upstream sources** as the binary, or the opcode numbering will not match.
+Without the fixture those cases fail as pure artifacts, not defects. Generate it
+from the **same synced upstream sources** as the binary, or the opcode numbering
+will not match.
 
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
-`loadTestPrograms` is set (`saveRestoreBackup.c:762`).
+`loadTestPrograms` is set (`saveRestoreBackup.c:764`).
 
 ## 6. The test-authoring rules
 
@@ -330,8 +321,8 @@ When no distinctive input exists - the operation is a genuine no-op on its input
 (rotate/shift of an empty string), or its only effect is a headless display
 (`42AVIEW`, `42PRA`, `42PROMPT`, `42APPEND` over the empty alpha buffer) - **do
 not write the case at all.** Leave the branch uncovered and record why in the
-residual. The stringFuncs review deleted eight such cases, taking the number from
-96.76% to a **true 93.23%** - honest rather than padded.
+residual. Deleting such a case lowers the coverage number but makes it honest
+rather than padded.
 
 ### 6.3 Mutate between the action and the assertion
 
@@ -378,15 +369,16 @@ LHS-RHS.
 
 ### 6.6 Tests must be order-independent
 
-Restore every non-default mode you set. `covTvmPmt` left `FLAG_ENDPMT` cleared
-(BEGIN mode) and `covAmort` left `FLAG_AMORT_HP12C` set, leaking a mode flag into
-~150 later tests. A leaked global is a latent, position-dependent failure.
+Restore every non-default mode you set. A TVM driver that clears `FLAG_ENDPMT`
+(BEGIN mode) or an amortization driver that leaves `FLAG_AMORT_HP12C` set leaks a
+mode flag into every later test - a latent, position-dependent failure that can
+reach ~150 cases downstream.
 
-**Reset shared solver status, never OR into it.** `solve_cov` passed in isolation
-and failed mid-suite ("no root found") because `covDerivEq` leaves solver-status
-bits set and `covSolveRoot` OR'd in `USES_FORMULA`; assign, don't OR. Likewise
-`covSolvePgm` failed because a prior TVM solve leaves
-`SOLVER_STATUS_TVM_APPLICATION` set.
+**Reset shared solver status, never OR into it.** `covDerivEq` leaves
+solver-status bits set, so a later driver that ORs in `USES_FORMULA` inherits
+them and fails "no root found" mid-suite while passing in isolation; assign,
+don't OR. A prior TVM solve leaves `SOLVER_STATUS_TVM_APPLICATION` set the same
+way, so a later `covSolvePgm` must clear it.
 
 When a test genuinely cannot self-clean, document the ordering constraint where
 the run order is defined - see the comment block at the tail of
@@ -458,13 +450,11 @@ a sanitizer/fuzz harness and says so explicitly.**
 
 ### 7.1 Force a clean rebuild before you trust a numeric anomaly
 
-Our worst mistake this cycle: `fnTvmVar(FV) = -613.91` was reported as a likely
-bug. It was a **stale build** - ninja had not recompiled `tvm.c`, so the binary
-ran old object code (`tvm.c` was byte-identical between the branch base and
-master). `touch src/c47/solver/tvm.c` and rebuild gave the correct 1628.89.
-**Before filing or acting on any value anomaly, `touch` the owning translation
-unit (or wipe the build dir) and re-run.** An incremental build is not
-trustworthy evidence for a numeric claim.
+An incremental build is not trustworthy evidence for a numeric claim. ninja can
+fail to recompile a changed translation unit, so the binary runs old object code
+and a value looks wrong when the source is fine. **Before filing or acting on any
+value anomaly, `touch` the owning translation unit (or wipe the build dir) and
+re-run.**
 
 ### 7.2 Adversarial self-review is required, not optional polish
 
@@ -511,7 +501,7 @@ known-issue marker from a regression.
 inject the fault it is meant to catch and confirm it reports: an `item=999`
 leak, a growth case, a sector drop below the floor, an `Invalid read` at a known
 line, a deliberately broken patch. A matcher that never fires because its own
-trigger is wrong passes everything silently (hazard 22.15).
+trigger is wrong passes everything silently (04-debugging Section 12).
 
 ### 7.8 Fixes get copy-pasted - grep the class
 

@@ -58,7 +58,7 @@ From upstream `Makefile` / `BUILD.md`:
 
 | Target | What it does |
 |---|---|
-| `make sim` | builds `c47` (GTK, `-DCALCMODEL=USER_C47`), copies to repo root, then `install -C`s 5 generated files into `src/generated/` (see hazard 22.7) |
+| `make sim` | builds `c47` (GTK, `-DCALCMODEL=USER_C47`), copies to repo root, then `install -C`s 5 generated files into `src/generated/` (see 04-debugging Section 12) |
 | `make simc47` | pure alias for `sim` |
 | `make simr47` | builds `r47` (`-DCALCMODEL=USER_R47`) |
 | `make both` | `sim simr47` |
