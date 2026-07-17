@@ -3,8 +3,9 @@
 # The gate (scripts/test/run-leakscan.sh) fails on any finding NOT listed here.
 # Format: <mode> <kind> <identifier>
 #
-# Regenerated against upstream master 87c70c77a (UPDATE_BASELINE=1). Two changes
-# since the a361b6797 baseline, each root-caused rather than re-blessed:
+# Re-verified unchanged against upstream master 1624e09b3 (gate PASSED, no
+# regeneration needed). Generated against 87c70c77a (UPDATE_BASELINE=1) with two
+# changes from the a361b6797 baseline, each root-caused rather than re-blessed:
 #
 # 1. REMOVED (fixed upstream): CRASH item=1767 2368 2369 2370 2371 2372 2373
 #    2377 2378 2384 2735 - the equation solver/grapher cluster (fnEqSolvGraph

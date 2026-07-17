@@ -3,8 +3,8 @@
 # run-testmem.sh fails on any growth case NOT listed here.
 # Format: <file>|<IN parameter line>
 #
-# Regenerated against upstream master a361b6797 (gcc 13, full corpus). Every case below
-# grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
+# Regenerated against upstream master 1624e09b3 (gcc, full corpus). Every case
+# below grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
 # one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
 #   eq_cov/deriv_cov/solve_cov/integrate_cov/pgm_solve_cov  the formula-coverage
@@ -19,24 +19,25 @@
 #
 # The normalize in run-testmem.sh keys on <file>|<case>, not on the growth
 # magnitude, so only a brand-new growing case fails the gate.
+#
+# Regenerating against 1624e09b3 dropped 9 cases that no longer grow (4 eq_cov,
+# 2 integrate_cov, 2 program_flow_cov, 1 shortint_restore_cov: 20 -> 11). The
+# corpus input files are byte-identical to the a361b6797 pin, so the growth
+# stopped in the engine within a361b6797..1624e09b3, not in the tests. That range
+# includes f94eba918 "each test file can run separately without errors" and the
+# solver/integrator changes 3bd0f13ea and c4a48ab49; which one retired which case
+# is not bisected here. These are removals of findings that no longer reproduce,
+# not a re-blessing: the gate still fails on any new growing case (verified with
+# an injected control).
 
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
-eq_cov.txt|IN: FARG=10 RX=REAL:"0"
-eq_cov.txt|IN: FARG=13 RX=REAL:"0"
-eq_cov.txt|IN: FARG=17 RX=REAL:"4"
 eq_cov.txt|IN: FARG=2 RX=REAL:"0"
-eq_cov.txt|IN: FARG=5 RX=REAL:"0"
 graphs_cov.txt|IN: FARG=0
 graphs_cov.txt|IN: FARG=1
 graphs_cov.txt|IN: FL_ASLIFT=1 R00=STRI:"S" RY=REAL:"-5" RX=REAL:"5" PGM="G2"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"SIN(X)" PGM="G1"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
-integrate_cov.txt|IN: FARG=1 RY=REAL:"0" RX=REAL:"3"
-integrate_cov.txt|IN: FARG=3 RY=REAL:"0" RX=REAL:"2"
 pgm_solve_cov.txt|IN: FARG=0
-program_flow_cov.txt|IN: FARG=0
-program_flow_cov.txt|IN: FARG=4
-shortint_restore_cov.txt|IN: FARG=6
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
