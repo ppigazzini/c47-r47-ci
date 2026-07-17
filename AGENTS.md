@@ -89,7 +89,7 @@ cd c43
 make simc47 t47        # -> ./c47 and ./t47
 
 # run the behavioural corpus (this is "the tests")
-make test              # 12065 pass / 6 fail on a healthy tree
+make test              # builds the testPgms fixture, then runs the corpus; passes clean
 
 # drive the calculator headlessly
 ./t47 --reset --exec 'nim 2; nim 3; item 99; puts "X=[reg X]"'
@@ -137,8 +137,9 @@ catalogue. Read it before trusting any lane result.
 
 ## Facts that surprise people
 
-- **`make test` fails 6 tests on a healthy tree.** That is the baseline. Compare
-  the failure *set*, not the count.
+- **`make test` passes clean**, so any failure is a real regression rather than a
+  known baseline to compare against. Read the summary the run prints; the count
+  moves with upstream, so do not trust one written down here.
 - **`src/generated/` in the c43 clone is gitignored** and populated by `make`'s
   `install -C` step, yet it sits on the include path *ahead of* the build dir.
   A stale copy silently shadows a freshly generated header.

@@ -8,12 +8,14 @@ that run all of this in CI are in [05-ci.md](05-ci.md).
 ## The one-line version
 
 ```bash
-make test     # 12065 pass / 6 fail is the healthy baseline
+make test     # builds the testPgms fixture, then runs the corpus
 ```
 
-Six failures is correct on a clean upstream tree. **Compare the failure set
-against master, never the count.** A lane that reports "6 failures" proves
-nothing on its own; two of those six have moved before.
+**It passes clean**, so a failure is a regression, not a baseline to compare
+against. The target depends on `testPgms` and generates the fixture first;
+run the binary without it and the corpus reports failures that are fixture
+artifacts, not defects (Section 6). Read the summary the run prints rather
+than a count written down here - it moves with upstream.
 
 ## The three ways to drive it
 

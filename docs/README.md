@@ -51,7 +51,7 @@ git clone https://gitlab.com/rpncalculators/c43.git
 cd c43
 
 make simc47 t47     # the GTK simulator (./c47) and the scripted one (./t47)
-make test           # the behavioural corpus: 12065 pass / 6 fail is the baseline
+make test           # the behavioural corpus; passes clean
 make docs           # doxygen + sphinx
 
 ./t47 --reset --exec 'nim 2; nim 3; item 99; puts "X=[reg X]"'
