@@ -27,15 +27,15 @@ The repository holds three things:
 
 ## Documents
 
-| # | Document | Audience | Description |
-|---|---|---|---|
-| 0 | [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
-| 1 | [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
-| 2 | [02-build.md](02-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
-| 3 | [03-testing.md](03-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
-| 4 | [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
-| 5 | [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
-| 6 | [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
+| Document | Audience | Description |
+|---|---|---|
+| [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
+| [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
+| [02-build.md](02-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
+| [03-testing.md](03-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
+| [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
+| [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
+| [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
 
 For the agent and contributor ground rules, see [AGENT.md](../AGENT.md). For
 what each lane script does in detail, see
