@@ -86,12 +86,12 @@ meson setup build.sim --buildtype=custom -DRASPBERRY=`tools/onARaspberry` -DDECN
 `meson test` and any `-Db_sanitize` / `-Db_coverage` option apply to the whole
 corpus.
 
-The 800 s timeout has no headroom under ASan+UBSan: the lane was killed
-mid-run (`testSuite TIMEOUT 800.02s killed by signal 15`) through the
-distribution tests and looked like a hang. It was not. Use
-`meson test -C "$build_dir" --print-errorlogs --timeout-multiplier 3`. Do **not**
-use `--no-timeout` / `--timeout-multiplier 0` - a genuine hang would then burn
-the whole job cap with no per-test signal.
+The 800 s timeout (`src/testSuite/meson.build`) has no headroom under
+ASan+UBSan: a run can be killed mid-corpus
+(`testSuite TIMEOUT 800.02s killed by signal 15`) and resemble a hang without
+being one. Use `meson test -C "$build_dir" --print-errorlogs
+--timeout-multiplier 3`. Do **not** use `--no-timeout` / `--timeout-multiplier 0`
+- a genuine hang would then burn the whole job cap with no per-test signal.
 
 Sanitizer build options: `-Db_sanitize=address` (and `address,undefined` in the
 analysis lanes) with `-Dc_args` for extra flags. The analysis lanes add

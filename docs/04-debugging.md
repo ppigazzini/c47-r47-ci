@@ -19,7 +19,7 @@ CI, see [05-ci.md](05-ci.md).
 
 Verified in `../c43/src/c47/`:
 
-- `ram` is a single `uint32_t *` (`c47.h:332`), `malloc`ed once in
+- `ram` is a single `uint32_t *` (`c47.h:333`), `malloc`ed once in
   `config.c:1533`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
@@ -32,7 +32,7 @@ Consequences, and they are the whole reason this page exists:
 - **ASan, LSan and Valgrind see exactly one allocation** (plus GMP's). A pool
   leak returns no blocks and is invisible to them. A write past a pool block
   lands inside a valid libc buffer and is invisible to them.
-- Therefore leaks need application-level accounting (Sections 12, 14) and
+- Therefore leaks need application-level accounting (Sections 4, 6) and
   intra-pool overruns need a canary (Section 5).
 - Conversely, `--leakscan`/`--testmem` cannot see a libc-level error, and the
   canary cannot see a leak. **No single lane substitutes for another.**
@@ -40,7 +40,7 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`../c43/src/c47/defines.h:2189-2196`:
+`../c43/src/c47/defines.h:2208-2213`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
@@ -54,7 +54,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2029-2037`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2048-2057`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -114,7 +114,7 @@ corruption or a wrong contract.
 ## 4. Pool and GMP leak scanning
 
 All three scanner modes come from **one** carried patch,
-`scripts/test/tooling/leakscan.patch` (490 lines, touches only
+`scripts/test/tooling/leakscan.patch` (500 lines, touches only
 `src/testSuite/testSuite.c`), off branch `test/ram-pool-leak-scanner`.
 
 | Flag | Invocation | End sentinel |
@@ -183,7 +183,7 @@ case above a **running high-water mark**. The ratchet is not a detail: a naive
 fixed baseline flagged 8848 cases; the high-water ratchet flags 24.
 
 Confirm any finding by **running the offending test file twice - a real leak
-doubles**; persistent state does not. (But see hazard 22.12 - doubling is
+doubles**; persistent state does not. (But see the doubling-test caveat in Section 12 - doubling is
 necessary, not sufficient.)
 
 The ratchet must ratchet **usage**, not the raw level. The original code did
@@ -275,29 +275,27 @@ The item sweep **must** carry real/complex matrix operands (types 4/5) or matrix
 overruns never trigger: scalar-only operands miss them, and `fnInsCol`/`fnInsRow`
 are empty stubs anyway, so the sweep cannot reach the editor path at all.
 
-### 5.4 What the full sweep found
+### 5.4 The bug class it catches
 
-Corpus + item table x 6 operand types + keyscan yields **exactly two** pool-OOB
-write bugs:
+POOL_GUARD is the only detector for the **intra-pool OOB write**: a store just
+past a pool block, into an adjacent live block, that ASan and Valgrind cannot see
+because it stays inside the one big `malloc`. Two patterns in
+`mathematics/matrix.c` are the shape to watch, both **numerically silent** (the
+result matrix looks correct, so no value assertion flags them) and reachable only
+through specific ops:
 
-- **`calculateEigenvalues` overruns `previousDiagonal`** (`matrix.c`). A shared
-  zero-init loop bounded `size*size*2` runs across eig/q/r **and**
-  `previousDiagonal`, which the eigenvalue solvers allocate only `size*2` reals
-  (it is just the diagonal snapshot for the convergence test) - overrunning by
-  `2*size*(size-1)` reals into the following pool block. Eigenvector solvers
-  allocate it `size*size*2` and are unaffected. Triggers on every eigenvalue op.
-- **`insColRealMatrix`/`insColComplexMatrix` write one element past the new
-  matrix** (`matrix.c:2555`/`:2631`). The shift loop is bounded `j < cols + 1`,
-  one past the last source column; the final iteration writes
-  `newMat[rows*(cols+1)]`. Reachable only via the interactive matrix editor.
-  Result matrix is numerically correct, so no test flags it.
+- a matrix shift/insert loop bounded one column too long (`j < cols + 1` instead
+  of `j < cols`), writing one element past the new matrix - the pattern in the
+  `insColRealMatrix`/`insColComplexMatrix` family;
+- a shared zero-init loop that runs across a large buffer and a smaller companion
+  allocation (`previousDiagonal`, `size*2` reals versus the `size*size*2` bulk),
+  overrunning the companion into the following block - the pattern in the
+  eigenvalue path.
 
-Both write only zeros or in-range values into an adjacent live block, so they
-corrupt only in unlucky layouts - intermittent by nature, which is why they
-survived every other lane.
-
-The 120 SIGSEGV item-sweep crashers seen during the sweep are the known
-headless-invocation crashers (Section 12.1), not this class.
+Both write only zeros or in-range values into a live block, so they corrupt only
+in unlucky layouts - intermittent by nature, which is why this class survives
+every other lane. The SIGSEGV item-sweep crashers are the known
+headless-invocation crashers (Section 4.1), not this class.
 
 ## 6. GMP leak hunting - count `mpz_init`, do not trust `gmpMemInBytes`
 
@@ -353,7 +351,7 @@ so adding a free inside would double-free.
 
 ### 6.2 The attribution trap
 
-Upstream's own `items.c:617` diagnostic prints the **running total** after each
+Upstream's own `items.c:620` diagnostic prints the **running total** after each
 function. Reading it as a per-function attribution produced a completely wrong
 audit scope (golden/power/root) when the real trigger was CHS. The first
 non-zero total appears "after STO" and means nothing about where the leak is.
@@ -391,7 +389,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:3046`). Unregistered functions return "cannot find the function to
+(`testSuite.c:4218`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -523,14 +521,12 @@ bash scripts/test/run-staticanalysis.sh    # cppcheck, ANALYSIS_GATE=0
 bash scripts/test/run-warnings.sh          # OpenSSF set, WARN_GATE=0
 ```
 
-**A static-analysis baseline is a TRACKED list, not a cleared one.** Two entries
-triaged "benign" were real bugs found by simply re-reading the baseline:
-
-- `graphs.c`: `if(abs((int16_t)(xN1-xN0)>=6))` - the `>=` is **inside** `abs()`,
-  so `abs()` is applied to the boolean and dropped from the distance. Any
-  right-to-left segment always takes the wrong branch.
-- `graph.c:843`: `if(count == 0)` nested inside `if(count > 0)` makes the
-  first-sample seed dead, so the running average accumulates from an unseeded 0.
+**A static-analysis baseline is a TRACKED list, not a cleared one.** Re-reading
+entries triaged "benign" is where the real bugs hide - a comparison operator
+misplaced inside `abs()` so the distance collapses to a boolean, or a
+first-sample seed made dead by a misordered `count == 0` guard nested inside
+`count > 0`. Neither shows up as a warning once triaged, so the re-read is the
+only thing that catches them.
 
 cppcheck's known blind spot: it **does not track init-via-output-parameter
 across functions**, which is the entire source of the GMP `uninitvar` false
@@ -637,11 +633,12 @@ Every one of these has silently passed a broken thing at least once.
 13. **A leak report shows the allocation site, not the overwrite site.** ASan
     blamed `_dynmenuConstructUser`; the buffer was allocated correctly. Two
     obvious fixes were tested and disproven (free-before-malloc gave 18
-    double-frees; freeing at teardown left the leak, proving it was already
+    double-frees; freeing at teardown leaves the leak if the block is already
     orphaned). A **gdb hardware watchpoint** on
-    `dynamicSoftmenu[0].menuContent` found the culprit - `runPgm`
-    (`testSuite.c:419`) nulling the pointer without freeing - a write no source
-    grep could see, because no code nulls that field textually.
+    `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
+    a field nulled without freeing writes nothing textually greppable. (In
+    `runPgm`, `testSuite.c:709`, the buffer is freed before the pointer is
+    dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
     (Section 9). Prove it fires ([03-testing.md](03-testing.md) rule 7.7).
@@ -689,7 +686,7 @@ and their limits, and those move with the tree.
 - **POOL_GUARD is not wired into any lane** - a manual sweep only (Section 15,
   Risks).
 - **`covBmpName()` should unlink its target bitmap** so a skipped SNAP fails
-  loudly instead of hashing history (hazard 22.3). Proposed, not implemented.
+  loudly instead of hashing history (the stale-bitmap hazard in Section 12). Proposed, not implemented.
 - **Fuzz harness M3**: extend to `scanLabelsAndPrograms` + label-exec/menu paths
   so the copy-paste findings regress automatically. The harness lives here, not
   in c43.
