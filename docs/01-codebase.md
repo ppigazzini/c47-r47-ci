@@ -11,7 +11,7 @@ git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
 Verified against upstream `master` at commit
-`75b71f9e61ab7d49e6fbe54b113a40c9265e43b2` (2026-07-16). Every count on this
+`1624e09b34bbaeb7402f6230b923631e8e1bcbd7` (2026-07-17). Every count on this
 page was measured at that commit; re-measure before relying on one. Line counts
 are blob lines, not SLOC: an upper bound, useful for relative scale only.
 
@@ -40,9 +40,7 @@ family, descended from WP43. The repository is named `c43` and the application
 it builds is C47; `README.md:9` records the chain WP43S -> WP43 -> WP43C -> C43
 -> C47 and warns that prior names persist throughout the source.
 
-The source tree carries the same history: `src/wp43s` -> `src/wp43` -> `src/c47`,
-renamed at `1730b4501` (2024-01-10, "Change file names from WP43 to C47") and
-completed by `744340100` (2024-12-02, "Replace wp43, c43, 43 with 47").
+The source directory is `src/c47`.
 
 One library, several targets:
 
@@ -57,7 +55,7 @@ One library, several targets:
 
 `R47` is not a platform. It is a keymap and model variant of the same sources,
 selected with `-DCALCMODEL=USER_R47` (`src/c47-gtk/meson.build:84`,
-`src/c47-dmcp/meson.build:178`) and shipped with `res/keymaps/keymap_R47.bin`.
+`src/c47-dmcp/meson.build:183`) and shipped with `res/keymaps/keymap_R47.bin`.
 
 ### 2.1 What differs between the targets
 
@@ -86,13 +84,13 @@ Three consequences worth knowing before choosing a harness:
   links GTK. The testSuite's `hal/gui.c` is stubs and its `hal/lcd.c` renders to
   a buffer; it is display-less, not GTK-less ([00-architecture.md](00-architecture.md) s5.4).
 - **`t47` is the `r47` build, not a separate program.** `T47` is consumed at one
-  place, `defines.h:407`, which `#undef`s the DM42/monitor/debug options. Its
+  place, `defines.h:419`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
   `press` is registered only when a window exists, so keyboard-level tests need
   the GTK binary under xvfb ([04-debugging.md](04-debugging.md) s9).
 
-Scale at `75b71f9e6`: 13779 commits; 525 tracked `.c`/`.h` files totalling
-179704 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
+Scale at `1624e09b3`: 13795 commits; 525 tracked `.c`/`.h` files totalling
+179796 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
 
 ## 3. Repository map
 
@@ -110,7 +108,7 @@ Top level:
   Makefile meson.build meson_options.txt .gitlab-ci.yml BUILD.md README.md
 ```
 
-`src` by area at `75b71f9e6`, `.c`/`.h` only. **Each row counts that directory
+`src` by area at `1624e09b3`, `.c`/`.h` only. **Each row counts that directory
 alone, not its subdirectories** - so `src/c47-gtk` excludes `src/c47-gtk/hal`,
 which has its own row. [00-architecture.md](00-architecture.md) s2 counts recursively, which is
 why its figures for those directories are larger; the facts agree, the method
@@ -118,17 +116,17 @@ differs.
 
 ```
   area                             files    lines
-  src/c47/(root)                      81    70981   <- 46% of the library
-  src/c47/mathematics                257    44218
-  src/c47/solver                      18    10173
-  src/c47/c47Extensions               19     9807
+  src/c47/(root)                      81    70978   <- 46% of the library
+  src/c47/mathematics                257    44226
+  src/c47/solver                      18    10180
+  src/c47/c47Extensions               19     9813
   src/c47-gtk                          4     7415
-  src/c47/programming                 15     5881
+  src/c47/programming                 15     5877
   src/testSuite                        2     4762
   src/generateTestPgms                 1     4245
   src/c47/distributions               33     4237
-  src/c47/ui                           6     3468
-  src/c47/printing                     4     3407
+  src/c47/ui                           6     3544
+  src/c47/printing                     4     3409
   src/t47                              8     2666
   src/t47/jimgen                       6     1236
   src/c47/browsers                     9     1083
@@ -165,13 +163,13 @@ concept and each has several files. Grouped by the concept they belong to:
 | `items.c` | 4734 | `indexOfItems[]`, `runFunction`, `reallyRunFunction`. The command set (Section 5) |
 | `calcMode.c` | 282 | mode transitions only, not the modes themselves |
 | **input** | | |
-| `keyboard.c` | 4992 | key resolution, shift state, `processKeyAction`, `executeFunction`, `fnKeyExit` |
+| `keyboard.c` | 4987 | key resolution, shift state, `processKeyAction`, `executeFunction`, `fnKeyExit` |
 | `assign.c` | 1282 | `kbd_std_*[37]` layout tables per model, `kbd_usr[]`, ASSIGN mode |
 | `bufferize.c` | 2789 | the NIM/AIM buffer and the number-entry state machine, `closeNim` |
 | **display** | | |
 | `screen.c` | 6623 | `refreshScreen`, the per-mode refreshers, the GTK draw callback |
-| `display.c` | 3986 | formatting a value into a register line |
-| `softmenus.c` | 4431 | `softmenu[]`, the stack, static and dynamic menus |
+| `display.c` | 3987 | formatting a value into a register line |
+| `softmenus.c` | 4428 | `softmenu[]`, the stack, static and dynamic menus |
 | `statusBar.c` | 1098 | the status bar |
 | `fonts.c` | 145 | glyph lookup; the raster data is generated |
 | `fractions.c` | 629 | fraction display mode |
@@ -186,8 +184,8 @@ concept and each has several files. Grouped by the concept they belong to:
 | `memory.c` | 209 | pool accounting over `core/freeList.c`; GMP hooks |
 | `error.c` | 397 | `displayCalcErrorMessage`, `errorMessages[]` |
 | **values** | | |
-| `store.c` | 708 | the STO family, STOEL/STOIJ |
-| `recall.c` | 591 | the RCL family, RCLEL/RCLIJ |
+| `store.c` | 702 | the STO family, STOEL/STOIJ |
+| `recall.c` | 585 | the RCL family, RCLEL/RCLIJ |
 | `constants.c` | 59 | pushes a generated constant |
 | `integers.c` | 784 | short-integer operations |
 | `charString.c` | 1279 | UTF-8 string helpers |
@@ -201,9 +199,9 @@ concept and each has several files. Grouped by the concept they belong to:
 | `curveFitting.c` | 1346 | regression |
 | `plotstat.c` | 2147 | statistical plotting, `CM_PLOT_STAT`, `CM_LISTXY` |
 | **persistence** | | |
-| `saveRestoreCalcState.c` | 2791 | `.s47` state |
-| `saveRestoreBackup.c` | 1480 | `backup.cfg`, simulator only |
-| `saveRestorePrograms.c` | 606 | `.p47` programs |
+| `saveRestoreCalcState.c` | 2793 | `.s47` state |
+| `saveRestoreBackup.c` | 1484 | `backup.cfg`, simulator only |
+| `saveRestorePrograms.c` | 602 | `.p47` programs |
 | **other** | | |
 | `timer.c` | 819 | the timer application, `CM_TIMER` |
 | `debug.c` | 584 | debug helpers |
@@ -256,7 +254,7 @@ overridden per target:
 | `dist_dmcp5`, `dist_dmcp5r47` | `build.dmcp5` | `c47-dmcp5.zip`, `r47-dmcp5.zip` |
 
 `make t47` alone resolves to `t47: simr47` (`Makefile:117`), so `./t47` is the
-R47 build. `T47` is consumed only at `src/c47/defines.h:407`, which `#undef`s the
+R47 build. `T47` is consumed only at `src/c47/defines.h:419`, which `#undef`s the
 DM42/monitor/debug options: a quiet variant, not a separate program.
 
 ### The generator pipeline
@@ -323,8 +321,8 @@ failure mode and the remedy.
 
 Three facts explain most of the codebase's shape.
 
-**`src/c47/c47.h` is a bundle, not an API.** 638 lines, 134 `#include`
-directives, 344 `extern` declarations. 228 of the 229 `.c` files under `src/c47`
+**`src/c47/c47.h` is a bundle, not an API.** 639 lines, 134 `#include`
+directives, 345 `extern` declarations. 228 of the 229 `.c` files under `src/c47`
 include it, and for most it is the only project header they include. Every
 translation unit therefore sees every declaration. The consequences - no
 encapsulation, no compiler-checkable layering, no unit-test isolation, and why
@@ -341,7 +339,7 @@ idea, and because `func` is a function pointer it is also the edge that makes
 every file reachable from every other ([00-architecture.md](00-architecture.md) s4, s8.3).
 
 The `status` field packs six independent concerns into one `uint16_t`
-(`defines.h:1028-1090`): stack lift after execution (`SLS_*`), undo behaviour
+(`defines.h:1040-1096`): stack lift after execution (`SLS_*`), undo behaviour
 (`US_*`), catalogue membership (`CAT_*`), Equation Input Mode legality
 (`EIM_*`), the parameter type when programmed (`PTP_*`), and the hourglass
 (`HG_*`). Reading a row means decoding all six.
@@ -368,7 +366,7 @@ uniform and worth internalising:
 
 One `uint16_t` in, `void` out. Results go to the stack or a register; errors go
 to the global `lastErrorCode`. There is no return value and no error return
-anywhere in the command set. About 755 such definitions exist under `src/c47`
+anywhere in the command set. About 850 such definitions exist under `src/c47`
 (counted as `void fn...(uint16_t` definitions; the true figure depends on how
 `static` helpers sharing the prefix are counted).
 
@@ -380,7 +378,7 @@ the 284 `UNIT_CONV(...)` rows work: they expand at `items.c:1772-1773` to a row
 whose `func` is `fnUnitConvert` and whose `param` is `unit | invert`.
 
 **The categories.** `status & CAT_STATUS` classifies each row
-(`defines.h:1042-1055`), 4 bits, twelve defined values:
+(`defines.h:1054-1066`), 4 bits, twelve defined values:
 
 | category | meaning |
 |---|---|
@@ -417,7 +415,7 @@ repository and exists purely to satisfy a linker.
 pointer in `item_t` makes it unavoidable.
 
 **`calcMode` is the input state machine.** One global selects who owns the
-keyboard (`defines.h:1620-1638`):
+keyboard (`defines.h:1632-1650`):
 
 ```
   CM_NORMAL 0   CM_AIM 1    CM_NIM 2      CM_PEM 3     CM_ASSIGN 4
@@ -435,7 +433,7 @@ shared code discovers who is in control.
 ## 6. The data model
 
 **Registers are numbered, and the number decides the kind.** The map is
-documented at `defines.h:1160-1180` and defined in the enum below it:
+documented at `defines.h:1183-1206` and defined in the enum below it:
 
 ```
   0    - 99     global numbered registers          user
@@ -451,7 +449,7 @@ documented at `defines.h:1160-1180` and defined in the enum below it:
 ```
 
 The RPN stack is the first four or eight lettered registers:
-`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2191`). In
+`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2203`). In
 4-level mode A-D are ordinary user registers; in 8-level mode they are stack.
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
@@ -463,7 +461,7 @@ found there and the sentinel battery that finds them.
 stores a register in **one byte**, so a second enum exists purely for the
 keystroke encoding:
 
-| | C (`enum REG_NUMBERS`, `defines.h:1190`) | keystroke (`enum REG_NUMBERS_IN_KS_CODE`, `defines.h:1325`) |
+| | C (`enum REG_NUMBERS`, `defines.h:1202`) | keystroke (`enum REG_NUMBERS_IN_KS_CODE`, `defines.h:1337`) |
 |---|---|---|
 | global numbered | 0-99 | 0-99 |
 | lettered X..K | 100-111 | 100-111 |
@@ -471,12 +469,12 @@ keystroke encoding:
 | stat M-S, spare E-W | 112-125 | 211-224 |
 
 The two agree only for 0-111. The bridge is branchless arithmetic:
-`regKStoC()` (`defines.h:1402-1406`) and `regCtoKS()` (`defines.h:1410-1414`).
+`regKStoC()` (`defines.h:1414`) and `regCtoKS()` (`defines.h:1422`).
 Anything that reads or writes a program byte must convert; anything that touches
 `globalRegister[]` must not.
 
 Byte values 249-255 are not registers at all but TAM sentinels
-(`defines.h:1372-1381`): `LOCAL_LABEL_VARIABLE` 249, `SYSTEM_FLAG_NUMBER` 250,
+(`defines.h:1384-1393`): `LOCAL_LABEL_VARIABLE` 249, `SYSTEM_FLAG_NUMBER` 250,
 `VALUE_0` 251, `VALUE_1` 252, `STRING_LABEL_VARIABLE` 253, `INDIRECT_REGISTER`
 254, `INDIRECT_VARIABLE` 255. This is why the local-register block had to move
 out of the 0-255 range in the C numbering: 99 locals plus 112 low registers plus
@@ -499,12 +497,12 @@ type field is why the type space is full at 16 entries
 per type; a long integer's sign lives there, not in its data.
 
 **Memory is a block pool addressed by those 16-bit indices.** `ram` is a
-`uint32_t *` (`c47.h:332`), allocated once (`config.c:1533`). A block is 4
-bytes: `BPB` is 2, `BYTES_PER_BLOCK = 1 << BPB` (`defines.h:2196-2197`),
-`TO_BLOCKS(n)` rounds up (`defines.h:2198`). `C47_NULL` is 65535
-(`defines.h:2201`), so the pool must stay below 65535 blocks:
+`uint32_t *` (`c47.h:333`), allocated once (`config.c:1533`). A block is 4
+bytes: `BPB` is 2, `BYTES_PER_BLOCK = 1 << BPB` (`defines.h:2208-2209`),
+`TO_BLOCKS(n)` rounds up (`defines.h:2210`). `C47_NULL` is 65535
+(`defines.h:2213`), so the pool must stay below 65535 blocks:
 `RAM_SIZE_IN_BLOCKS` is 16384 on old hardware and 65534 on new
-(`defines.h:2036-2043`). `allocC47Blocks` / `freeC47Blocks` (`memory.c:76`,
+(`defines.h:2048-2055`). `allocC47Blocks` / `freeC47Blocks` (`memory.c:76`,
 `memory.c:116`) are accounting shims over `src/c47/core/freeList.c`, a best-fit
 free-region allocator with no compaction.
 
@@ -545,9 +543,9 @@ and then calls libc `malloc`; the `freeListAlloc` call is commented out
 heap that the pool's own accounting cannot see.
 
 **Types dispatch through 10x10 tables.**
-`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1547`). The four
+`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1559`). The four
 arithmetic operations are matrices of function pointers indexed by the types of
-X and Y, declared in `c47.h:277-280` and defined in
+X and Y, declared in `c47.h:278-281` and defined in
 `mathematics/addition.c:10` and its siblings, marked `TO_QSPI` so they land in
 DM42 flash. `addition[dtA][dtB]()` is the whole of operator dispatch: there is no
 switch forest.
@@ -555,7 +553,7 @@ switch forest.
 ## 7. The calculator's state
 
 There is no state object. The calculator's state is ~312 mutable globals
-declared in `c47.h` (344 `extern` declarations in total) and visible to all 228
+declared in `c47.h` (345 `extern` declarations in total) and visible to all 228
 translation units - see [00-architecture.md](00-architecture.md) s3 for what that costs. What
 follows is where the state that matters actually lives.
 
@@ -563,13 +561,13 @@ follows is where the state that matters actually lives.
 
 | what | global | declared |
 |---|---|---|
-| registers 0-136 | `globalRegister[NUMBER_OF_GLOBAL_REGISTERS]` | `c47.h:349` |
-| named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:335` |
-| local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:346` |
+| registers 0-136 | `globalRegister[NUMBER_OF_GLOBAL_REGISTERS]` | `c47.h:350` |
+| named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:336` |
+| local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:347` |
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
-| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:332`, `:350` |
+| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:333`, `:350` |
 | the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:276` |
-| statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:330` |
+| statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:331` |
 
 The RPN stack is not a separate structure: it is
 `globalRegister[REGISTER_X .. getStackTop()]`. Stack operations move 32-bit
@@ -580,13 +578,13 @@ off the top.
 
 | what | global | declared |
 |---|---|---|
-| system flags | `systemFlags0` (a 64-bit word; `systemFlags1` follows) | `c47.h:575` |
-| local flags | `currentLocalFlags` (32 per subroutine level) | `c47.h:333` |
+| system flags | `systemFlags0` (a 64-bit word; `systemFlags1` follows) | `c47.h:576` |
+| local flags | `currentLocalFlags` (32 per subroutine level) | `c47.h:334` |
 | undo | `thereIsSomethingToUndo` + `SAVED_REGISTER_*` (126-134) | `c47.c:51` |
 | last function | `lastFunc`, `lastParam` | `c47.c:11-12` |
-| error | `lastErrorCode`, `errorMessageRegisterLine` | `c47.h:432` |
-| transient display note | `temporaryInformation` | `c47.h:434` |
-| solver | `currentSolverStatus` (a bitfield: formula vs program, ready flags) | `c47.h:535` |
+| error | `lastErrorCode`, `errorMessageRegisterLine` | `c47.h:433` |
+| transient display note | `temporaryInformation` | `c47.h:435` |
+| solver | `currentSolverStatus` (a bitfield: formula vs program, ready flags) | `c47.h:536` |
 
 `lastErrorCode` is the error channel: functions return `void` and set the
 global. It is cleared not by the caller but by the **next refresh**, together
@@ -597,12 +595,12 @@ normal path that resets it.
 
 | what | global | declared |
 |---|---|---|
-| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:443`, `:444`, `:519` |
-| the label index | `labelList` (rebuilt by `scanLabelsAndPrograms`) | `c47.h:361` |
-| the program index | `programList` | `c47.h:363` |
-| the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:371`, `c47.c:53-54` |
-| run state | `programRunStop` (`PGM_STOPPED`/`PGM_RUNNING`/`PGM_WAITING`/`PGM_SINGLE_STEP`) | `c47.h:437` |
-| the return stack | `currentSubroutineLevelData` - a linked list in the pool | `c47.h:329` |
+| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:444`, `:444`, `:519` |
+| the label index | `labelList` (rebuilt by `scanLabelsAndPrograms`) | `c47.h:362` |
+| the program index | `programList` | `c47.h:364` |
+| the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:372`, `c47.c:53-54` |
+| run state | `programRunStop` (`PGM_STOPPED`/`PGM_RUNNING`/`PGM_WAITING`/`PGM_SINGLE_STEP`) | `c47.h:438` |
+| the return stack | `currentSubroutineLevelData` - a linked list in the pool | `c47.h:330` |
 
 `labelList` and `programList` are **derived state**: they are rebuilt from the
 program bytes by `scanLabelsAndPrograms()` after any edit, load or restore. The
@@ -612,14 +610,14 @@ program bytes are the source of truth; the indices are a cache.
 
 | what | global | declared |
 |---|---|---|
-| the mode | `calcMode` | `c47.h:417` |
+| the mode | `calcMode` | `c47.h:418` |
 | shift | `shiftF`, `shiftG` (+ `lastshiftF`/`lastshiftG` snapshots) | `c47.c:44-47` |
-| the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:336` |
-| pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:450` |
-| the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:376` |
-| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:342` |
+| the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:337` |
+| pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:451` |
+| the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:377` |
+| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:343` |
 | the frame buffer | `lcd_buffer` (240 rows x 52 bytes) | `c47.h:239` |
-| refresh budget | `screenUpdatingMode` (a suppression bitmask) | `c47.h:442` |
+| refresh budget | `screenUpdatingMode` (a suppression bitmask) | `c47.h:443` |
 
 Two of these carry more weight than their size suggests. `calcMode` decides who
 owns the keyboard, so almost every input path begins `switch(calcMode)`. And
@@ -653,7 +651,7 @@ The library calls the contract, not the platform: the save/restore files call
 possible - it runs the whole calculator with no window and no hardware.
 
 **All drawing funnels through one function.** The screen is 400x240
-(`defines.h:1432-1433`), 1 bit per pixel, and every pixel primitive is a
+(`defines.h:1444-1445`), 1 bit per pixel, and every pixel primitive is a
 `static inline` wrapper over `bitblt24` in `hal/lcd.h`:
 
 ```c
@@ -672,7 +670,7 @@ and 50 bytes = 400 bits. On DMCP it is bound to the SDK's own buffer
 Note the input lines overlay the register lines rather than having their own
 space: `Y_POSITION_OF_NIM_LINE` equals `Y_POSITION_OF_REGISTER_X_LINE`, and
 `Y_POSITION_OF_TAM_LINE` equals `Y_POSITION_OF_REGISTER_T_LINE`
-(`defines.h:1424-1426`). Refresh is budgeted, not unconditional:
+(`defines.h:1436-1438`). Refresh is budgeted, not unconditional:
 `screenUpdatingMode` is a bitmask that lets callers suppress regions, and
 `_refreshNormalScreen` early-exits when it is not `SCRUPD_AUTO`.
 
@@ -714,7 +712,7 @@ the directory keeps. Six files hold most of the mass:
 
 ```
   matrix.c    9542      elliptic.c  1828
-  prime.c     2378      division.c  1515
+  prime.c     2383      division.c  1515
   wp34s.c     2344      xfn.c       1146
 ```
 
@@ -751,16 +749,12 @@ tanh-sinh, not Romberg), `differentiate` (finite-difference stencils), `graph`,
 `ui/` - `matrixEditor`, `tam`, `tone`. `core/` - `freeList`. `hal/` - five
 headers, no `.c`.
 
-`c47Extensions/` is the fork seam.
-
-`c47Extensions/` is the fork seam. It was named `c43Extensions/` and lived
-inside `src/wp43s/` from early on, surviving both renames before becoming
-`c47Extensions/`. It holds the fork's additive layer, kept out of the
+`c47Extensions/` is the fork seam. It holds the fork's additive layer, kept out of the
 WP43-inherited core so upstream merges stay tractable; its header still reads
 `Copyright The WP43 and C47 Authors` (`c47Extensions.h:2`). The split is visible
 in the grapher: the rendering and plot-mode half is `c47Extensions/graphs.c`,
 while the sampling and solver engine stayed in the inherited `solver/graph.c`.
-It is 19 files and 9807 lines, and `addons.c` is among the hottest files in the
+It is 19 files and 9813 lines, and `addons.c` is among the hottest files in the
 repository.
 
 **How the solver family calls user code.** Values are passed in registers, not
@@ -797,7 +791,7 @@ own sampler (`solver/graph.c:77`), private to that file.
         |     ... later ... tamProcessInput() -> reallyRunFunction(op, value)
         |  calcMode == CM_PEM ? -> addStepInProgram(item)        items.c:718-756
         v
-  reallyRunFunction(item, param)   saveForUndo, hourglass, lastFunc  items.c:236
+  reallyRunFunction(item, param)   saveForUndo, hourglass, lastFunc  items.c:237
         v
   indexOfItems[item].func(param)   THE indirect call                 items.c:402
         |
@@ -818,7 +812,7 @@ Three things surprise most readers:
   intercepts mode-specific input; the general path is `btnReleased` ->
   `executeFunction` -> `runFunction`. Long-press works because of this.
 - **An item "takes an argument" purely by its `param` field.** If
-  `indexOfItems[func].param` falls in `TM_VALUE..TM_CMP` (`defines.h:1661-1682`),
+  `indexOfItems[func].param` falls in `TM_VALUE..TM_CMP` (`defines.h:1673-1694`),
   `runFunction` diverts to `tamEnterMode` and returns; the argument arrives via
   later keys resolved through `primaryTam`, and TAM finally calls
   `reallyRunFunction` directly, bypassing `runFunction` so it cannot re-enter
@@ -916,13 +910,13 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   reached through `screen.c`, `display.c`, `statusBar.c` and `softmenus.c` is
   verified by human inspection.
 - **Not verified here.** This page was written from static reads of the tree at
-  `75b71f9e6`; no build was executed for it. The subsystem responsibilities in
+  `1624e09b3`; no build was executed for it. The subsystem responsibilities in
   Section 9 are from directory contents and call sites, not from an exhaustive
   read of all 229 library files.
 
 ## References checked
 
-- Upstream c43 `master` at `75b71f9e61ab7d49e6fbe54b113a40c9265e43b2`,
+- Upstream c43 `master` at `1624e09b34bbaeb7402f6230b923631e8e1bcbd7`,
   2026-07-16: `README.md`, `BUILD.md`, `Makefile`, `meson.build`,
   `meson_options.txt`, `.gitignore`, `.gitlab-ci.yml`, `src/c47/c47.h`,
   `src/c47/c47.c`, `src/c47/defines.h`, `src/c47/typeDefinitions.h`,
@@ -937,7 +931,7 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   `src/generateCatalogs/meson.build`, `src/testSuite/meson.build`,
   `src/t47/meson.build`, `dep/meson.build`, `subprojects/gmp-6.2.1.wrap`.
 - [00-architecture.md](00-architecture.md), for the physical architecture. It
-  analysed `d969ec75db`; its headline figures were reproduced at `75b71f9e6`.
+  analysed `d969ec75db`; its headline figures were reproduced at `1624e09b3`.
 - [02-build.md](02-build.md), [04-debugging.md](04-debugging.md).
 - Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
   first-party spec for the `.d47` record layout. Not read for this page; read it
