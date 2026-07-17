@@ -7,7 +7,6 @@
 # grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
 # one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
-#   toReal.txt        the SHOI->real conversion caches a scratch real in the pool.
 #   eq_cov/deriv_cov/solve_cov/integrate_cov/pgm_solve_cov  the formula-coverage
 #                     drivers leave shared state the per-test In: reset does not
 #                     clear (a formula in the pool, named variables A and X, the
@@ -41,4 +40,3 @@ program_flow_cov.txt|IN: FARG=0
 program_flow_cov.txt|IN: FARG=4
 shortint_restore_cov.txt|IN: FARG=6
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
-toReal.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 WS=64 IM=2COMPL RX=SHOI:"45247#8"

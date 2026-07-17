@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index fe69b9d3a..d99673cf1 100644
+index 8c13ef1a1..8b1cb46cc 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -25,7 +25,7 @@ index fe69b9d3a..d99673cf1 100644
  uint16_t label, functionParameter;
  
  GtkWidget      *screen;
-@@ -3464,6 +3473,43 @@ void stopTimerAndPrint(void) {
+@@ -4455,6 +4464,53 @@ void stopTimerAndPrint(void) {
  
  
  
@@ -59,17 +59,27 @@ index fe69b9d3a..d99673cf1 100644
 +    testMemLeakCases++;
 +    printf("\nTESTMEM GROWTH file=%s pool=+%d gmp=+%ld\n  case: %s\n", fileName, (int)poolGrow, gmpGrow, lastInParameters);
 +  }
-+  // Ratchet: only growth beyond the new high-water is reported next time, so a
++  // Ratchet: only growth beyond the high-water is reported next time, so a
 +  // persistent object (named variable, equation) is attributed to the one case
 +  // that created it, not to every case after it.
-+  testMemPrevFree = freeNow;
-+  testMemPrevGmp = gmpMemInBytes;
++  //
++  // The high-water must move one way only. Assigning unconditionally lets a case
++  // that RELEASES memory move the bar, so the next case is measured against a
++  // level no case ever reached and is reported as growth it did not cause:
++  // logxy releases 1096 blocks, toReal takes them back, net zero across the
++  // pair, yet toReal was reported as a leak.
++  if(freeNow < testMemPrevFree) {
++    testMemPrevFree = freeNow;      // pool high-water: the LEAST free RAM seen
++  }
++  if(gmpMemInBytes > testMemPrevGmp) {
++    testMemPrevGmp = gmpMemInBytes; // GMP high-water: the MOST GMP seen
++  }
 +}
 +
  void processLine(void) {
    // convert to upper case
    int32_t lg = strlen(line);
-@@ -3499,6 +3545,10 @@ void processLine(void) {
+@@ -4490,6 +4546,10 @@ void processLine(void) {
  
    else if(strncmp(line, "IN: ", 4) == 0) {
      //printf("%s\n", line);
@@ -80,7 +90,7 @@ index fe69b9d3a..d99673cf1 100644
      strcpy(lastInParameters, line);
      inParameters(line + 4);
    }
-@@ -3547,6 +3597,9 @@ void processLine(void) {
+@@ -4538,6 +4598,9 @@ void processLine(void) {
      successfulTests++;
      noFailForNow = true;
      outParameters(line + 5);
@@ -90,7 +100,7 @@ index fe69b9d3a..d99673cf1 100644
    }
  
    else if(line[0] != 0) {
-@@ -3689,6 +3742,56 @@ int processTests(const char *listPath) {
+@@ -4680,6 +4743,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -147,7 +157,7 @@ index fe69b9d3a..d99673cf1 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -3703,6 +3806,340 @@ int main(int argc, char* argv[]) {
+@@ -4694,6 +4807,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
