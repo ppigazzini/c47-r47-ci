@@ -71,10 +71,11 @@ debugs a product whose source lives somewhere else.
 `AGENTS.md` is the cross-tool convention (stewarded by the Agentic AI Foundation
 under the Linux Foundation; read natively by Codex, Cursor, Aider, Jules and
 others). **Claude Code does not read it** - it reads `CLAUDE.md` only. The root
-`CLAUDE.md` is therefore one line, `@AGENTS.md`, which is the import syntax
-Anthropic documents for exactly this case. It is not a duplicate: edit this file,
-never that one. A symlink would also work but breaks on Windows without
-Developer Mode, and this repo ships Windows packages.
+`CLAUDE.md` therefore carries nothing but a pointer and an `@AGENTS.md` import,
+the syntax Anthropic documents for exactly this case; the sibling zfish repo
+uses the same shape. It is not a duplicate: edit this file, never that one. A
+symlink would also work but breaks on Windows without Developer Mode, and this
+repo ships Windows packages.
 
 ## The short version of the workflow
 
@@ -147,6 +148,14 @@ catalogue. Read it before trusting any lane result.
   binary under `xvfb-run`, from the repo root.
 - **The corpus tests computation only.** Nothing asserts the screen. A display
   regression will pass CI.
+- **The lanes share one upstream tree** at `/tmp/c43-test-harness` and each wipes
+  it on entry, so two run at once will corrupt each other and the failure surfaces
+  as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
+  legitimately takes 2-3 hours; it is not hung.
+  See [docs/05-ci.md](docs/05-ci.md).
+- **A lane failing does not mean this repo changed.** Every lane resolves upstream
+  `master` at runtime, so an upstream commit breaks CI here with no commit here.
+  Pin with `UPSTREAM_COMMIT` to tell the two apart.
 
 ## Definition of done
 

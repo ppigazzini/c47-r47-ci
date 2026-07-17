@@ -158,13 +158,17 @@ Feeds realistic key sequences through the **real key path**:
 processKeyAction(item); if(!keyActionProcessed) runFunction(item);
 ```
 
-An earlier version dispatched everything through `runFunction()` alone, so TAM
-never consumed the following key: editors and `ui/tam.c` stayed at 0% and
-STO/RCL sequences crashed. (`executeFunction` is **not** the right entry: its
-state-machine block is gated on `data[0] != 0`, a real key-label string, and is
-skipped for the item-code path.) After the fix, all from 0%:
-`differentiate.c` 64%, `solve.c` 50%, `tvm.c` 37%, `ui/tam.c` 31%,
-`ui/matrixEditor.c` 30%.
+**Both halves are load-bearing.** `processKeyAction` is what lets TAM consume
+the *following* key; dispatch through `runFunction()` alone and TAM never does,
+so `ui/tam.c` and the editors are never entered at all and STO/RCL sequences
+crash. That single line is the only reason the interactive subsystems -
+`differentiate.c`, `solve.c`, `tvm.c`, `ui/tam.c`, `ui/matrixEditor.c` - are
+reachable from a headless driver; `run-coverage.sh` reports what they reach
+today.
+
+`executeFunction` is **not** the right entry: its state-machine block is gated
+on `data[0] != 0`, a real key-label string, so it is skipped for the item-code
+path.
 
 Structural finding worth keeping in mind: real/complex arithmetic stores results
 in the **fixed register area, not the pool**, so those paths cannot leak pool
@@ -375,8 +379,13 @@ Three gotchas, all load-bearing:
   `--gcov-ignore-parse-errors suspicious_hits.warn_once_per_file` demotes it to
   a warning. Confirmed necessary on `charString.c`. Needs **gcovr >= 8**; apt
   ships 7, which is why CI installs it with `uv`.
-- **Never rebuild `build.cov` while a coverage run uses it** - it corrupts the
-  `.gcda` and reads new test files against the stale binary (false failures).
+- **Never rebuild the coverage build dir while a run is using it** - it corrupts
+  the `.gcda` and reads new test files against the stale binary (false
+  failures). To work on something else meanwhile, give the second run its own
+  tree: `BUILD_DIR` and `HARNESS_WORK` are both overridable, and every lane wipes
+  `$HARNESS_WORK/upstream` on entry, so two lanes sharing one `HARNESS_WORK`
+  corrupt each other whatever the build dir says. The default here is
+  `build.coverage` (`run-coverage.sh:32`).
 
 ### 7.1 The whitelist is the real coverage gate
 
