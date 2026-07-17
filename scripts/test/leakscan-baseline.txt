@@ -3,12 +3,36 @@
 # The gate (scripts/test/run-leakscan.sh) fails on any finding NOT listed here.
 # Format: <mode> <kind> <identifier>
 #
-# Regenerated against upstream master a361b6797 (UPDATE_BASELINE=1). The crash/
-# leak set is unchanged from the 9c9ac6549 baseline: the short-integer word-size,
-# config and stats merges since then did not change it (the crashes remain
-# headless out-of-context handler calls, not real leaks). LEAK item=1202/1203/1465/1889 and the
-# integrate_pgm_x20 keyscan crash (findKey2ndParam OOB + unbounded integrator
-# recursion, see __DEV/reports/REPORT-13-CI-LANES.md) are unchanged.
+# Regenerated against upstream master 87c70c77a (UPDATE_BASELINE=1). Two changes
+# since the a361b6797 baseline, each root-caused rather than re-blessed:
+#
+# 1. REMOVED (fixed upstream): CRASH item=1767 2368 2369 2370 2371 2372 2373
+#    2377 2378 2384 2735 - the equation solver/grapher cluster (fnEqSolvGraph
+#    realSlv/cpxSlv/Draw, fnEqCalc, fn1stDerivEq, fn2ndDerivEq, fnComplexPlot).
+#    Upstream 3bd0f13ea "fix crash running cpxSlv/Draw/Calc-f with no equation
+#    defined" guards the NULL allFormulae dereference in parseEquation and
+#    fnEqSolvGraph. Verified by pinning the lane (UPSTREAM_COMMIT): at 3bd0f13ea^
+#    all 11 still crash; at 3bd0f13ea exactly these 11 stop, and the same 11 are
+#    absent at 87c70c77a. Removed because the finding is fixed, not because the
+#    baseline was noisy.
+#
+# 2. ADDED: CRASH item=994 (fnSolveVar "SOLVE Var") and item=1002 (fnIntVar
+#    "fdx VarL") - SIGSEGV on all four stack types. Same documented class as the
+#    other CRASH entries: a handler called out of keyboard/menu context. Both do
+#      getNthString(dynamicSoftmenu[softmenuStack[0].softmenuId].menuContent,
+#                   dynamicMenuItem)
+#    (solve.c fnSolveVar, integrate.c fnIntVar) without guarding dynamicMenuItem.
+#    c47.c documents -1 as "no dynamic menu item is selected", and every other
+#    consumer honours it (programmableMenu.c ==-1; lblGtoXeq.c and print.c >=0);
+#    these two index with it instead. Bisected (git bisect run over the lane) to
+#    upstream 82d580db8 "default dynamicMenuItem to -1 so the first XEQ does not
+#    divert": that commit did not create the flaw, it made the sentinel take its
+#    documented value - the previous default 0 was a valid index that masked the
+#    missing guard. Not user-reachable: both items are CAT_NONE (in no catalog,
+#    so not XEQ/ASN reachable) and are only invoked from the MVAR dynamic
+#    softmenu, where the key press sets dynamicMenuItem >= 0. The scanner calls
+#    them headless with no menu, so it sees -1. Baselined as an out-of-context
+#    artifact; a guard in those two functions would retire these entries.
 #
 # Triage (see __DEV/reports/REPORT-4-BUGS.md):
 # - leakscan LEAK item=1202/1203/1465/1889 - persistent state
@@ -19,6 +43,7 @@
 # Remove a line here only when the underlying finding is fixed upstream.
 
 keyscan CRASH seq=integrate_pgm_x20
+leakscan CRASH item=1002
 leakscan CRASH item=1197
 leakscan CRASH item=1483
 leakscan CRASH item=1484
@@ -32,27 +57,17 @@ leakscan CRASH item=1623
 leakscan CRASH item=1627
 leakscan CRASH item=1665
 leakscan CRASH item=1739
-leakscan CRASH item=1767
 leakscan CRASH item=1812
 leakscan CRASH item=1813
 leakscan CRASH item=1814
 leakscan CRASH item=1815
 leakscan CRASH item=1826
 leakscan CRASH item=207
-leakscan CRASH item=2368
-leakscan CRASH item=2369
-leakscan CRASH item=2370
-leakscan CRASH item=2371
-leakscan CRASH item=2372
-leakscan CRASH item=2373
-leakscan CRASH item=2377
-leakscan CRASH item=2378
-leakscan CRASH item=2384
-leakscan CRASH item=2735
 leakscan CRASH item=2773
 leakscan CRASH item=2774
 leakscan CRASH item=2785
 leakscan CRASH item=38
+leakscan CRASH item=994
 leakscan LEAK item=1202
 leakscan LEAK item=1203
 leakscan LEAK item=1465
