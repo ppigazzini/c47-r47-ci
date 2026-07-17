@@ -3,7 +3,10 @@
 This directory is the script-driven testing harness. The scripts are the single source of truth
 for every test lane; the GitHub Actions workflows are thin callers that set up a
 toolchain and invoke a script. The same script runs unchanged on a maintainer's
-machine, so a CI failure is reproducible locally.
+machine, so a CI failure is reproducible locally. The one exception is the
+coverage lane: `run-coverage.sh` defaults to report-only while
+`test-coverage.yml` sets `COVERAGE_MIN=45` and `SECTOR_GATE=1`, so export both
+to reproduce a CI coverage failure.
 
 ## Layout
 
@@ -33,7 +36,8 @@ machine, so a CI failure is reproducible locally.
   Report-first; `WARN_GATE=1` to gate.
 - `run-valgrind.sh` - runs the testSuite corpus under Valgrind
   memcheck with `tooling/valgrind.supp` and reports new c47 malloc-level sites
-  vs `valgrind-baseline.txt`. Report-first; `VALGRIND_GATE=1` to gate.
+  vs `valgrind-baseline.txt`. Gating by default (`VALGRIND_GATE` defaults to 1);
+  set `VALGRIND_GATE=0` to report without failing.
 - `run-staticanalysis.sh` - runs cppcheck over the c47 sources (with confirmed
   false positives filtered by `tooling/cppcheck-suppressions.txt`) and reports
   new findings vs `cppcheck-baseline.txt`. Report-first; `ANALYSIS_GATE=1` to
@@ -97,9 +101,9 @@ bash scripts/test/run-smoke.sh
   corpus).
 - `run-fuzz.sh` + `test-fuzz.yml`: libFuzzer over `decodeOneStep`. Done
   (the campaign immediately found a real decoder stack-buffer-overflow).
-- breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 310
+- breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 294
   baselined), `run-valgrind.sh` (memcheck + suppressions, clean baseline),
-  `run-staticanalysis.sh` (cppcheck, 23 baselined after filtering confirmed
+  `run-staticanalysis.sh` (cppcheck, 22 baselined after filtering confirmed
   false positives) with their `test-*.yml`
   callers. Done. MSan (needs an instrumented libc/gmp) and clang-tidy (needs an
   upstream `.clang-tidy`) are documented deferrals.

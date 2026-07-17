@@ -11,8 +11,20 @@ This repository is not a fork of the product tree. The workflows here resolve
 upstream `master` at runtime and then build and validate that upstream source
 inside GitHub Actions.
 
+## Start Here
+
+- [AGENT.md](AGENT.md) - ground rules for agents and new contributors. Read
+	this first.
+- [docs/](docs/00-README.md) - the developer documentation: the c43 architecture
+	and codebase, the build surface, testing, debugging, and the CI lanes.
+
 ## What Lives Here
 
+- `AGENT.md`, `docs/`
+	- the ground rules and the developer documentation
+- `scripts/test/`
+	- the lane scripts; each is the single source of truth for one lane and runs
+		unchanged on a maintainer's machine
 - `.github/workflows/`
 	- GitHub Actions workflows that operate on the authoritative upstream c43
 		commit
