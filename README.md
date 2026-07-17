@@ -13,14 +13,14 @@ inside GitHub Actions.
 
 ## Start Here
 
-- [AGENT.md](AGENT.md) - ground rules for agents and new contributors. Read
+- [AGENTS.md](AGENTS.md) - ground rules for agents and new contributors. Read
 	this first.
 - [docs/](docs/README.md) - the developer documentation: the c43 architecture
 	and codebase, the build surface, testing, debugging, and the CI lanes.
 
 ## What Lives Here
 
-- `AGENT.md`, `docs/`
+- `AGENTS.md`, `docs/`
 	- the ground rules and the developer documentation
 - `scripts/test/`
 	- the lane scripts; each is the single source of truth for one lane and runs

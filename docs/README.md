@@ -36,8 +36,9 @@ The repository holds three things:
 | [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
 | [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
 | [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
+| [07-writing.md](07-writing.md) | Anyone editing these docs | How the set is organised, the writing rules, hot and cold pages, what the docs gate does and does not check |
 
-For the agent and contributor ground rules, see [AGENT.md](../AGENT.md). For
+For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see
 [scripts/test/README.md](../scripts/test/README.md), which owns that subject.
 
@@ -84,7 +85,8 @@ against master, never the count.
 
 ```
 c47-r47-ci/
-|-- AGENT.md                 -- ground rules for agents and contributors
+|-- AGENTS.md                 -- ground rules for agents and contributors
+|-- CLAUDE.md                 -- one line: `@AGENTS.md` (Claude Code does not read AGENTS.md)
 |-- docs/                    -- this documentation
 |-- scripts/
 |   `-- test/

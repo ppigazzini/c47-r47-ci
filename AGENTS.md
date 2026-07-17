@@ -1,8 +1,19 @@
-# AGENT.md
+# AGENTS.md
 
 Instructions for AI agents and new contributors working in this repository.
-Read this before touching anything. It is short on purpose; the detail lives in
-[docs/](docs/README.md).
+Read this before touching anything. It is short on purpose: it is only what a
+newcomer gets wrong *before* reading [docs/](docs/README.md), which is where the
+detail lives.
+
+**Docs are part of the change, not after it.** Each page in `docs/` is a live
+claim about the thing it describes - and four of them describe **upstream**, a
+tree that moves without a commit here. Change something a page claims, fix the
+page in the SAME commit; sync upstream, re-read the pages that track it.
+[docs/07-writing.md](docs/07-writing.md) maps every page to what it owns, marks
+which run hot, and carries the writing rules. `bash scripts/test/run-docs-lint.sh`
+catches a dead link, a dead path, a stale pinned count, a non-ASCII byte or a
+`__DEV/` citation. It cannot tell you a sentence has become false. That part is
+yours.
 
 ## What this repository is
 
@@ -53,6 +64,17 @@ debugs a product whose source lives somewhere else.
 | hunt a memory bug, a leak or a crash | [docs/04-debugging.md](docs/04-debugging.md) |
 | understand or add a CI lane | [docs/05-ci.md](docs/05-ci.md) |
 | find an authoritative external reference | [docs/06-references.md](docs/06-references.md) |
+| add or edit a doc, or write a commit message | [docs/07-writing.md](docs/07-writing.md) |
+
+## This file, and CLAUDE.md
+
+`AGENTS.md` is the cross-tool convention (stewarded by the Agentic AI Foundation
+under the Linux Foundation; read natively by Codex, Cursor, Aider, Jules and
+others). **Claude Code does not read it** - it reads `CLAUDE.md` only. The root
+`CLAUDE.md` is therefore one line, `@AGENTS.md`, which is the import syntax
+Anthropic documents for exactly this case. It is not a duplicate: edit this file,
+never that one. A symlink would also work but breaks on Windows without
+Developer Mode, and this repo ships Windows packages.
 
 ## The short version of the workflow
 
