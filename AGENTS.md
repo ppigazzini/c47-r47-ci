@@ -131,6 +131,10 @@ rules below are not style; each one exists because it failed.
 6. **Retract what you cannot prove.** Say which claims are measured, which are
    read from the source, and which are inferred. Explicit uncertainty beats
    plausible filler.
+7. **Hostile-audit every candidate fix before you commit it** - attack the root
+   cause, the repro (must fire without the fix), the blast radius, and the same
+   class elsewhere. A patch you wrote is a suspect, not a solution. Full rule in
+   [docs/03-testing.md](docs/03-testing.md) section 7.2.
 
 [docs/04-debugging.md](docs/04-debugging.md) carries the full false-pass
 catalogue. Read it before trusting any lane result.

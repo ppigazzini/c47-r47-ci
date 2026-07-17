@@ -456,13 +456,38 @@ and a value looks wrong when the source is fine. **Before filing or acting on an
 value anomaly, `touch` the owning translation unit (or wipe the build dir) and
 re-run.**
 
-### 7.2 Adversarial self-review is required, not optional polish
+### 7.2 Hostile-audit every candidate fix before you trust it
 
-Review the branch as devil's advocate - "what would make this test pass even
-though the code is broken?" A test that is green and committed can still be
-worthless, so budget a dedicated pass whose only job is to attack the tests, and
-land the hardening as its own documented commit so the review is traceable
+**A patch you wrote is a suspect, not a solution.** Before committing any fix,
+attack it as its own adversary; a failure on any one front means the fix is not
+done, however plausible it reads:
+
+- **Root cause, not a story that fits.** Prove the fix addresses the *actual*
+  origin, not an explanation that merely sounds right. An uninitialised-read
+  finding blamed on an unzeroed array is worthless if `--track-origins` shows
+  the value is created in a different function - the array change would remove
+  nothing. Name the mechanism and show it, or the fix is a guess.
+- **The repro must fire without the fix.** A clean result proves nothing until
+  the negative control shows the bug on the unfixed tree (7.7). Green can mean
+  the repro never exercised the path - a single-op repro that misses the
+  trigger, or a binary that was never rebuilt.
+- **Blast radius.** Trace every other reader and writer the change touches -
+  save/restore round-trips, sibling call sites, persisted state - and *prove*
+  they are unaffected against a genuine before/after, not assume it. `git stash`
+  does not revert a committed change, so a "master" build that still carries the
+  fix compares nothing; revert in the work tree and rebuild.
+- **The same class elsewhere.** Grep for the pattern; a one-site fix usually has
+  copies (7.8).
+
+This includes the tests the fix ships with: review the branch as devil's
+advocate - "what would make this test pass even though the code is broken?" - and
+land any hardening as its own documented commit so the review is traceable
 rather than silently amended.
+
+The hostile-audit is not optional and not a formality: on this codebase, fixes
+have been committed on a misread root cause, "verified" from a repro that never
+fired, and signed off against a comparison that silently tested the fix against
+itself. The hostile-audit is what catches each before it ships.
 
 ### 7.3 Report honestly - retract what you cannot prove
 
