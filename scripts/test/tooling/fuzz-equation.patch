@@ -1,10 +1,10 @@
 diff --git a/meson_options.txt b/meson_options.txt
-index 55515d376..7fac11769 100644
+index 3539acf54..2c1a424a7 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -27,3 +27,9 @@ option('DMCP_PACKAGE',
-   value       : '',
-   description : 'define variable acc. to defines.h to save space for DM42 dmcp builds'
+@@ -33,3 +33,9 @@ option('mem',
+   value       : false,
+   description : 'Mem=1 diagnostic build: disable -flto so per-feature FLASH/QSPI sizes are real (not masked by LTO). Bigger binary, may not fit - measurement only.'
  )
 +
 +option('fuzz_equation',
