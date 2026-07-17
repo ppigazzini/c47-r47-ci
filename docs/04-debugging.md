@@ -33,7 +33,7 @@ Consequences, and they are the whole reason this page exists:
   leak returns no blocks and is invisible to them. A write past a pool block
   lands inside a valid libc buffer and is invisible to them.
 - Therefore leaks need application-level accounting (Sections 12, 14) and
-  intra-pool overruns need a canary (Section 13).
+  intra-pool overruns need a canary (Section 5).
 - Conversely, `--leakscan`/`--testmem` cannot see a libc-level error, and the
   canary cannot see a leak. **No single lane substitutes for another.**
 
@@ -78,8 +78,10 @@ Memory is not zeroed on allocation.
 Accounting facts worth knowing before you measure anything:
 
 - `getFreeRamMemory()` (`memory.c:6`) sums the free-list regions and **returns
-  BYTES, not blocks**. Fragmentation-immune (it sums total free), but see the
-  warning in Section 15 (withdrawn techniques).
+  BYTES, not blocks**. It is fragmentation-immune as an absolute reading, but a
+  delta between two readings is not a reliable pool-leak metric under alloc/free
+  churn: free-list fragmentation over-reports. Trace orphaned blocks, or use
+  `--testmem`, for a leak claim.
 - `c47MemInBlocks` is pool occupancy; `gmpMemInBytes` is GMP's.
 - `debugMemory()` prints both plus the free-region table. The testSuite prints
   it at exit and `processTests` returns
@@ -284,12 +286,11 @@ write bugs:
   (it is just the diagonal snapshot for the convergence test) - overrunning by
   `2*size*(size-1)` reals into the following pool block. Eigenvector solvers
   allocate it `size*size*2` and are unaffected. Triggers on every eigenvalue op.
-  Fixed upstream; see MR !1521.
 - **`insColRealMatrix`/`insColComplexMatrix` write one element past the new
   matrix** (`matrix.c:2555`/`:2631`). The shift loop is bounded `j < cols + 1`,
   one past the last source column; the final iteration writes
   `newMat[rows*(cols+1)]`. Reachable only via the interactive matrix editor.
-  Result matrix is numerically correct, so no test flags it. Fixed upstream in `fb1f7f483`.
+  Result matrix is numerically correct, so no test flags it.
 
 Both write only zeros or in-range values into an adjacent live block, so they
 corrupt only in unlucky layouts - intermittent by nature, which is why they
@@ -400,12 +401,11 @@ Registration rules, learned the hard way:
 
 - names must be **<= 24 chars** (`funcTest_t.name[25]`);
 - register only real `void fn(uint16_t)` entry points, **never internal
-  helpers** - a 4-arg helper segfaulted the first cut;
+  helpers** - a 4-arg helper will segfault;
 - header declaration names can differ from the `.c` definition; verify the decl
   or a clean grep still fails to compile;
 - pass the function parameter with `FARG=`.
 
-Whitelist went 305 -> 434 with MR !1487.
 
 Two unlocks worth reusing:
 
@@ -498,12 +498,11 @@ Three hard-won points:
   **innermost** frame and leaks to the **first c47 frame** in the allocation
   stack. `--error-exitcode=0` is kept deliberately: valgrind's own exit would
   trip on third-party noise, so the scoped baseline diff is the gate.
-- **Subsetting was tried and reverted.** memcheck runtime is not spread across
-  the corpus but concentrated in a few iterative solver/integration tests (tvm,
-  solve, integrate, sumprod, iteration, curveFitting). A seeded random subset
-  finished in 2m37s only because its seed excluded all of them - randomising the
-  cheap groups while the expensive ones dominate gives no signal and skips the
-  most allocation-heavy tests, which are the most valuable to leak-check. Full
+- **Do not subset the corpus for memcheck.** Runtime is not spread across it but
+  concentrated in a few iterative solver/integration tests (tvm, solve,
+  integrate, sumprod, iteration, curveFitting). A random subset that happens to
+  exclude those runs fast but gives no signal: it skips the most
+  allocation-heavy tests, which are the ones most worth leak-checking. Full
   corpus with `timeout-minutes: 350`.
 - **Regenerate the baseline ON THE RUNNER.** The uninitialised-read line set is
   toolchain-dependent; CI's valgrind flags more sites in `real34ToDisplayString2`
@@ -548,10 +547,11 @@ hunting ground.
 
 `UBSAN_OPTIONS=halt_on_error=0` (report mode), `ASAN_OPTIONS=halt_on_error=1`
 (hard gate). The reason is specific: with UBSan halting, the **first
-upstream-owned UB aborted the run before the leak workload ever ran**, defeating
-the lane. The core is upstream-owned; ASan stays the gate. A per-finding UBSan
-suppression list was rejected - upstream moves across hundreds of commits, the
-list would be perpetually stale, and it still aborts on the next new UB.
+upstream-owned UB aborts the run before the leak workload runs**, defeating the
+lane. The core is upstream-owned, so ASan stays the gate. A per-finding UBSan
+suppression list is not the answer either: upstream moves across hundreds of
+commits, so the list would be perpetually stale and would still abort on the
+next new UB.
 
 `-fno-sanitize=alignment` is mandatory - c47 has pervasive intentional
 misaligned access by design (the `manage.c` `programList_t` pattern). **A finding
@@ -607,7 +607,7 @@ Every one of these has silently passed a broken thing at least once.
    the corpus.
 5. **`grep` with no match under `set -Eeuo pipefail` aborts the lane.** A
    comments-only baseline made the diff step exit 1. Wrap: `{ grep ... || true; }`.
-6. **A stale build is not evidence** (Section 17 method discipline in [03-testing.md](03-testing.md)).
+6. **A stale build is not evidence** (Section 7 method discipline in [03-testing.md](03-testing.md)).
 7. **Stale `src/generated/` shadows the build dir.** `src/c47/meson.build` sets
    `c47_inc = include_directories('.', '../generated')`, so the gitignored,
    hand-populated `src/generated/*` is on the include path and **shadows** the
@@ -654,47 +654,13 @@ Every one of these has silently passed a broken thing at least once.
     that exercise the width, the fraction and the type, not just the arithmetic.
 18. **`git stash` does not revert a commit.** Stashing to "get back to master"
     leaves a committed fix in the tree, and the A/B then compares the branch with
-    itself and agrees. Check out the ref, force a rebuild (Section 17 method discipline in [03-testing.md](03-testing.md)), and print the
+    itself and agrees. Check out the ref, force a rebuild (Section 7 method discipline in [03-testing.md](03-testing.md)), and print the
     resolved HEAD in the same command that prints the reading (16, 6).
 
-## 13. Bug ledger by technique
+## 13. Current gaps
 
-Condensed; the point is which technique found which class.
-
-| Technique | Representative finding |
-|---|---|
-| UBSan | `1LL << 63` in `fnMirror` (`rotateBits.c`) |
-| ASan + **gdb watchpoint** | `runPgm` softmenu clobber (`testSuite.c:419`) |
-| ASan/LSan | GTK tooltip transfer-full leak (148 records) |
-| `--leakscan` | `fnXToAlphaOld` GMP leak |
-| static sweep | `fnRecallIJ`, `dblDivide` long-integer leaks on `saveLastX` failure |
-| `--testmem` | six matrix leaks: add/sub aliased operand, cross, conjugate, LU singular, `fnEvPFacts`, eigenvalues EC=8 path |
-| **`--wrap` mpz counting** | `getRegisterAsLongIntQuiet` double-init (BinetV3, 103 leaks) |
-| **POOL_GUARD canary** | `calculateEigenvalues` previousDiagonal overrun; `insCol` column overrun |
-| libFuzzer (decode) | `getStringLabelOrVariableName` OOB; `decodeLiteral` `baseChars[36]`; `findKey2ndParam` NULL arith |
-| libFuzzer (restore) | hexDump NULL-deref/overflow (a corrupt `backup.cfg` crashes on boot) |
-| cppcheck **re-read** | `graphs.c` abs-of-comparison; `graph.c` dead running average |
-| grep-the-class | untrusted name lengths + undersized buffers across 4 copies |
-| keyscan + gdb | `findKey2ndParam` opcode >= LAST_ITEM |
-| **t47 sentinel battery** | matrix editor clobbers I/J; STOVEL/RCLVEL I/J off-by-one |
-| corpus probing | `dynamicMenuItem` default 0 breaks the first XEQ of a run |
-
-The `dynamicMenuItem` entry is worth its own line as a design lesson:
-`src/c47/c47.c` declared `int16_t dynamicMenuItem;` with no initialiser -> 0 at
-power-on, but **-1 is the "nothing selected" sentinel** and 0 means "dynamic
-soft-menu item 0 selected". `fnGoto()` tests `dynamicMenuItem >= 0` *before*
-looking at its label argument, so the **first XEQ of any run** diverts to a
-dynamic-menu label. It hides on hardware because every keypress goes through
-`determineFunctionKeyItem_C47()`, which sets -1 before dispatch; the testSuite
-calls `reallyRunFunction(ITM_XEQ, label)` directly and bypasses that. **An
-uninitialised global whose valid range includes 0 but whose sentinel is -1 is a
-bug waiting for the first caller.**
-
-## 14. Current gaps
-
-Honest as of 2026-07-16. This table has been wrong before by being stale - it
-listed fuzzing, coverage and static analysis as "none" long after all three
-shipped. Re-verify against `scripts/test/` before quoting it.
+Re-verify this table against `scripts/test/` before quoting it: it names lanes
+and their limits, and those move with the tree.
 
 | Technique | Status here | Gap |
 |---|---|---|
@@ -704,63 +670,24 @@ shipped. Re-verify against `scripts/test/` before quoting it.
 | **MSan** | **none** | uninitialised reads have no dedicated detector (needs instrumented GMP) |
 | Valgrind | `run-valgrind.sh`, gates by default, curated `.supp` | line-keyed baseline drifts with upstream |
 | Pool/GMP leak audit | `--leakscan`/`--keyscan`/`--testmem`, both hard gates | - |
-| **Intra-pool OOB** | **POOL_GUARD, manual only** | **not wired into any lane (Section 16)** |
+| **Intra-pool OOB** | **POOL_GUARD, manual only** | **not wired into any lane (Section 14)** |
 | Fuzzing | 3 lanes (decode/equation/restore) | report-only; OSS-Fuzz never onboarded; state-import + NIM unfuzzed |
 | Static analysis | cppcheck lane, 22 baselined | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
 | Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | solver/graph 26% is a real functional gap; ui/input/dmcp are host ceilings |
 | Differential numeric | `numeric-vectors.py`, 135 cases | single-argument only; no pow/atan2/logxy, no complex domain, no signed-zero/inf/NaN; no CI regeneration check |
 | Unit isolation | fork-per-item in the scans | the corpus itself is one monolithic binary |
 
-## 15. Withdrawn and superseded techniques
-
-Recorded so nobody rebuilds them.
-
-- **`--oomscan` (OOM fault injection) - WITHDRAWN, and no longer in the repo.**
-  `grep -rn oomscan scripts/` returns nothing. It armed
-  `oomInjectArm`/`oomInjectAllow` in `memory.c`, hooked into
-  `isMemoryBlockAvailable` (peek) and `allocC47Blocks`/`reallocC47Blocks`
-  (consume), and swept a curated matrix/vector op list, to reach the RAM-full
-  cleanup branches that happy-path scans never execute. It was withdrawn because
-  **the LEAK metric is unreliable in both directions**: `getFreeRamMemory`-delta
-  over-reports via free-list fragmentation (a "112-block determinant leak" had
-  **0** orphaned blocks, all freed), and orphan-tracing over-reports differently
-  because some register and stack frees bypass `freeC47Blocks` so the tracer
-  misses them. A return-address tracer (addr2line via
-  offset-from-`allocC47Blocks`, ASLR-invariant) resolved the only
-  consistently-orphaned allocations to `reallocateRegister` and `_Drop` -
-  **shared stack/register code, not matrix code** - so the plan to fix nine
-  matrix functions was withdrawn entirely. **Lesson: `getFreeRamMemory`-delta is
-  not a reliable pool-leak metric under heavy alloc/free churn; orphan accuracy
-  needs a single hooked free path.** Kept from that work: the matrix/vector
-  **operand coverage** in `--leakscan` (deterministic, Section 12.1) and the
-  ASan crash check.
-  Its first cut's "matrix CRASH" findings were **harness artifacts**, not bugs:
-  it set `calcMode = CM_NO_UNDO` to silence `saveForUndo`, but an op's own
-  `adjustResult` calls `undo()` on error and wrote through never-saved
-  `SAVED_REGISTER_*`; and it failed *every* allocation after N (permanent
-  exhaustion no free can relieve) instead of a one-shot transient failure.
-- **Valgrind seeded subset - REVERTED** (Section 9).
-- **`tooling/coverage.patch` - RETIRED.** Its corpus merged upstream as MR !1487
-  (`8468e529a`), so it no longer applies. `coverage-patch-audit.py` is retained
-  for a future carried corpus but is called by no lane.
-- **`reallocateRegister` allocate-before-free - REJECTED.** The free-then-
-  unchecked-alloc gap (typed-but-NULL register on sustained RAM-full) is real,
-  but allocating first raises peak memory to old+new versus max.
-
-## 16. Open
+## 14. Open
 
 - **Unbounded integrator recursion** (`keyscan CRASH seq=integrate_pgm_x20`).
-  The `findKey2ndParam` opcode bound is fixed on
-  a local fix branch, not yet upstream (regression-free, full
-  suite byte-identical with and without), but the sequence still SIGSEGVs: the
-  keyscan driver's 20x replay folds the integrate keys into the stored program,
-  so the integrand integrates itself (`_integratorIteration` -> `execProgram` ->
-  `_executeOp` op=1690 -> `fnIntegrateYX` -> ...). No depth guard across
-  `integrate`/`execProgram`. Deliberately unfixed: a guard must not regress
-  legitimately deep recursion and needs its own analysis. The baseline entry
-  stays.
-- **POOL_GUARD is not wired into any lane** - a manual sweep only (Section 15
-  of the risks below).
+  The keyscan driver's 20x replay folds the integrate keys into the stored
+  program, so the integrand integrates itself (`_integratorIteration` ->
+  `execProgram` -> `_executeOp` op=1690 -> `fnIntegrateYX` -> ...). There is no
+  depth guard across `integrate`/`execProgram`. A guard must not regress
+  legitimately deep recursion, so it needs its own analysis; until then the
+  baseline entry carries the crash.
+- **POOL_GUARD is not wired into any lane** - a manual sweep only (Section 15,
+  Risks).
 - **`covBmpName()` should unlink its target bitmap** so a skipped SNAP fails
   loudly instead of hashing history (hazard 22.3). Proposed, not implemented.
 - **Fuzz harness M3**: extend to `scanLabelsAndPrograms` + label-exec/menu paths
@@ -773,9 +700,9 @@ Recorded so nobody rebuilds them.
   deterministic image hash cannot distinguish an intended render change from a
   rendering regression.** Re-pinning is a maintenance point, not a formality.
 
-## 17. Risks
+## 15. Risks
 
-- Section 13 (POOL_GUARD) is not wired into CI. It is a manual sweep and the two
+- Section 5 (POOL_GUARD) is not wired into CI. It is a manual sweep and the two
   bugs it found were both intermittent by nature. If the class recurs, nothing
   catches it automatically.
 - The valgrind baseline is line-number keyed against a moving upstream

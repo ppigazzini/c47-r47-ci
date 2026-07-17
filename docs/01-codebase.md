@@ -29,12 +29,9 @@ restating them, so each fact has one source.
 
 Use [00-architecture.md](00-architecture.md) for anything about the dependency
 graph, cycles, ACD/NCCD, the item table's structural cost, or the god header.
-Those numbers are not re-derived here. It was measured at
-`d969ec75db525f9484d1dac62897aa786c2911df`, a few commits behind the one this
-page uses. Its headline figures reproduce unchanged at `75b71f9e6`, and its
-conclusions hold, but some counts have drifted - `console.c` was added to both
-DMCP hal directories in that range, so its "three adapters" is now four. Its
-own header carries the drift table.
+Those numbers are not re-derived here; that page owns them. Counts move with
+upstream, so re-count against a live clone before quoting one rather than
+trusting a figure written down here.
 
 ## 2. The product and its targets
 

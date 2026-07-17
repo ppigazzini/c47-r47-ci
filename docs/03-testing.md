@@ -300,20 +300,11 @@ synced upstream sources** as the binary, or the opcode numbering will not match.
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
 `loadTestPrograms` is set (`saveRestoreBackup.c:762`).
 
----
-
-These rules were each learned from a shipped commit. Their foundation is the
-upstream-merged CLI/math coverage corpus (MR !1487, merge `8468e529a`, "expand
-CLI/math coverage corpus with wrong-answer assertions"), which established the
-`covXxx` driver pattern, the wrong-answer assertion style, the mpmath
-differential vectors and the fixture-ordering discipline. Where a rule cost us a
-mistake, the mistake is named so it is not repeated.
-
 ## 6. The test-authoring rules
 
 ### 6.1 Assert a computed value a broken implementation would get wrong
 
-The single most important rule, and the founding principle of MR !1487. A test
+The single most important rule. A test
 that ends `Out: EC=0` only proves the code did not error - it passes over
 garbage. Every driver we shipped asserts the *value*: store/recall, compare,
 matrix, distribution, curve-fit and predicate results by value; both roots +/-2
@@ -432,8 +423,8 @@ pool leaks. Treat it as mandatory, not advisory.
 The headless suite reads and writes state, program, backup and register-dump
 files. If those used the real filenames (`backup.cfg`, `c47.sav`,
 `c47program.bin`, `c47state.bin`), running the suite on a device or a working
-checkout would silently overwrite the user's saved state. The maintainer fixed
-exactly this on MR !1487, renaming every artifact with a `Test` suffix.
+checkout would silently overwrite the user's saved state. The test HAL prevents
+that by renaming every writable artifact with a `Test` suffix.
 
 `src/testSuite/hal/io.c` is the single source of truth: every `ioPath*` case
 returns a Test-suffixed name. A test never reads or writes a bare production
@@ -477,21 +468,13 @@ trustworthy evidence for a numeric claim.
 
 ### 7.2 Adversarial self-review is required, not optional polish
 
-Reviewing the branch as devil's advocate - "what would make this test pass even
-though the code is broken?" - is what surfaced 20.2 and 20.3 *after* the tests
-were green and committed. Budget a dedicated pass whose only job is to attack the
-tests, and land the hardening as its own documented commit so the review is
-traceable rather than silently amended.
+Review the branch as devil's advocate - "what would make this test pass even
+though the code is broken?" A test that is green and committed can still be
+worthless, so budget a dedicated pass whose only job is to attack the tests, and
+land the hardening as its own documented commit so the review is traceable
+rather than silently amended.
 
 ### 7.3 Report honestly - retract what you cannot prove
-
-Two findings did not survive scrutiny: the TVM "bug" (21.1, a stale build -
-retracted) and an `integrate` parser anomaly that was real but not root-caused
-(aliasing, progress-display and OOB all ruled out; ASan+UBSan clean, so an
-in-bounds stale read - a logic bug, not memory unsafety). The latter was left
-documented and **unshipped** rather than papered over with a guess, and only
-manifested through the harness's shortcut setup, so it was never established that
-the real keyboard path was affected. It was later confirmed fixed upstream.
 
 **A fix goes in only with a proven root cause; an unconfirmed anomaly is
 documented, not patched; a mistaken report is retracted in the record.** A test
@@ -507,12 +490,11 @@ so a reader knows what was *not* tested.
 ### 7.5 A harness is code under test
 
 The fuzz/leak lanes carry their harness as a patch applied onto synced upstream.
-A comment edit that changed a new-file hunk's line count made `git apply`
-truncate the file at the wrong brace and the build broke.
 **After editing any carried `.patch`, apply it and compile the result before
-committing** - never trust a patch by inspection. Keep hunk headers honest when
-hand-editing. Long-lived `test/*` branches drift (they have been 117-138 commits
-behind); rebase on every upstream resolve.
+committing** - never trust a patch by inspection. A hunk header whose line count
+no longer matches its body makes `git apply` truncate the file at the wrong
+brace, and the build breaks. Long-lived `test/*` branches drift behind upstream;
+rebase on every upstream resolve.
 
 ### 7.6 Baselines ratchet one way
 
@@ -525,26 +507,25 @@ known-issue marker from a regression.
 
 ### 7.7 Negative controls make a gate credible
 
-Every gate we trust has been proven to fire: an injected `item=999` leak, an
-injected growth case, a simulated sector regression (17% -> 5%), a synthetic
-`Invalid read of size 8 @ stack.c:42`, a deliberately-broken patch. **A gate you
-have never seen fail is not known to work** - the valgrind matcher was inert for
-its whole life precisely because nobody had tested that it could fire (hazard
-22.15).
+**A gate you have never seen fail is not known to work.** Before trusting one,
+inject the fault it is meant to catch and confirm it reports: an `item=999`
+leak, a growth case, a sector drop below the floor, an `Invalid read` at a known
+line, a deliberately broken patch. A matcher that never fires because its own
+trigger is wrong passes everything silently (hazard 22.15).
 
-### 7.8 Fixes get copy-pasted too - grep the class
+### 7.8 Fixes get copy-pasted - grep the class
 
-The decoder boundary fix landed in `decode.c` only; three copies (`addons.c`,
-`lblGtoXeq.c`, `programmableMenu.c`) kept the pre-fix guard. A *new* helper,
-`boundProgramNameLength`, reproduced the very bug it was written to fix. And
-inconsistent bounds between two fixes create the gap (`programRegionEnd` vs
-`firstFreeProgramByte`).
+A boundary bug rarely lives in one place. When you fix one, grep the codebase
+for the same pattern before calling it done: the same guard is often duplicated
+across files (`decode.c`, `addons.c`, `lblGtoXeq.c`, `programmableMenu.c` all
+decode program bytes), a helper written to centralise it can carry the same
+error, and two fixes with inconsistent bounds (`programRegionEnd` vs
+`firstFreeProgramByte`) leave a gap between them.
 
-Corollaries from the same sweep:
+Corollaries:
 
-- **A guard placed after the dereference is not a guard.** `findKey2ndParam` was
-  "hardened" with a region check that runs *after* the out-of-bounds
-  `indexOfItems[op]` read.
+- **A guard placed after the dereference is not a guard.** A region check that
+  runs *after* an out-of-bounds `indexOfItems[op]` read validates nothing.
 - **When the buffer is undersized for legitimate input, the buffer is the bug.**
   A global label can be 255 bytes; readers used 15/16-byte buffers, so clamping
   to the buffer would silently truncate a real name. Size the buffers.
