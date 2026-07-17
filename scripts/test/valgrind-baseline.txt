@@ -8,7 +8,7 @@
 #
 # c47 is per-operation malloc-clean: definitely/indirectly lost stay zero on
 # current master. The single possibly-lost entry is a one-time frame-buffer
-# allocation held for process life (see config.c:1713 below). The leak kind is
+# allocation held for process life (see config.c:1714 below). The leak kind is
 # normalised to the loss category, not the run-varying byte/block count and
 # loss-record index, so a leak site keys to a stable signature across runs.
 #
@@ -30,15 +30,22 @@
 # config.c grew from the short-integer word-size fix (MR 1530). Re-verified
 # unchanged at upstream master a361b6797 (config.c, saveRestoreBackup.c, display.c
 # and matrixEditor.c are all untouched since ef694abb0). definitely/indirectly
+# lost stay zero. Re-verified at upstream master 1624e09b3: the three
+# line-keyed sites drifted with the source and were re-keyed - matrixEditor.c
+# 984 -> 1031 (the fix/matrix-ij-save-restore MR and the editor-position-restore
+# commit added lines above displayVectorAngle; the uninitialised read is in
+# displayVectorAngle, not in the I/J shadow code those commits added),
+# saveRestoreBackup.c 193 -> 194, config.c 1713 -> 1714. Same three sites, same
+# error kinds; the five display.c sites are unchanged. definitely/indirectly
 # lost stay zero.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
 # upstream.
-#   - matrixEditor.c:984          displayVectorAngle, via showRealMatrix redraw
+#   - matrixEditor.c:1031         displayVectorAngle, via showRealMatrix redraw
 #   - display.c:557/558/564/581/584  real34ToDisplayString2, via register-line
 #                                    refresh and real/eigenvalue formatting
-Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:984
+Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:1031
 Conditional jump or move depends on uninitialised value(s) @ display.c:557
 Conditional jump or move depends on uninitialised value(s) @ display.c:558
 Conditional jump or move depends on uninitialised value(s) @ display.c:564
@@ -52,13 +59,13 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:584
 # Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
-Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:193
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:194
 
 # One-time LCD frame-buffer allocation, not a per-operation leak. On the first
-# reset, doFnReset (config.c:1713) calls lcd_fill_rect -> bitblt24 ->
+# reset, doFnReset (config.c:1714) calls lcd_fill_rect -> bitblt24 ->
 # ensureLcdBuffer, which lazily calloc's the ~12 KB simulator frame buffer and
 # holds it for the process lifetime. memcheck reports it "possibly lost"
 # (reachable only through an interior pointer at exit). Benign and deterministic:
 # it appears exactly once per run. lcd.c is not c47-owned, so the finding is
 # attributed to the first c47 frame, doFnReset.
-possibly lost @ config.c:1713
+possibly lost @ config.c:1714
