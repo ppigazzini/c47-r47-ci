@@ -2,7 +2,7 @@
 
 Instructions for AI agents and new contributors working in this repository.
 Read this before touching anything. It is short on purpose; the detail lives in
-[docs/](docs/00-README.md).
+[docs/](docs/README.md).
 
 ## What this repository is
 
@@ -46,13 +46,13 @@ debugs a product whose source lives somewhere else.
 
 | you want to | read |
 |---|---|
-| understand what C47 is and how it is put together | [docs/01-architecture.md](docs/01-architecture.md) - Sections 1-8 only; 9-11 are an unadopted proposal |
-| find your way around the c43 source tree | [docs/02-codebase.md](docs/02-codebase.md) |
-| build the simulator or the firmware | [docs/03-build.md](docs/03-build.md) |
-| write or run a test | [docs/04-testing.md](docs/04-testing.md) |
-| hunt a memory bug, a leak or a crash | [docs/05-debugging.md](docs/05-debugging.md) |
-| understand or add a CI lane | [docs/06-ci.md](docs/06-ci.md) |
-| find an authoritative external reference | [docs/07-references.md](docs/07-references.md) |
+| understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-8 only; 9-11 are an unadopted proposal |
+| find your way around the c43 source tree | [docs/01-codebase.md](docs/01-codebase.md) |
+| build the simulator or the firmware | [docs/02-build.md](docs/02-build.md) |
+| write or run a test | [docs/03-testing.md](docs/03-testing.md) |
+| hunt a memory bug, a leak or a crash | [docs/04-debugging.md](docs/04-debugging.md) |
+| understand or add a CI lane | [docs/05-ci.md](docs/05-ci.md) |
+| find an authoritative external reference | [docs/06-references.md](docs/06-references.md) |
 
 ## The short version of the workflow
 
@@ -108,7 +108,7 @@ rules below are not style; each one exists because it failed.
    read from the source, and which are inferred. Explicit uncertainty beats
    plausible filler.
 
-[docs/05-debugging.md](docs/05-debugging.md) carries the full false-pass
+[docs/04-debugging.md](docs/04-debugging.md) carries the full false-pass
 catalogue. Read it before trusting any lane result.
 
 ## Facts that surprise people

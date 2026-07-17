@@ -18,7 +18,7 @@ The repository holds three things:
 - **The lane scripts** - `scripts/test/` is the single source of truth for every
   test lane. A script runs unchanged on a maintainer's machine, so a CI failure
   is reproducible locally. One exception: the coverage lane's gates are set in
-  its workflow, not its script - see [06-ci.md](06-ci.md).
+  its workflow, not its script - see [05-ci.md](05-ci.md).
 - **The workflows** - `.github/workflows/` are thin callers that install a
   toolchain and invoke a script. Build and package lanes for Linux, macOS and
   Windows; analysis lanes for leaks, memory attribution, coverage, fuzzing,
@@ -29,13 +29,13 @@ The repository holds three things:
 
 | # | Document | Audience | Description |
 |---|---|---|---|
-| 1 | [01-architecture.md](01-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
-| 2 | [02-codebase.md](02-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
-| 3 | [03-build.md](03-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
-| 4 | [04-testing.md](04-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
-| 5 | [05-debugging.md](05-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
-| 6 | [06-ci.md](06-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
-| 7 | [07-references.md](07-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
+| 0 | [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
+| 1 | [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
+| 2 | [02-build.md](02-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
+| 3 | [03-testing.md](03-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
+| 4 | [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
+| 5 | [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
+| 6 | [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
 
 For the agent and contributor ground rules, see [AGENT.md](../AGENT.md). For
 what each lane script does in detail, see
@@ -98,7 +98,7 @@ c47-r47-ci/
 ```
 
 The product tree, cloned at runtime by every lane, is laid out separately and is
-mapped in [02-codebase.md](02-codebase.md).
+mapped in [01-codebase.md](01-codebase.md).
 
 ## Licensing
 

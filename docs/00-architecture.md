@@ -4,7 +4,7 @@ A measured architecture analysis of the upstream C47 calculator application:
 what shape the code is in, why, and what that costs anyone changing it.
 
 Read this before proposing any structural change. Read
-[02-codebase.md](02-codebase.md) instead if you only need to find your way around
+[01-codebase.md](01-codebase.md) instead if you only need to find your way around
 the tree.
 
 Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the

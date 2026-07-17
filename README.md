@@ -15,7 +15,7 @@ inside GitHub Actions.
 
 - [AGENT.md](AGENT.md) - ground rules for agents and new contributors. Read
 	this first.
-- [docs/](docs/00-README.md) - the developer documentation: the c43 architecture
+- [docs/](docs/README.md) - the developer documentation: the c43 architecture
 	and codebase, the build surface, testing, debugging, and the CI lanes.
 
 ## What Lives Here

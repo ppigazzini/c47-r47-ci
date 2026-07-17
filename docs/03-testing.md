@@ -2,8 +2,8 @@
 
 How to drive the calculator and how to write a test that actually tests. The
 detectors - leak scanning, the pool canary, fuzzing, Valgrind - and the
-false-pass catalogue are in [05-debugging.md](05-debugging.md). The lane scripts
-that run all of this in CI are in [06-ci.md](06-ci.md).
+false-pass catalogue are in [04-debugging.md](04-debugging.md). The lane scripts
+that run all of this in CI are in [05-ci.md](05-ci.md).
 
 ## The one-line version
 
@@ -53,7 +53,7 @@ re-count rather than quoting this line.)
   passed to the function. `PGM="Name"` selects a global label for
   `Func: fnExecute`. Matrices are `"M2,2[1,2,3,4]"`; `any` / `?` skip an element.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:75-637`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
+  (`testSuite.c:75-637`), **not** the item catalog - see the coverage section of [04-debugging.md](04-debugging.md).
 - `Item:` (`testSuite.c:4311`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
@@ -397,7 +397,7 @@ The suite's end-of-run assertion "the memory owned by GMP should be 0 bytes" is
 not decoration - it is the leak gate, and `processTests` returns failure on it. A
 new test that raises coverage but leaves GMP non-zero has introduced or exposed a
 leak and is not done. Malloc-level ASan/LSan cannot see the `ram[]` pool
-(the memory model in [05-debugging.md](05-debugging.md)), so this application-level accounting is the only gate that catches
+(the memory model in [04-debugging.md](04-debugging.md)), so this application-level accounting is the only gate that catches
 pool leaks. Treat it as mandatory, not advisory.
 
 ### 6.9 Name test artifacts so they never touch real files

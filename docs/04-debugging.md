@@ -11,8 +11,8 @@ Reaching for ASan and concluding "clean" is the most common way to miss a real
 bug in this codebase.
 
 For how to drive the calculator and write tests, see
-[04-testing.md](04-testing.md). For the lane scripts that run these detectors in
-CI, see [06-ci.md](06-ci.md).
+[03-testing.md](03-testing.md). For the lane scripts that run these detectors in
+CI, see [05-ci.md](05-ci.md).
 
 
 ## 1. Why the standard tools are not enough
@@ -99,7 +99,7 @@ Accounting facts worth knowing before you measure anything:
 | **Intra-pool OOB write** | **POOL_GUARD canary only** (Section 5) | ASan, Valgrind, leakscan, keyscan, testmem |
 | Parser/decoder OOB | libFuzzer + ASan | corpus |
 | Logic bug (wrong value) | corpus with value assertions | every sanitizer |
-| Register/state collision | t47 sentinel battery ([04-testing.md](04-testing.md) Section 2) | every memory tool |
+| Register/state collision | t47 sentinel battery ([03-testing.md](03-testing.md) Section 2) | every memory tool |
 
 The last row matters more than it looks: two of the most recent real bugs (the
 matrix editor clobbering I/J, and the STOVEL/RCLVEL off-by-one) are register
@@ -598,7 +598,7 @@ Every one of these has silently passed a broken thing at least once.
    the corpus.
 5. **`grep` with no match under `set -Eeuo pipefail` aborts the lane.** A
    comments-only baseline made the diff step exit 1. Wrap: `{ grep ... || true; }`.
-6. **A stale build is not evidence** (Section 17 method discipline in [04-testing.md](04-testing.md)).
+6. **A stale build is not evidence** (Section 17 method discipline in [03-testing.md](03-testing.md)).
 7. **Stale `src/generated/` shadows the build dir.** `src/c47/meson.build` sets
    `c47_inc = include_directories('.', '../generated')`, so the gitignored,
    hand-populated `src/generated/*` is on the include path and **shadows** the
@@ -613,9 +613,9 @@ Every one of these has silently passed a broken thing at least once.
    testSuite-only build races.
 9. **Run the testSuite from a scratch CWD** - it writes `REGS.TSV`, `.bmp`,
    `backup.cfg`, `c47.sav` into the current directory - **but stage
-   `testPgms.bin`** ([04-testing.md](04-testing.md) Section 5) or you manufacture six false failures and a
+   `testPgms.bin`** ([03-testing.md](03-testing.md) Section 5) or you manufacture six false failures and a
    dead-looking program engine.
-10. **Test order leaks state** ([04-testing.md](04-testing.md) rule 6.6).
+10. **Test order leaks state** ([03-testing.md](03-testing.md) rule 6.6).
 11. **`fnRefreshState` is a no-op** (`{ doRefreshSoftMenu = true; }`). Two
     separate investigations attributed a leak to it. Instrument the actual call
     before believing an attribution.
@@ -635,17 +635,17 @@ Every one of these has silently passed a broken thing at least once.
     grep could see, because no code nulls that field textually.
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
-    (Section 9). Prove it fires ([04-testing.md](04-testing.md) rule 7.7).
+    (Section 9). Prove it fires ([03-testing.md](03-testing.md) rule 7.7).
 16. **A "clean" sentinel result may mean the fix is applied**, not that the bug
-    is absent. Check the branch ([04-testing.md](04-testing.md) Section 2.1).
+    is absent. Check the branch ([03-testing.md](03-testing.md) Section 2.1).
 17. **A convenient sentinel hides the interesting failures.** I=7 J=9 round-trips
     through the `int16_t` matrix-index backup unharmed, so it reports the
     off-by-one and nothing else; the same path silently flattens I=0.35 to -1,
-    I=99999 to -31074 and a complex to a long integer ([04-testing.md](04-testing.md) Section 2.1). Pick sentinel values
+    I=99999 to -31074 and a complex to a long integer ([03-testing.md](03-testing.md) Section 2.1). Pick sentinel values
     that exercise the width, the fraction and the type, not just the arithmetic.
 18. **`git stash` does not revert a commit.** Stashing to "get back to master"
     leaves a committed fix in the tree, and the A/B then compares the branch with
-    itself and agrees. Check out the ref, force a rebuild (Section 17 method discipline in [04-testing.md](04-testing.md)), and print the
+    itself and agrees. Check out the ref, force a rebuild (Section 17 method discipline in [03-testing.md](03-testing.md)), and print the
     resolved HEAD in the same command that prints the reading (16, 6).
 
 ## 13. Bug ledger by technique

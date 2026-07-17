@@ -41,7 +41,7 @@ The current consensus for memory-correctness testing of a C codebase is a
 reasons about unexecuted paths but reports false positives; sanitizers and
 Valgrind observe real executions with concrete stacks but only on paths actually
 run; fuzzing generates the inputs that drive those paths. Leaks specifically need
-both a detector and input that reaches the leaking path. The memory model in [05-debugging.md](05-debugging.md) is the c43-
+both a detector and input that reaches the leaking path. The memory model in [04-debugging.md](04-debugging.md) is the c43-
 specific reason this pipeline needs a fourth layer (application-level accounting
 and a canary).
 

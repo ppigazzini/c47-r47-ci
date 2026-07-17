@@ -22,12 +22,12 @@ restating them, so each fact has one source.
 
 | subject | owner |
 |---|---|
-| Physical architecture, the link graph, dependency metrics | [01-architecture.md](01-architecture.md) |
-| The build targets, Meson graph, packaging | [03-build.md](03-build.md) |
-| Writing and running tests | [04-testing.md](04-testing.md) |
-| Detectors and the false-pass catalogue | [05-debugging.md](05-debugging.md) |
+| Physical architecture, the link graph, dependency metrics | [00-architecture.md](00-architecture.md) |
+| The build targets, Meson graph, packaging | [02-build.md](02-build.md) |
+| Writing and running tests | [03-testing.md](03-testing.md) |
+| Detectors and the false-pass catalogue | [04-debugging.md](04-debugging.md) |
 
-Use [01-architecture.md](01-architecture.md) for anything about the dependency
+Use [00-architecture.md](00-architecture.md) for anything about the dependency
 graph, cycles, ACD/NCCD, the item table's structural cost, or the god header.
 Those numbers are not re-derived here. It was measured at
 `d969ec75db525f9484d1dac62897aa786c2911df`, a few commits behind the one this
@@ -83,16 +83,16 @@ Three consequences worth knowing before choosing a harness:
 - **The DMCP adapters are the small ones, and that is backwards.** The port is
   SwissMicros' own API, so on DM42 there is nothing to adapt - the SDK is the
   implementation. Every other target emulates the DM42 instead
-  ([01-architecture.md](01-architecture.md) s5.1).
+  ([00-architecture.md](00-architecture.md) s5.1).
 - **The testSuite links GTK even though it has no GUI.** The library defines GTK
   callbacks inside itself (`screen.c`), so every target that links the library
   links GTK. The testSuite's `hal/gui.c` is stubs and its `hal/lcd.c` renders to
-  a buffer; it is display-less, not GTK-less ([01-architecture.md](01-architecture.md) s5.4).
+  a buffer; it is display-less, not GTK-less ([00-architecture.md](00-architecture.md) s5.4).
 - **`t47` is the `r47` build, not a separate program.** `T47` is consumed at one
   place, `defines.h:407`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
   `press` is registered only when a window exists, so keyboard-level tests need
-  the GTK binary under xvfb ([05-debugging.md](05-debugging.md) s9).
+  the GTK binary under xvfb ([04-debugging.md](04-debugging.md) s9).
 
 Scale at `75b71f9e6`: 13779 commits; 525 tracked `.c`/`.h` files totalling
 179704 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
@@ -115,7 +115,7 @@ Top level:
 
 `src` by area at `75b71f9e6`, `.c`/`.h` only. **Each row counts that directory
 alone, not its subdirectories** - so `src/c47-gtk` excludes `src/c47-gtk/hal`,
-which has its own row. [01-architecture.md](01-architecture.md) s2 counts recursively, which is
+which has its own row. [00-architecture.md](00-architecture.md) s2 counts recursively, which is
 why its figures for those directories are larger; the facts agree, the method
 differs.
 
@@ -147,7 +147,7 @@ differs.
 ```
 
 Three directory names do not describe their contents. This is called out in
-[01-architecture.md](01-architecture.md) s2 and repeated here only because it
+[00-architecture.md](00-architecture.md) s2 and repeated here only because it
 misleads navigation:
 
 - `core/` is `freeList.c` + `freeList.h`. An allocator, not a core.
@@ -214,7 +214,7 @@ concept and each has several files. Grouped by the concept they belong to:
 
 The four hottest files in the repository - `items.c`, `softmenus.c`,
 `keyboard.c`, `screen.c` - are all here, and all are dispatch, input or
-presentation. See [01-architecture.md](01-architecture.md) s7 for the churn measurement.
+presentation. See [00-architecture.md](00-architecture.md) s7 for the churn measurement.
 
 `src/index spreadsheet/` (note the space in the name) holds design sources as
 binary `.xlsx`: keyboard layouts, CONFIG defaults, unit conversions, item
@@ -240,7 +240,7 @@ check that code and spreadsheet still agree.
 
 ## 4. How a build is produced
 
-[03-build.md](03-build.md) owns the build and CI audit. This section
+[02-build.md](02-build.md) owns the build and CI audit. This section
 records only the mechanics needed to navigate the tree.
 
 The `Makefile` is the user-visible contract; meson and ninja are the machinery.
@@ -319,7 +319,7 @@ other files appear locally because `make sim` copies them out of the build dir
 `src/c47/meson.build:245` sets
 `c47_inc = include_directories('.', '../generated')`, so the source
 `src/generated/` is on the include path alongside the build-dir copies. A stale
-copy shadows a freshly generated header. [05-debugging.md](05-debugging.md) s22.7 records the
+copy shadows a freshly generated header. [04-debugging.md](04-debugging.md) s22.7 records the
 failure mode and the remedy.
 
 ## 5. The spine: one library, one header, one table
@@ -332,7 +332,7 @@ include it, and for most it is the only project header they include. Every
 translation unit therefore sees every declaration. The consequences - no
 encapsulation, no compiler-checkable layering, no unit-test isolation, and why
 the god header is load-bearing rather than merely untidy - are measured in
-[01-architecture.md](01-architecture.md) s3 and s8.
+[00-architecture.md](00-architecture.md) s3 and s8.
 
 **`indexOfItems[]` is the command set.** `item_t` (`typeDefinitions.h:603-615`)
 carries a function pointer, a parameter, a catalogue name, a softmenu name, a
@@ -341,7 +341,7 @@ TAM argument range and packed status bits. `LAST_ITEM` is 2870
 and the corpus all address commands by item number: `softmenus.c` never names a
 maths function, it names item numbers. This is the codebase's best structural
 idea, and because `func` is a function pointer it is also the edge that makes
-every file reachable from every other ([01-architecture.md](01-architecture.md) s4, s8.3).
+every file reachable from every other ([00-architecture.md](00-architecture.md) s4, s8.3).
 
 The `status` field packs six independent concerns into one `uint16_t`
 (`defines.h:1028-1090`): stack lift after execution (`SLS_*`), undo behaviour
@@ -416,7 +416,7 @@ every not-yet-written command point at it. `items.h:2978` records the rule:
 `fn*` in the calculator, so the generators can link the table's data without
 linking the implementations. The block is a fifth of the hottest file in the
 repository and exists purely to satisfy a linker.
-[01-architecture.md](01-architecture.md) s4.1 owns the count and explains why the function
+[00-architecture.md](00-architecture.md) s4.1 owns the count and explains why the function
 pointer in `item_t` makes it unavoidable.
 
 **`calcMode` is the input state machine.** One global selects who owns the
@@ -459,7 +459,7 @@ The RPN stack is the first four or eight lettered registers:
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
 I, J and K are the matrix index registers as well as user registers. That dual
-role is a real source of defects; [05-debugging.md](05-debugging.md) s8.1 records two bugs
+role is a real source of defects; [04-debugging.md](04-debugging.md) s8.1 records two bugs
 found there and the sentinel battery that finds them.
 
 **There are two register numberings, and they are not the same.** A program step
@@ -538,7 +538,7 @@ know:
   dimensions in its own header (`registers.c:1154-1192`). Corrupt one and the
   next free passes a wrong size to the allocator.
 - An over-long write inside the pool is invisible to ASan and valgrind, because
-  the pool is one `malloc`. That is why [05-debugging.md](05-debugging.md) s13 exists.
+  the pool is one `malloc`. That is why [04-debugging.md](04-debugging.md) s13 exists.
 
 **GMP does not use the pool.** `allocGmp` rounds to block size for accounting
 and then calls libc `malloc`; the `freeListAlloc` call is commented out
@@ -559,7 +559,7 @@ switch forest.
 
 There is no state object. The calculator's state is ~312 mutable globals
 declared in `c47.h` (344 `extern` declarations in total) and visible to all 228
-translation units - see [01-architecture.md](01-architecture.md) s3 for what that costs. What
+translation units - see [00-architecture.md](00-architecture.md) s3 for what that costs. What
 follows is where the state that matters actually lives.
 
 ### The value state
@@ -680,7 +680,7 @@ space: `Y_POSITION_OF_NIM_LINE` equals `Y_POSITION_OF_REGISTER_X_LINE`, and
 `_refreshNormalScreen` early-exits when it is not `SCRUPD_AUTO`.
 
 Two qualifications matter when reading the code, both measured in
-[01-architecture.md](01-architecture.md) s5 and s6:
+[00-architecture.md](00-architecture.md) s5 and s6:
 
 - The HAL contract is the DM42 vendor's API (`hal/lcd.h:29-31` names
   `lcd_fill_rect`, `lcd_refresh`, `LCD_write_line` "from dmcp.h"). On DMCP the
@@ -833,7 +833,7 @@ The corpus bypasses the top of this: it calls `runFunction` directly with a
 declared input state, which is why it tests computation and not presentation.
 `t47` enters at the same point through a Jim/Tcl DSL. Only the GTK simulator
 under xvfb exercises the keyboard and menu layer, which is why
-[05-debugging.md](05-debugging.md) s9 exists.
+[04-debugging.md](04-debugging.md) s9 exists.
 
 A user program enters at the same place. Programs are a raw byte array at the
 top of `ram` (Section 6), encoded as item numbers: one byte below 128, otherwise
@@ -871,7 +871,7 @@ so the fan-out returns. And the base services call upward: `flags.c` and
 `error.c` notify the UI directly, so the bottom of the graph reaches the top.
 
 The resulting dependency graph - one strongly connected component of 222 of 228
-link units - is measured in [01-architecture.md](01-architecture.md) s8, which also
+link units - is measured in [00-architecture.md](00-architecture.md) s8, which also
 sets out which edges close the cycle and what each would cost to cut. Read it
 before proposing any structural change - but note that its Sections 9 to 11 are
 assessment and an unadopted proposal, not an upstream plan.
@@ -887,7 +887,7 @@ time, not decoration:
 - `res/PROGRAMS/` - `.p47` keystroke programs plus `.rtf` human-readable exports.
 - `res/STATE/`, `res/DATA/` - saved state and data files.
 - `res/testPgms/testPgms.bin` - a fixture the corpus needs; its absence fakes a
-  dead program engine ([05-debugging.md](05-debugging.md) s11).
+  dead program engine ([04-debugging.md](04-debugging.md) s11).
 - `res/keymaps/`, `res/fonts/`, `res/offimg/`, `res/tone/`, `res/dmcp/`,
   `res/dmcp5/`, `res/combo/`.
 
@@ -939,9 +939,9 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   `src/c47-dmcp5/meson.build`, `src/ttf2RasterFonts/ttf2RasterFonts.c`,
   `src/generateCatalogs/meson.build`, `src/testSuite/meson.build`,
   `src/t47/meson.build`, `dep/meson.build`, `subprojects/gmp-6.2.1.wrap`.
-- [01-architecture.md](01-architecture.md), for the physical architecture. It
+- [00-architecture.md](00-architecture.md), for the physical architecture. It
   analysed `d969ec75db`; its headline figures were reproduced at `75b71f9e6`.
-- [03-build.md](03-build.md), [05-debugging.md](05-debugging.md).
+- [02-build.md](02-build.md), [04-debugging.md](04-debugging.md).
 - Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
   first-party spec for the `.d47` record layout. Not read for this page; read it
   before documenting that format.

@@ -44,7 +44,7 @@ Notes that cost time if you do not know them:
 
 ## The generators, and the trap under them
 
-See [02-codebase.md](02-codebase.md) Section 4 for the full generator DAG. The one
+See [01-codebase.md](01-codebase.md) Section 4 for the full generator DAG. The one
 thing to internalise: `src/generated/` in the clone is **gitignored**, populated
 by `make`'s `install -C` step rather than by ninja, and sits on the include path
 **ahead of** the build directory. A stale copy silently shadows a freshly
@@ -67,7 +67,7 @@ From upstream `Makefile` / `BUILD.md`:
 | `make repeattest` | re-run without the clean (timing/stability); stamp-driven |
 | `make test_asan` | the suite with `-Db_sanitize=address` |
 | `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** (`ldd \| grep asan`) |
-| `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [04-testing.md](04-testing.md) Section 5) |
+| `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [03-testing.md](03-testing.md) Section 5) |
 | `make docs` | needs `sphinx-build`, `doxygen`, `breathe-apidoc`; silently produces no target if any is missing |
 | `make XVFB=xvfb-run dist_linux` | packaging; `XVFB` is an override variable, empty by default |
 
@@ -101,4 +101,4 @@ analysis lanes) with `-Dc_args` for extra flags. The analysis lanes add
 comdat sections then errors on references to them, and `--no-undefined` is
 incompatible with the Clang sanitizer runtime).
 
-For the CI lanes that run these targets, see [06-ci.md](06-ci.md).
+For the CI lanes that run these targets, see [05-ci.md](05-ci.md).
