@@ -117,6 +117,25 @@ while IFS= read -r hit; do
 done < <(grep -nE '__DEV/[A-Za-z0-9_.-]+' "${DOCS[@]}" | grep -vE '^\S*:\s*#')
 log "check 5: no tracked doc cites a file under __DEV/ ($n citations)"
 
+# --- 6. the agent contract is loadable ----------------------------------------
+# AGENTS.md is the cross-tool convention; Claude Code reads CLAUDE.md and never
+# AGENTS.md, so CLAUDE.md's `@AGENTS.md` import is the only thing that makes the
+# contract load at all. Claude Code's import parser SKIPS code spans and fenced
+# blocks, so backticking or fencing that line silently loads nothing - it still
+# renders fine on GitHub, which is what makes it worth a gate.
+n=0
+for f in AGENTS.md CLAUDE.md; do
+    [[ -f "$f" ]] || { note "MISSING       $f (the agent contract)"; n=$((n + 1)); }
+done
+if [[ -f CLAUDE.md ]]; then
+    # Strip fenced blocks, then require a bare (unbackticked) @AGENTS.md line.
+    if ! awk '/^```/{f=!f; next} !f' CLAUDE.md | grep -qE '^[[:space:]]*@AGENTS\.md[[:space:]]*$'; then
+        note "IMPORT DEAD   CLAUDE.md has no bare '@AGENTS.md' line (backticked, fenced or gone: Claude Code would load nothing)"
+        n=$((n + 1))
+    fi
+fi
+log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
+
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"
     exit 1

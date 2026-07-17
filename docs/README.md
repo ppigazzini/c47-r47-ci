@@ -36,7 +36,7 @@ The repository holds three things:
 | [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
 | [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
 | [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
-| [07-writing.md](07-writing.md) | Anyone editing these docs | How the set is organised, the writing rules, hot and cold pages, what the docs gate does and does not check |
+| [07-writing.md](07-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see

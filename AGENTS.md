@@ -9,11 +9,12 @@ detail lives.
 claim about the thing it describes - and four of them describe **upstream**, a
 tree that moves without a commit here. Change something a page claims, fix the
 page in the SAME commit; sync upstream, re-read the pages that track it.
-[docs/07-writing.md](docs/07-writing.md) maps every page to what it owns, marks
-which run hot, and carries the writing rules. `bash scripts/test/run-docs-lint.sh`
-catches a dead link, a dead path, a stale pinned count, a non-ASCII byte or a
-`__DEV/` citation. It cannot tell you a sentence has become false. That part is
-yours.
+[docs/07-writing.md](docs/07-writing.md) carries the rules for everything this
+repo writes for a reader - pages, comments and commit messages alike - and maps
+every page to what it owns and which run hot. `bash scripts/test/run-docs-lint.sh`
+catches a dead link, a dead path, a stale pinned count, a non-ASCII byte, a
+`__DEV/` citation, or a broken `@AGENTS.md` import. It cannot tell you a sentence
+has become false. That part is yours.
 
 ## What this repository is
 
@@ -45,10 +46,10 @@ debugs a product whose source lives somewhere else.
 2. **`__DEV/` is gitignored and maintainer-only.** It holds planning notes and
    working reports. Never commit it, never cite it from a tracked file, and
    never assume a reader can see it. Tracked documentation lives in `docs/`.
-3. **ASCII by default** in tracked docs. No em dashes, no smart quotes.
-4. **Conventional commits.** `type(scope): summary`, body wrapped at 80
-   columns, imperative mood, no historical narration, no meta commentary about
-   the process that produced the change.
+3. **ASCII by default** in tracked docs.
+4. **Conventional commits**, carrying the evidence rather than "should work".
+   [docs/07-writing.md](docs/07-writing.md) owns the format; do not restate it
+   here.
 5. **Never add a `Co-Authored-By` trailer** to a commit in this repo.
 6. **Do not run destructive git commands** unless asked. In particular
    `git stash drop`, `git reflog expire`, `git gc --prune` and force-pushes.
@@ -64,7 +65,7 @@ debugs a product whose source lives somewhere else.
 | hunt a memory bug, a leak or a crash | [docs/04-debugging.md](docs/04-debugging.md) |
 | understand or add a CI lane | [docs/05-ci.md](docs/05-ci.md) |
 | find an authoritative external reference | [docs/06-references.md](docs/06-references.md) |
-| add or edit a doc, or write a commit message | [docs/07-writing.md](docs/07-writing.md) |
+| write a doc, a code comment or a commit message | [docs/07-writing.md](docs/07-writing.md) |
 
 ## This file, and CLAUDE.md
 
