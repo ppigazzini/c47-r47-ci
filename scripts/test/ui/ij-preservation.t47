@@ -23,8 +23,19 @@ proc check {what got want} {
   puts "ok   $what"
 }
 
+# --- normalise the shift state ----------------------------------------------
+# press @f/@g toggle shiftF/shiftG, and nothing here can read them back, so a
+# shift left set by anything else would silently turn every "@k NN" below into
+# its f- or g-shifted function - "@k 02" is sqrt plain, x^2 under f and a TIME
+# under g. A keypress consumes the pending shift, so one throwaway press makes
+# the state deterministic whatever it started as. The result is discarded on
+# purpose; the assertion is on the press after it.
+nim 0.35
+press "@k 02"
+
 # --- the keyboard reaches the calculator at all ------------------------------
-# Guard check: if press stops working, everything below is vacuous.
+# Guard check: if press stops working, everything below is vacuous. This is also
+# what catches a shift that survived the normalisation above.
 nim 0.35
 press "@k 02"
 check "press @k 02 (sqrt) of 0.35" [reg X] 0.5916079783099616042567328291561617
