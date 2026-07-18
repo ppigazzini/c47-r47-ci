@@ -43,9 +43,16 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size as of upstream `master` on 2026-07-16: **323 test files in
-`src/testSuite/tests/`, 317 listed** in `testSuiteList.txt`. (Both numbers move;
+Corpus size as of upstream `master` on 2026-07-18: **324 test files in
+`src/testSuite/tests/`, 319 listed** in `testSuiteList.txt`. (Both numbers move;
 re-count rather than quoting this line.)
+
+A file that is not listed in `testSuiteList.txt` never runs, and the suite stays
+green while reporting the same pass count - add a corpus file and confirm the
+count rises, or the file is decoration. `conversions.txt` and `conversionsSI.txt`
+are **regenerated on every build** (`src/generateTests/meson.build`), so a
+hand-written case placed there is destroyed; hand-written conversion cases belong
+beside `tempConv.txt`.
 
 - The corpus grammar is documented in the header comment of
   `src/testSuite/tests/testSuiteList.txt` - **that comment is the authority**,
@@ -55,12 +62,39 @@ re-count rather than quoting this line.)
   passed to the function. `PGM="Name"` selects a global label for
   `Func: fnExecute`. Matrices are `"M2,2[1,2,3,4]"`; `any` / `?` skip an element.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:75-637`), **not** the item catalog - see the coverage section of [04-debugging.md](04-debugging.md).
+  (`testSuite.c:75-638`), **not** the item catalog - see the coverage section of [04-debugging.md](04-debugging.md).
 - `Item:` (`testSuite.c:4311`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
+- **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
+  at `testSuite.c:4174` and `:4180` are `funcToTest(functionParameter)` against
+  `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
+  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:2992`)**,
+  which is not a value any catalog item passes. Where the parameter selects
+  behaviour, that reaches only the branch 9876 happens to fall into, and where it
+  is read as data the function is handed 9876 as the datum. Set it explicitly
+  with `In: FARG=n` (`testSuite.c:1941`) or `Func: name(n)`
+  (`testSuite.c:4214`) - both write the same variable - or use `Item:` and get
+  the catalog value for free.
+- **A value is compared to 30 significant digits, not 34.** A mismatch is
+  reported only when `correctSignificantDigits < 30` (`testSuite.c:2775,2781`),
+  so the last four digits of a 34-digit expectation are documentation, not
+  assertion: a result wrong only in those digits passes. Pin a result that
+  matters on its exponent or on an error code.
+- **An `In:` line sets only what it names.** A setting it omits keeps the value
+  the previous case left, and the per-file preamble is applied once at the top
+  rather than before every case - so one case setting `SS=8` silently moves every
+  later case in the file to eight levels. Settings also persist **across** files,
+  in list order: `matrixIndex`, the stack size, `denMax` and the angular mode all
+  survive into the next file. Name every setting a case depends on, and leave a
+  changed setting as you found it.
+- **A `*Cov` driver hides a function from name-based coverage counting.** 25
+  entries in `funcTestNoParam[]` are `fn...Cov` wrappers that set up context and
+  then call the real function - `covEff` stores the TVM variables and calls
+  `fnEff`, for instance. The wrapped function carries no `Func:` line of its own,
+  so counting coverage by name reports it as untested when it is not.
 - `abortTest()` counts a failure and continues (its `exit(-1)` is commented
   out), so one bad case never stops the run. This makes the corpus a good
   carrier for assertion-style tests.

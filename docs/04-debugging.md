@@ -402,7 +402,10 @@ Registration rules, learned the hard way:
   helpers** - a 4-arg helper will segfault;
 - header declaration names can differ from the `.c` definition; verify the decl
   or a clean grep still fails to compile;
-- pass the function parameter with `FARG=`.
+- pass the function parameter with `FARG=` or `Func: name(n)`. A bare `Func:`
+  line passes `NOPARAM` (9876), not the catalog value, so a newly registered
+  function whose parameter selects behaviour is only half covered until the
+  parameter is set - see [03-testing.md](03-testing.md) Section 1.
 
 
 Two unlocks worth reusing:
