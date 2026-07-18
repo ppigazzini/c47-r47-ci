@@ -37,20 +37,27 @@
 # displayVectorAngle, not in the I/J shadow code those commits added),
 # saveRestoreBackup.c 193 -> 194, config.c 1713 -> 1714. Same three sites, same
 # error kinds; the five display.c sites are unchanged. definitely/indirectly
-# lost stay zero.
+# lost stay zero. Re-keyed at upstream master 33328e4cc: ac3e45e8b inserted 15
+# lines into display.c above every baselined site (two pure insertions at old
+# 281 and old 309), so all five shifted +15 - 557/558/564/581/584 ->
+# 572/573/579/596/599. The shift is derived from the source, not from a fresh
+# memcheck run: each new line is byte-identical to the old one it replaces, and
+# the 1-line hunk @@ -576 +591 @@ confirms the same +15. matrixEditor.c,
+# saveRestoreBackup.c and config.c are untouched since 1624e09b3, so those three
+# entries stand. Confirm against valgrind-found.txt on the next runner pass.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
 # upstream.
 #   - matrixEditor.c:1031         displayVectorAngle, via showRealMatrix redraw
-#   - display.c:557/558/564/581/584  real34ToDisplayString2, via register-line
+#   - display.c:572/573/579/596/599  real34ToDisplayString2, via register-line
 #                                    refresh and real/eigenvalue formatting
 Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:1031
-Conditional jump or move depends on uninitialised value(s) @ display.c:557
-Conditional jump or move depends on uninitialised value(s) @ display.c:558
-Conditional jump or move depends on uninitialised value(s) @ display.c:564
-Conditional jump or move depends on uninitialised value(s) @ display.c:581
-Conditional jump or move depends on uninitialised value(s) @ display.c:584
+Conditional jump or move depends on uninitialised value(s) @ display.c:572
+Conditional jump or move depends on uninitialised value(s) @ display.c:573
+Conditional jump or move depends on uninitialised value(s) @ display.c:579
+Conditional jump or move depends on uninitialised value(s) @ display.c:596
+Conditional jump or move depends on uninitialised value(s) @ display.c:599
 
 # Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
 # global-register and free-region arrays (globalRegister, freeMemoryRegions in
