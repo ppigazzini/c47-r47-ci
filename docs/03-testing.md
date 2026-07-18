@@ -211,7 +211,9 @@ stack, and note a program stops at M.EDIT.
 - **`press` takes ONE key per call** (`press 1; press ENTER`), or a Tcl list.
   Not registered headless because `scriptInjectGtkKey` needs a realized window.
 - Tokens: `F1`..`F6` (softkeys); `@f` / `@g` (shift toggles); `@k NN`; a single
-  ASCII char; `ENTER`/`Return`; `R/S`.
+  ASCII char; `ENTER`; `R/S`. Case-insensitive for `ENTER` and `R/S`. **`Return`
+  is not a token** - the name is only the GDK keyval `ENTER` injects, and
+  `press Return` is rejected.
 - **`@k NN` is the 0-based index into `kbd_std_C47[37]`** (`assign.c:8`), NOT the
   printed keyID: `@k 00`=SUM+(21), `@k 05`=XEQ(26), `@k 06`=STO(31),
   `@k 07`=RCL(32), `@k 12`=ENTER(41), `@k 14`=CHS(43), `@k 16`=BACKSPACE(45),
