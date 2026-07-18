@@ -1,0 +1,111 @@
+# scripts/test/ui/ij-preservation.t47
+#
+# UI regression test: the keyboard and softmenu layer, and the promise that the
+# matrix editor and the vector functions leave the user's I and J alone
+# (upstream MR !1553).
+#
+# Runs under the GTK front end, NOT under t47:
+#
+#   xvfb-run -a ./c47 --reset --script <this file>
+#
+# press is the only DSL command that needs GTK, and --headless is GTK-less by
+# design, so a keyboard test has to use c47 (or r47) without --headless. The
+# lane script scripts/test/run-ui.sh does exactly that; this file is the thing
+# it runs.
+#
+# Exit 0 = every check passed. Exit 1 = the named check failed, and c47 returns
+# the script's status (c47-gtk.c:540-549), which is what the lane gates on.
+
+proc check {what got want} {
+  if {$got ne $want} {
+    error "FAIL $what: got '$got' want '$want'"
+  }
+  puts "ok   $what"
+}
+
+# --- the keyboard reaches the calculator at all ------------------------------
+# Guard check: if press stops working, everything below is vacuous.
+nim 0.35
+press "@k 02"
+check "press @k 02 (sqrt) of 0.35" [reg X] 0.5916079783099616042567328291561617
+
+# The keyval forms are what c47 has and t47 does not; assert one so this file
+# fails loudly if it is ever run through the headless front end by mistake.
+nim 2
+press ENTER
+nim 4
+press "/"
+check "press ENTER and '/' (GTK-decoded forms) give 2/4" [reg X] 0.5
+
+# --- softmenu decode ---------------------------------------------------------
+# F1..F6 go through btnFnClicked, which item and xeq cannot reach.
+menu EXP
+nim 0.35
+press F1
+check "menu EXP, F1 (x^3) of 0.35" [reg X] 0.042875
+
+# --- MR !1553: the matrix editor must not spend the user's I and J -----------
+# Sentinels are deliberately not 0/1: the editor's own cursor starts there, so
+# a clobber that happened to write the same value would not show.
+nim 5
+sto I
+nim 6
+sto J
+check "I set before the edit" [reg I] 5
+check "J set before the edit" [reg J] 6
+
+# 1526 M.DIM (3x3), 51 RCL, 1529 M.EDIT; in M_EDIT F5/F6 are left/right and
+# f-shifted are up/down. This is the navigation that only keys can drive.
+nim 3
+nim 3
+item 1526 00
+item 51 00
+item 1529
+press F6
+press @f
+press F6
+check "I survives matrix-editor navigation" [reg I] 5
+check "J survives matrix-editor navigation" [reg J] 6
+
+# --- MR !1553: the vector functions must not spend them either ---------------
+# 2485 STOVEL1, 2482 RCLVEL1, 36 x<>y. These are not in the testSuite dispatch
+# table, which is why the corpus cannot cover them and this file has to.
+#
+# The operand placement is not optional and getting it wrong makes every check
+# below vacuous. fnStoreVElement wants the matrix in Y and the value in X
+# (store.c:580); fnRecallVElement wants it in X (recall.c:440). Feed either the
+# wrong stack and it prints "is not a matrix", returns without ever touching
+# I/J, and the assertions pass while testing nothing. The round-trip check
+# below exists to prove the functions really ran.
+#
+# M.EDIT leaves the matrix in X, so recall it fresh rather than relying on what
+# the editor left behind.
+item 51 00
+nim 0.35
+item 2485
+check "I survives STOVEL1" [reg I] 5
+check "J survives STOVEL1" [reg J] 6
+
+# STOVEL leaves X=value, Y=matrix, so swap before recalling.
+item 36
+item 2482
+check "I survives RCLVEL1" [reg I] 5
+check "J survives RCLVEL1" [reg J] 6
+
+# Positive control for the two checks above: element 1 reads back what STOVEL1
+# put there. If either function had bailed on a bad operand, this is 0 or the
+# matrix itself, and the I/J checks above were measuring nothing.
+check "STOVEL1/RCLVEL1 round-trip - proves both actually ran" [reg X] 0.35
+
+# The reported failure mode was a drift of one per call, which a single
+# invocation cannot distinguish from a correct save/restore.
+item 51 00
+item 2482
+item 51 00
+item 2482
+item 51 00
+item 2482
+check "I survives repeated RCLVEL1 (drift check)" [reg I] 5
+check "J survives repeated RCLVEL1 (drift check)" [reg J] 6
+
+puts "ij-preservation.t47: all checks passed"

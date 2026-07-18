@@ -1,0 +1,77 @@
+name: Test UI
+# Thin CI caller for the UI lane. All logic lives in scripts/test/run-ui.sh so
+# the lane runs identically on a maintainer's machine:
+#
+#   bash scripts/test/run-ui.sh
+#
+# This is the only lane that drives the keyboard. It runs the GTK front end
+# (c47) WITHOUT --headless under xvfb, because press is the one DSL command
+# that needs GTK and --headless is GTK-less by design. No upstream patch is
+# required: the capability is already in upstream master.
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    name: Keyboard, softmenu and matrix-editor UI tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Write logs inside the workspace so the upload step can find them.
+      LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install simulator and X server dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            ccache \
+            cmake \
+            git \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            xvfb
+
+      - name: Run UI lane
+        shell: bash
+        run: bash scripts/test/run-ui.sh
+
+      - name: Upload UI log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-ui-log
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14

@@ -42,6 +42,17 @@ to reproduce a CI coverage failure.
   false positives filtered by `tooling/cppcheck-suppressions.txt`) and reports
   new findings vs `cppcheck-baseline.txt`. Report-first; `ANALYSIS_GATE=1` to
   gate.
+- `run-ui.sh` - the only lane that drives the keyboard. Builds the simulator
+  (`make simc47 t47`) and runs every `ui/*.t47` through the **GTK** front end
+  under `xvfb-run`, gating on each script's exit status. It runs `./c47`
+  **without** `--headless` on purpose: `press` is the one DSL command that needs
+  GTK, and `--headless` is GTK-less by design, so `t47` reports it as an unknown
+  command. Needs no upstream patch. Reaches what no other lane can - softmenu
+  decode, TAM entry and the matrix editor cursor.
+- `ui/*.t47` - one self-checking DSL script per test, each exiting 0 on success
+  and 1 with the failing check named. `ui/ij-preservation.t47` locks in upstream
+  MR !1553: the matrix editor and the vector functions must leave the user's
+  `I` and `J` alone.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
