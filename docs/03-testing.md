@@ -132,8 +132,8 @@ lowercased command (999 of 1042 on the current build); then the DSL commands
 | `flag` | `flag <name>` / `flag <name> <0\|1>` | `flag SPCRES 1`. |
 | `readp` | `readp <file>` | Load a `.p47` (Section 4). |
 | `xportp` | `xportp <label> <file>` | Export a program. |
-| `loadst` / `savest` | `[<file>]` | State `.s47`. |
-| `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. |
+| `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - see the hang below. |
+| `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
 | `snap` | `snap [<base>]` | Writes `<base>.bmp` + `<base>.REGS.TSV`. |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
 | `press` | **GTK-only, NOT registered headless** | Section 3. |
@@ -156,6 +156,32 @@ Flags that matter:
   exits), `--testPgms`, `--writeexportall`.
 - **main() returns the Jim return code**, so `./t47 --exec '...'` exits non-zero
   on a script error - usable directly in a shell gate.
+
+**Headless is not GUI-less: a file dialog will hang the run forever.** The GTK
+HAL builds a `GtkFileChooserNative` with no `headlessMode` guard
+(`hal/io.c:41,45`) and runs it with `gtk_native_dialog_run`; `show_warning`
+(`hal/io.c:307-310`) does the same. `setupUI` returns before creating the window
+when headless (`gtkGui.c:5447`), so the dialog has a NULL parent and nobody to
+dismiss it. Measured on upstream `master` with `DISPLAY` and `WAYLAND_DISPLAY`
+unset, each under `timeout 12`:
+
+| invocation | result |
+|---|---|
+| `savest` / `loadst` with no filename | **exit 124 - hangs** |
+| `impreg` / `expreg` with no filename | **exit 124 - hangs** |
+| `item 2388` (LOADST), `item 1567` (READP) | **exit 124 - hangs** |
+| the same commands with a filename | exit 0 |
+
+The named-file forms are safe because `_ioFileNameOverride` short-circuits the
+chooser, which is why the DSL commands take a filename at all. `item 1509`
+(LOAD) is also safe: `LM_ALL` routes to the fixed `SAVE_DIR/SAVE_FILE` and never
+reaches a chooser.
+
+This does not fail, it stalls - no window, no error, no exit code - so on a lane
+it burns the job cap and surfaces as unrelated infrastructure noise. Two rules
+follow: **name the file on every I/O command**, and **wrap every headless
+`--exec` in `timeout`** so a stall reports as a failure. Upstream MR !1567
+proposes the `headlessMode` guard; until it lands, both rules stand.
 
 ### 2.1 The sentinel battery
 
