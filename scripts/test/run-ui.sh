@@ -16,9 +16,10 @@
 # so the gate is simply that status. Each scripts/test/ui/*.t47 file is one test
 # and must exit 0; the lane fails on the first that does not.
 #
-# Env knobs: UI_TESTS overrides the glob of test files. BUILD_TIMEOUT caps a
-# single test run (a GTK dialog with no one to dismiss it would otherwise hang
-# the lane rather than fail it - see the file-chooser note below).
+# Env knobs: UI_DIR overrides the directory the *.t47 tests are read from.
+# TEST_TIMEOUT caps a single test run, default 120s (a GTK call that blocks with
+# no one to dismiss it would otherwise hang the lane rather than fail it - see
+# the file-chooser note below).
 
 set -Eeuo pipefail
 
