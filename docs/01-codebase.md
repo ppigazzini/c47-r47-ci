@@ -11,7 +11,7 @@ git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
 Verified against upstream `master` at commit
-`1624e09b34bbaeb7402f6230b923631e8e1bcbd7` (2026-07-17). Every count on this
+`33328e4cc25588eb7504f38f4076f8feae3ae766` (2026-07-18). Every count on this
 page was measured at that commit; re-measure before relying on one. Line counts
 are blob lines, not SLOC: an upper bound, useful for relative scale only.
 
@@ -89,8 +89,8 @@ Three consequences worth knowing before choosing a harness:
   `press` is registered only when a window exists, so keyboard-level tests need
   the GTK binary under xvfb ([04-debugging.md](04-debugging.md) s9).
 
-Scale at `1624e09b3`: 13795 commits; 525 tracked `.c`/`.h` files totalling
-179796 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
+Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
+179885 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
 
 ## 3. Repository map
 
@@ -108,7 +108,7 @@ Top level:
   Makefile meson.build meson_options.txt .gitlab-ci.yml BUILD.md README.md
 ```
 
-`src` by area at `1624e09b3`, `.c`/`.h` only. **Each row counts that directory
+`src` by area at `33328e4cc`, `.c`/`.h` only. **Each row counts that directory
 alone, not its subdirectories** - so `src/c47-gtk` excludes `src/c47-gtk/hal`,
 which has its own row. [00-architecture.md](00-architecture.md) s2 counts recursively, which is
 why its figures for those directories are larger; the facts agree, the method
@@ -116,13 +116,13 @@ differs.
 
 ```
   area                             files    lines
-  src/c47/(root)                      81    70978   <- 46% of the library
-  src/c47/mathematics                257    44226
+  src/c47/(root)                      81    71003   <- 46% of the library
+  src/c47/mathematics                257    44230
   src/c47/solver                      18    10180
   src/c47/c47Extensions               19     9813
   src/c47-gtk                          4     7415
   src/c47/programming                 15     5877
-  src/testSuite                        2     4762
+  src/testSuite                        2     4809
   src/generateTestPgms                 1     4245
   src/c47/distributions               33     4237
   src/c47/ui                           6     3544
@@ -132,7 +132,7 @@ differs.
   src/c47/browsers                     9     1083
   src/c47/logicalOps                  23     1072
   src/generateConstants                1      960
-  src/c47-gtk/hal                      5      813
+  src/c47-gtk/hal                      5      826
   src/c47-dmcp/hal                     4      568
   src/c47-dmcp5/hal                    4      568
   src/ttf2RasterFonts                  2      536
@@ -168,7 +168,7 @@ concept and each has several files. Grouped by the concept they belong to:
 | `bufferize.c` | 2789 | the NIM/AIM buffer and the number-entry state machine, `closeNim` |
 | **display** | | |
 | `screen.c` | 6623 | `refreshScreen`, the per-mode refreshers, the GTK draw callback |
-| `display.c` | 3987 | formatting a value into a register line |
+| `display.c` | 4012 | formatting a value into a register line |
 | `softmenus.c` | 4428 | `softmenu[]`, the stack, static and dynamic menus |
 | `statusBar.c` | 1098 | the status bar |
 | `fonts.c` | 145 | glyph lookup; the raster data is generated |
@@ -366,9 +366,11 @@ uniform and worth internalising:
 
 One `uint16_t` in, `void` out. Results go to the stack or a register; errors go
 to the global `lastErrorCode`. There is no return value and no error return
-anywhere in the command set. About 850 such definitions exist under `src/c47`
-(counted as `void fn...(uint16_t` definitions; the true figure depends on how
-`static` helpers sharing the prefix are counted).
+anywhere in the command set. 906 distinct such functions are defined under
+`src/c47` -- `git grep -hoE '^ *void +fn[A-Za-z0-9_]+ *\(uint16_t' -- 'src/c47/**/*.c'`,
+deduplicated by name. The figure moves with the method: 810 of them are actually
+named in the `func` field of `indexOfItems[]`, the rest being helpers and
+not-yet-bound entry points.
 
 The `param` is the second half of the mechanism. It comes from the table row -
 `indexOfItems[func].param` - unless TAM supplied one (Section 10). That is how
@@ -518,10 +520,10 @@ free-region allocator with no compaction.
 ```
 
 The reserved-variable area is not allocated: its block offsets are baked into
-the `const` table `allReservedVariables[]` (`registers.c:93-109`), and the pool
+the `const` table `allReservedVariables[]` (`registers.c:61-109`), and the pool
 base is computed from the last of them (`config.c:1544-1545`). Program memory
 starts at the last block (`config.c:1577`) and `resizeProgramMemory`
-(`memory.c:158-208`) grows it downward by shrinking the topmost free region,
+(`memory.c:158-209`) grows it downward by shrinking the topmost free region,
 which works only because the region array is address-sorted.
 
 A register's value therefore lives in a pool block, and `reallocateRegister`
@@ -565,7 +567,7 @@ follows is where the state that matters actually lives.
 | named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:336` |
 | local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:347` |
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
-| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:333`, `:350` |
+| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:333`, `:351` |
 | the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:276` |
 | statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:331` |
 
@@ -595,7 +597,7 @@ normal path that resets it.
 
 | what | global | declared |
 |---|---|---|
-| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:444`, `:444`, `:519` |
+| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:444`, `:445`, `:520` |
 | the label index | `labelList` (rebuilt by `scanLabelsAndPrograms`) | `c47.h:362` |
 | the program index | `programList` | `c47.h:364` |
 | the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:372`, `c47.c:53-54` |
@@ -881,6 +883,8 @@ time, not decoration:
   dead program engine ([04-debugging.md](04-debugging.md) s11).
 - `res/keymaps/`, `res/fonts/`, `res/offimg/`, `res/tone/`, `res/dmcp/`,
   `res/dmcp5/`, `res/combo/`.
+- `res/SCRIPTS/` - the t47 DSL's own reference, `cli_automation_examples.txt`.
+  Read it before writing a script ([03-testing.md](03-testing.md) Section 2).
 
 File formats and paths are declared in one place, `src/c47/hal/io.h`: `.s47`
 state in `STATE/` (`io.h:11-12`), `.d47` data in `DATA/` (`io.h:14-15`), `.p47`
@@ -910,14 +914,14 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   reached through `screen.c`, `display.c`, `statusBar.c` and `softmenus.c` is
   verified by human inspection.
 - **Not verified here.** This page was written from static reads of the tree at
-  `1624e09b3`; no build was executed for it. The subsystem responsibilities in
+  `33328e4cc`; no build was executed for it. The subsystem responsibilities in
   Section 9 are from directory contents and call sites, not from an exhaustive
   read of all 229 library files.
 
 ## References checked
 
-- Upstream c43 `master` at `1624e09b34bbaeb7402f6230b923631e8e1bcbd7`,
-  2026-07-16: `README.md`, `BUILD.md`, `Makefile`, `meson.build`,
+- Upstream c43 `master` at `33328e4cc25588eb7504f38f4076f8feae3ae766`,
+  2026-07-18: `README.md`, `BUILD.md`, `Makefile`, `meson.build`,
   `meson_options.txt`, `.gitignore`, `.gitlab-ci.yml`, `src/c47/c47.h`,
   `src/c47/c47.c`, `src/c47/defines.h`, `src/c47/typeDefinitions.h`,
   `src/c47/items.h`, `src/c47/memory.c`, `src/c47/config.c`,
@@ -931,7 +935,7 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   `src/generateCatalogs/meson.build`, `src/testSuite/meson.build`,
   `src/t47/meson.build`, `dep/meson.build`, `subprojects/gmp-6.2.1.wrap`.
 - [00-architecture.md](00-architecture.md), for the physical architecture. It
-  analysed `d969ec75db`; its headline figures were reproduced at `1624e09b3`.
+  analysed `d969ec75db`; its headline figures were reproduced at `33328e4cc`.
 - [02-build.md](02-build.md), [04-debugging.md](04-debugging.md).
 - Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
   first-party spec for the `.d47` record layout. Not read for this page; read it

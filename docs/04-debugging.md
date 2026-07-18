@@ -101,7 +101,8 @@ Accounting facts worth knowing before you measure anything:
 | **Intra-pool OOB write** | **POOL_GUARD canary only** (Section 5) | ASan, Valgrind, leakscan, keyscan, testmem |
 | Parser/decoder OOB | libFuzzer + ASan | corpus |
 | Logic bug (wrong value) | corpus with value assertions | every sanitizer |
-| Register/state collision | t47 sentinel battery ([03-testing.md](03-testing.md) Section 2) | every memory tool |
+| Register/state collision | t47 sentinel battery ([03-testing.md](03-testing.md) Section 2); the UI lane for the keyboard path | every memory tool |
+| **Keyboard/menu-only regression** | UI lane (`run-ui.sh`, real GTK under `xvfb-run`) | the corpus, t47, every memory tool |
 
 The last row matters more than it looks: two of the most recent real bugs (the
 matrix editor clobbering I/J, and the STOVEL/RCLVEL off-by-one) are register
@@ -129,16 +130,19 @@ findings and pass the baseline diff as a false PASS.
 
 ### 4.1 `--leakscan` - the item sweep
 
-Runs every item 1..2800 across the operand stack types in a **forked child** (so
-a crash or hang is attributed and isolated), clears state with `fnClAll`, and
-compares pool+GMP against baseline with the fixed 224-block `fnClAll` overhead
-subtracted.
+Runs every item `1..LAST_ITEM` (2870 at `33328e4cc`) across the operand stack
+types in a **forked child** (so a crash or hang is attributed and isolated),
+clears state with `fnClAll`, and compares pool+GMP against baseline with the
+`setupStack`+`fnClAll` reference overhead subtracted. That overhead is measured
+at runtime, once per stack type, in its own forked probe child
+(`leakscan.patch:204-216`) - it is not a constant.
 
-Operand types: real / string / long integer / complex, **plus** realMatrix (4),
-complexMatrix (5), realVector (6), added later than the rest. Those three matter:
-matrix functions bail on the data-type check before allocating, so with
-scalar-only operands their alloc/free paths never run - which is exactly why the
-gate missed a batch of upstream matrix leak fixes.
+Operand types: real / string / long integer / complex - **scalars only**
+(`leakscan.patch:195`). Matrix operands are deliberately absent: they were added
+and then reverted (`e42cf61`), because matrix functions leak on the RAM-full
+error path and the sweep runs with ample RAM, so rotating matrix operands
+exercised only the happy path and bought scan cost for no detection. A matrix
+leak of that class needs fault injection, not another operand type.
 
 Two structural false positives, both baselined:
 
@@ -165,8 +169,9 @@ the *following* key; dispatch through `runFunction()` alone and TAM never does,
 so `ui/tam.c` and the editors are never entered at all and STO/RCL sequences
 crash. That single line is the only reason the interactive subsystems -
 `differentiate.c`, `solve.c`, `tvm.c`, `ui/tam.c`, `ui/matrixEditor.c` - are
-reachable from a headless driver; `run-coverage.sh` reports what they reach
-today.
+reachable from a *headless* driver; `run-coverage.sh` reports what they reach
+today. The UI lane reaches them by a second, independent route: real key presses
+against the GTK binary under `xvfb-run` ([05-ci.md](05-ci.md)).
 
 `executeFunction` is **not** the right entry: its state-machine block is gated
 on `data[0] != 0`, a real key-label string, so it is skipped for the item-code
@@ -180,7 +185,7 @@ blocks at all.
 
 Runs the normal corpus, clears working state after each case, and reports any
 case above a **running high-water mark**. The ratchet is not a detail: a naive
-fixed baseline flagged 8848 cases; the high-water ratchet flags 24.
+fixed baseline flagged 8848 cases; the high-water ratchet flags 11.
 
 Confirm any finding by **running the offending test file twice - a real leak
 doubles**; persistent state does not. (But see the doubling-test caveat in Section 12 - doubling is
@@ -271,9 +276,12 @@ ninja -C build.guard src/testSuite/testSuite
 
 `-rdynamic` is what makes the free-time `backtrace()` attribution readable.
 
-The item sweep **must** carry real/complex matrix operands (types 4/5) or matrix
-overruns never trigger: scalar-only operands miss them, and `fnInsCol`/`fnInsRow`
-are empty stubs anyway, so the sweep cannot reach the editor path at all.
+The item sweep carries scalar operands only, so matrix overruns never trigger
+through it - see 4.1 for why matrix operands were reverted rather than kept.
+`fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:272`/`:244`) but need an
+editor key context, so the headless sweep cannot reach the editor path either.
+(The empty `fnInsCol`/`fnInsRow` at `items.c:1307-1309` are catalog-generator
+stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
 
 ### 5.4 The bug class it catches
 
@@ -389,7 +397,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:4218`). Unregistered functions return "cannot find the function to
+(`testSuite.c:4265`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -429,11 +437,13 @@ Interactive editors need a key context.
 
 The exit criterion is "every corpus-reachable math line covered, every residual
 classified", **not** a flat percentage. Line coverage is not use-case coverage:
-~2850 functions x operand shapes x mode families x stack contexts x path classes
+~2870 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
+contexts x path classes
 is ~2.7M coarse cases - line coverage alone is not enough for a calculator.
 
 Per-file lifts beat sector deltas when a big file was already partly covered:
-`matrix.c` is 4157 lines = 21% of its sector and was already ~67%, so new cases
+`matrix.c` is 4157 gcovr-countable lines (9542 physical) = 21% of its sector and
+was already ~67%, so new cases
 overlap. Clean wins are files genuinely cold: `iteration.c` 0->79,
 `saveRestoreBackup.c` 0->80, `compare.c` 21->51.
 
@@ -510,8 +520,8 @@ Three hard-won points:
   than a typical local install. A locally-regenerated baseline is missing
   runner-only sites and the gate fails.
 
-Current baseline: 8 entries, all uninitialised-value reads plus one
-`possibly lost @ config.c:1713`; definitely/indirectly lost stay **zero**,
+Current baseline: 8 entries - seven uninitialised-value reads plus one
+`possibly lost @ config.c:1714`; definitely/indirectly lost stay **zero**,
 because c47 is malloc-clean (it sub-allocates from its own pool). Any new c47
 site is a real finding. The baseline is **line-number keyed** against a moving
 upstream - a legitimate upstream edit that shifts lines fails the gate until
@@ -676,6 +686,7 @@ and their limits, and those move with the tree.
 | Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | solver/graph 26% is a real functional gap; ui/input/dmcp are host ceilings |
 | Differential numeric | `numeric-vectors.py`, 135 cases | single-argument only; no pow/atan2/logxy, no complex domain, no signed-zero/inf/NaN; no CI regeneration check |
 | Unit isolation | fork-per-item in the scans | the corpus itself is one monolithic binary |
+| **UI / keyboard** | `run-ui.sh`, hard gate | one test file (`ij-preservation.t47`); needs `xvfb-run`; a blocking GTK call fails only via `TEST_TIMEOUT` |
 
 ## 14. Open
 

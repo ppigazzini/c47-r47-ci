@@ -43,13 +43,17 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size as of upstream `master` on 2026-07-18: **324 test files in
-`src/testSuite/tests/`, 319 listed** in `testSuiteList.txt`. (Both numbers move;
-re-count rather than quoting this line.)
+Corpus size at upstream `33328e4cc`: **321 test files in
+`src/testSuite/tests/`, 317 listed** in `testSuiteList.txt`. The directory also
+holds `testSuiteList.txt` itself and `validate_tvm.py`, so a raw `ls` counts 323.
+(All three numbers move; re-count rather than quoting this line.)
 
 A file that is not listed in `testSuiteList.txt` never runs, and the suite stays
 green while reporting the same pass count - add a corpus file and confirm the
-count rises, or the file is decoration. `conversions.txt` and `conversionsSI.txt`
+count rises, or the file is decoration. This is not hypothetical: the 4-file gap
+between the two counts above is `debug.txt` (listed but commented out as
+`;debug`), `initialSettings.txt`, `roundi.txt` and `validate_tvm.txt`, none of
+which execute. `conversions.txt` and `conversionsSI.txt`
 are **regenerated on every build** (`src/generateTests/meson.build`), so a
 hand-written case placed there is destroyed; hand-written conversion cases belong
 beside `tempConv.txt`.
@@ -63,26 +67,40 @@ beside `tempConv.txt`.
   `Func: fnExecute`. Matrices are `"M2,2[1,2,3,4]"`; `any` / `?` skip an element.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
   (`testSuite.c:75-638`), **not** the item catalog - see the coverage section of [04-debugging.md](04-debugging.md).
-- `Item:` (`testSuite.c:4311`) drives the **real dispatch chain**
+- `Item:` (`itemToCall`, `testSuite.c:4358`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:4174` and `:4180` are `funcToTest(functionParameter)` against
+  at `testSuite.c:4221` and `:4227` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
   `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:2992`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:1941`) or `Func: name(n)`
-  (`testSuite.c:4214`) - both write the same variable - or use `Item:` and get
+  with `In: FARG=n` (`testSuite.c:1956`) or `Func: name(n)`
+  (`testSuite.c:4261`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
 - **A value is compared to 30 significant digits, not 34.** A mismatch is
-  reported only when `correctSignificantDigits < 30` (`testSuite.c:2775,2781`),
-  so the last four digits of a 34-digit expectation are documentation, not
-  assertion: a result wrong only in those digits passes. Pin a result that
-  matters on its exponent or on an error code.
+  reported only when `correctSignificantDigits < 30` (`testSuite.c:2806`), so the
+  last four digits of a 34-digit expectation are documentation, not assertion: a
+  result wrong only in those digits passes. The return condition at `:2822,2828`
+  conjoins `NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED`, so the effective
+  threshold is the lower of the two. Pin a result that matters on its exponent or
+  on an error code.
+- **Spell a system flag by its catalog name, not its `FLAG_` identifier.**
+  `In: FL_<name>=0|1` resolves `<name>` by scanning `indexOfItems[]` for a
+  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:1932-1949`), so
+  any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
+  A name that resolves to nothing calls `abortTest()`. This replaced a set of
+  hand-written branches at upstream `101084854`, and it **removed
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:4117`), so a file
+  still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
+  explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
+  `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
+  non-flag settings are unaffected: `FARG`, `IM`, `CM`, `AM`, `SS`, `WS`, `GAP`,
+  `DSP`, `JG`, `SD`, `RMODE`, `PGM`.
 - **An `In:` line sets only what it names.** A setting it omits keeps the value
   the previous case left, and the per-file preamble is applied once at the top
   rather than before every case - so one case setting `SS=8` silently moves every
@@ -132,7 +150,7 @@ lowercased command (999 of 1042 on the current build); then the DSL commands
 | `flag` | `flag <name>` / `flag <name> <0\|1>` | `flag SPCRES 1`. |
 | `readp` | `readp <file>` | Load a `.p47` (Section 4). |
 | `xportp` | `xportp <label> <file>` | Export a program. |
-| `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - see the hang below. |
+| `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - unnamed is a silent no-op headless, see below. |
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
 | `snap` | `snap [<base>]` | Writes `<base>.bmp` + `<base>.REGS.TSV`. |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
@@ -157,31 +175,36 @@ Flags that matter:
 - **main() returns the Jim return code**, so `./t47 --exec '...'` exits non-zero
   on a script error - usable directly in a shell gate.
 
-**Headless is not GUI-less: a file dialog will hang the run forever.** The GTK
-HAL builds a `GtkFileChooserNative` with no `headlessMode` guard
-(`hal/io.c:41,45`) and runs it with `gtk_native_dialog_run`; `show_warning`
-(`hal/io.c:307-310`) does the same. `setupUI` returns before creating the window
-when headless (`gtkGui.c:5447`), so the dialog has a NULL parent and nobody to
-dismiss it. Measured on upstream `master` with `DISPLAY` and `WAYLAND_DISPLAY`
-unset, each under `timeout 12`:
+**A headless file dialog fails quietly - it does not fail the run.** The GTK HAL
+guards both dialog paths on `headlessMode`: `file_selection_screen` returns
+`FILE_ERROR` as its first statement (`hal/io.c:36-41`) and `show_warning` prints
+to stderr (`hal/io.c:312-315`). Measured at upstream `33328e4cc` with `DISPLAY`
+and `WAYLAND_DISPLAY` unset, each under `timeout 12`:
 
 | invocation | result |
 |---|---|
-| `savest` / `loadst` with no filename | **exit 124 - hangs** |
-| `impreg` / `expreg` with no filename | **exit 124 - hangs** |
-| `item 2388` (LOADST), `item 1567` (READP) | **exit 124 - hangs** |
+| `loadst` / `savest` / `expreg` with no filename | exit 0, diagnostic on stderr |
+| `item 2388` (LOADST), `item 1567` (READP) | exit 0, diagnostic on stderr |
+| `item 1509` (LOAD) | exit 0, silent |
 | the same commands with a filename | exit 0 |
 
-The named-file forms are safe because `_ioFileNameOverride` short-circuits the
-chooser, which is why the DSL commands take a filename at all. `item 1509`
-(LOAD) is also safe: `LM_ALL` routes to the fixed `SAVE_DIR/SAVE_FILE` and never
-reaches a chooser.
+The diagnostic reads `<title>: no file chooser without a GUI; name the file in
+the script instead`. The named-file forms take a different path entirely:
+`_ioFileNameOverride` short-circuits the chooser (`hal/io.c:96-100`), which is
+why the DSL commands take a filename at all. `item 1509` (LOAD) never reaches a
+chooser - `LM_ALL` routes to the fixed `SAVE_DIR/SAVE_FILE`.
 
-This does not fail, it stalls - no window, no error, no exit code - so on a lane
-it burns the job cap and surfaces as unrelated infrastructure noise. Two rules
-follow: **name the file on every I/O command**, and **wrap every headless
-`--exec` in `timeout`** so a stall reports as a failure. Upstream MR !1567
-proposes the `headlessMode` guard; until it lands, both rules stand.
+**The exit code is 0 either way**, so a script whose `loadst` silently did
+nothing runs on against an unloaded state and asserts against the wrong values.
+Name the file on every I/O command, and assert a value you know the loaded state
+carries rather than trusting the command to have worked.
+
+Wrap every headless `--exec` in `timeout` regardless. This particular hang is
+fixed, but the class is not: a blocking GTK call in a headless run produces no
+output and no non-zero exit, so it surfaces only as an unrelated lane stall. Any
+lane pinning an `UPSTREAM_COMMIT` older than `33328e4cc` still has the original
+bug, where `savest`, `loadst`, `impreg`, `expreg`, `item 2388` and `item 1567`
+all hung at exit 124.
 
 ### 2.1 The sentinel battery
 
@@ -444,8 +467,10 @@ way, so a later `covSolvePgm` must clear it.
 
 When a test genuinely cannot self-clean, document the ordering constraint where
 the run order is defined - see the comment block at the tail of
-`testSuiteList.txt` explaining why `matrix2_cov`, `clcvar_cov` and
-`serialize_state_cov` must run after `programs`, and `serialize_cov` last.
+`testSuiteList.txt` explaining why `matrix2_cov`, `clcvar_cov`,
+`serialize_state_cov`, `pgm_solve_cov`, `histo_cov`, `clearvars_cov` and
+`program_flow_cov` must all run after `programs`, and why `config_cov` runs dead
+last, after `graphs_cov`.
 
 Watch for mode-dependent readings: `fnGetType` folds the operand angular/polar
 mode into the pushed code's fraction (a complex reads `2.000` in RECT but `2.300`
