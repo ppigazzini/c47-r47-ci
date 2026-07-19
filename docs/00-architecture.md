@@ -576,7 +576,7 @@ surface (`lcd_fill_rect`, `showString`/`showGlyph`, `showSoftmenu`,
   solver/ 6/8    programming/ 5/7    browsers/ 4/4    ui/ 3/3
 ```
 
-**153 of the 156 `.c` files in mathematics/distributions/logicalOps/core never
+**150 of the 156 `.c` files in mathematics/distributions/logicalOps/core never
 touch the UI** (34278 of the 46253 `.c` lines in those four directories; blob
 lines, `.c` only). Probe with the full render surface: a set that omits
 `refreshScreen`, `refreshRegisterLine` and `popSoftmenu` reports three files

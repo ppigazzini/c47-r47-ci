@@ -54,7 +54,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2048-2057`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2048-2055`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -724,6 +724,5 @@ and their limits, and those move with the tree.
 - The carried `leakscan.patch` drifts if upstream changes `testSuite.c`; the lane
   fails loudly and the patch must be regenerated from a rebased
   `test/ram-pool-leak-scanner`.
-- This file is gitignored and has no history. Back it up before rewriting.
 
 ---

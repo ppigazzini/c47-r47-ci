@@ -33,9 +33,10 @@ rendering - carries no assertion at all.
 
 **Asserting the screen does not need a GUI.** The test HAL renders into a real
 1bpp frame buffer (`src/testSuite/hal/lcd.c`) with the same row stride as the
-GTK blitter, which is how `SNAP` works with no window; `./c47 --headless` and
-`t47` are GTK-less the same way. What needs `xvfb-run` is `press`, because a key
-event needs a realized window.
+GTK blitter, which is how `SNAP` works with no window. `./c47 --headless` and
+`t47` are display-less the same way - they still link and initialise GTK
+([00-architecture.md](00-architecture.md) s5.4). What needs `xvfb-run` is
+`press`, because a key event needs a realized window.
 
 **A softmenu can be opened and hashed headlessly**, so the gap above is a gap,
 not a constraint. Measured at upstream `709423619`, `DISPLAY` and
@@ -55,8 +56,8 @@ not a missing capability. Pin the upstream commit when you do - a font or
 blitter change moves every hash at once.
 
 
-Four drivers, ascending in realism and descending in convenience. Pick the least
-realistic one that can reach the bug.
+Three drivers, ascending in realism and descending in convenience. Pick the
+least realistic one that can reach the bug.
 
 ## 1. Headless testSuite (the corpus)
 
@@ -179,7 +180,7 @@ lowercased command (999 of 1042 on the current build); then the DSL commands
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
 | `snap` | `snap [<base>]` | Writes `<base>.bmp` + `<base>.REGS.TSV`. |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
-| `press` | **GTK-only, NOT registered headless** | Section 3. |
+| `press` | registered in every build; **refuses at runtime when headless** (`dsl.c:995-1001`) | Section 3. |
 
 Value literals (`src/t47/value.c`): real `2.5`; complex `"3 + ix4"`; short
 integer `"FF#16"` (base 2..16); long integer `"12345678901234567890"`; date
@@ -317,7 +318,10 @@ stack, and note a program stops at M.EDIT.
   on Linux, `c47` from a foreign cwd dies with
   `error opening file res/c47_pre.css!`.
 - **`press` takes ONE key per call** (`press 1; press ENTER`), or a Tcl list.
-  Not registered headless because `scriptInjectGtkKey` needs a realized window.
+  Registered in every build, so a headless script gets a named refusal rather than
+  "invalid command name": it returns a Jim error and the script exits non-zero.
+  `scriptInjectGtkKey` needs a realized window, so the command still requires the
+  GTK binary under xvfb.
 - Tokens: `F1`..`F6` (softkeys); `@f` / `@g` (shift toggles); `@k NN`; a single
   ASCII char; `ENTER`; `R/S`. Case-insensitive for `ENTER` and `R/S`. **`Return`
   is not a token** - the name is only the GDK keyval `ENTER` injects, and

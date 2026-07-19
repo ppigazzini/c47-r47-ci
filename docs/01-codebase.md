@@ -69,7 +69,7 @@ input stack they exercise:
 | HAL adapter | `src/c47-gtk/hal/` (5 files) | same as GTK | `src/testSuite/hal/` (5 files) | `src/c47-dmcp{,5}/hal/` (4 files; the SDK supplies the LCD) |
 | entry | `c47-gtk.c` | `c47-gtk.c` | `testSuite.c` | SDK `startup_pgm.s` |
 | driven by | keys and menus | Jim/Tcl DSL (`readp`, `xeq`, `item`, `reg`, `press`) | a `.txt` corpus, calling functions directly | keys |
-| keyboard/menu layer | yes | only with a window (`press` is GTK-only) | no | yes |
+| keyboard/menu layer | yes | only with a window (`press` refuses headless) | no | yes |
 | pool size | 65534 blocks | 65534 | 65534 | 16384 (DM42) / 65534 (DM42n) |
 | links GTK | yes | yes | **yes** - see below | no |
 
@@ -86,7 +86,7 @@ Three consequences worth knowing before choosing a harness:
 - **`t47` is the `r47` build, not a separate program.** `T47` is consumed at one
   place, `defines.h:419`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
-  `press` is registered only when a window exists, so keyboard-level tests need
+  `press` is registered in every build but refuses when headless, so keyboard tests need
   the GTK binary under xvfb ([04-debugging.md](04-debugging.md) s9).
 
 Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
