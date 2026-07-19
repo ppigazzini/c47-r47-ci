@@ -520,7 +520,7 @@ Three hard-won points:
   than a typical local install. A locally-regenerated baseline is missing
   runner-only sites and the gate fails.
 
-Current baseline: 8 entries - seven uninitialised-value reads plus one
+Current baseline: `valgrind-baseline.txt` (8) - seven uninitialised-value reads plus one
 `possibly lost @ config.c:1714`; definitely/indirectly lost stay **zero**,
 because c47 is malloc-clean (it sub-allocates from its own pool). Any new c47
 site is a real finding. The baseline is **line-number keyed** against a moving
@@ -674,7 +674,7 @@ and their limits, and those move with the tree.
 
 | Technique | Status here | Gap |
 |---|---|---|
-| Warnings/hardening | `run-warnings.sh`, 294 baselined | report-only; no `-Werror` lane |
+| Warnings/hardening | `run-warnings.sh`, `warnings-baseline.txt` (294) | report-only; no `-Werror` lane |
 | ASan + LSan | analysis lanes, hard gate | malloc-only; blind to the pool |
 | UBSan | analysis lanes, report mode | not in upstream CI |
 | **MSan** | **none** | uninitialised reads have no dedicated detector (needs instrumented GMP) |
@@ -682,7 +682,7 @@ and their limits, and those move with the tree.
 | Pool/GMP leak audit | `--leakscan`/`--keyscan`/`--testmem`, both hard gates | - |
 | **Intra-pool OOB** | **POOL_GUARD, manual only** | **not wired into any lane (Section 14)** |
 | Fuzzing | 3 lanes (decode/equation/restore) | report-only; OSS-Fuzz never onboarded; state-import + NIM unfuzzed |
-| Static analysis | cppcheck lane, 22 baselined | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
+| Static analysis | cppcheck lane, `cppcheck-baseline.txt` (22) | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
 | Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | solver/graph 26% is a real functional gap; ui/input/dmcp are host ceilings |
 | Differential numeric | `numeric-vectors.py`, 135 cases | single-argument only; no pow/atan2/logxy, no complex domain, no signed-zero/inf/NaN; no CI regeneration check |
 | Unit isolation | fork-per-item in the scans | the corpus itself is one monolithic binary |

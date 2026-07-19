@@ -95,6 +95,28 @@ for b in scripts/test/*-baseline.txt; do
 done
 log "check 3: quoted baseline counts match their baseline ($n stale)"
 
+# --- 3b. cross-page section references resolve --------------------------------
+# Check 1 validates the file half of a link and stops at the closing paren, so
+# the " s9" or " Section 12" that follows is unchecked prose. Renumbering a
+# target page silently invalidates every reference into it: six such references
+# were found dangling at once, five of them in one file.
+n=0
+for f in "${DOCS[@]}"; do
+    while IFS='|' read -r target sect; do
+        [[ -n "$target" ]] || continue
+        tgt="$(dirname "$f")/$target"
+        [[ -e "$tgt" ]] || continue          # check 1 owns a missing file
+        # A page's own headings, as "N" or "N.M"
+        # Headings, or the bold numbered sub-sections 00-architecture uses
+        if ! grep -qE "^#{2,4} ${sect}[. ]|^\\*\\*${sect} " "$tgt"; then
+            note "DEAD SECTION  $f -> $target s$sect (no such heading)"
+            n=$((n + 1))
+        fi
+    done < <(grep -ohE '\(([0-9]{2}-[a-z-]+\.md)\)[^.]{0,4}(s|Section )([0-9]+(\.[0-9]+)?)' "$f" |
+             sed -E 's/^\(([^)]+)\).*(s|Section )([0-9]+(\.[0-9]+)?)$/\1|\3/')
+done
+log "check 3b: cross-page section references resolve ($n dead)"
+
 # --- 4. tracked docs are ASCII ------------------------------------------------
 # AGENTS.md rule. An em dash or smart quote arrives by paste and survives review.
 n=0
