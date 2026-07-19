@@ -625,6 +625,22 @@ What this buys the reader: the numeric core is cleaner than the SCC suggests.
 `logicalOps/`, `registers.c` and `memory.c`. The maths does not know what mode
 the calculator is in.
 
+**What a cut would cost.** The upward edges are not evenly spread; they fall into
+a few classes, and one of them carries most of the weight:
+
+| class | edges | where |
+|---|---|---|
+| the error TU | 1 structural cut, 6 sites | `error.c:339-380` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
+| misfiled maths | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - move them, do not rewrite them |
+| conversion re-enters dispatch | 3 | `conversionUnits.c:761,779,782` call `runFunction` rather than the conversion directly |
+| store reaches formatting | 1 | `registers.c:1585` calls `shortIntegerToDisplayString` |
+| primitives reach up | 2 | `charString.c:241,297` - a string helper calling the bug screen |
+| flags, timer, store reach up | 6 | `flags.c:359`, `store.c:199`, `timer.c:189` and neighbours |
+| the data channel | 56 writers | `temporaryInformation` - not cuttable by moving files; the writers must return a status instead |
+
+The first six classes are about 40 call sites. The seventh is the hard one, and
+it is why moving files alone will not dissolve the cycle.
+
 **Base services are trapped by single edges.** Degrees inside the cycle:
 
 ```
