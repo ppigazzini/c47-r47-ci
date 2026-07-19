@@ -394,9 +394,12 @@ the right shape.
 build/test/upload/release; jobs for macOS, Linux, Windows (msys2), dmcp, dmcp5,
 dmcp5r47, `testSuite:` (`make test`) and `codeDocs:`.
 
-**The corpus tests computation only.** There is no golden-image or LCD-buffer
-assertion. Everything reached through `screen.c` / `display.c` / `statusBar.c` /
-`softmenus.c` -- 16161 lines, all hot -- is verified by human inspection alone.
+**The corpus asserts the screen in one file.** `graphs_cov.txt` renders plots
+through `SNAP` and pins a SHA-256 of the resulting bitmap, which covers the
+grapher, the fonts and the blitter. There is no other golden-image or LCD-buffer
+assertion: the rest of what is reached through `screen.c` / `display.c` /
+`statusBar.c` / `softmenus.c` -- 16161 lines, all hot -- is verified by human
+inspection alone.
 
 **Churn** (12-month window, existing paths only, five mass-sweep commits excluded:
 a 455-file "Header files centralization", a 407-file licence sweep, two "White

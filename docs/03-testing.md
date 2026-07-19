@@ -25,9 +25,34 @@ than a count written down here - it moves with upstream.
 | `t47` | the simulator plus a Jim/Tcl DSL, forced headless | you need state set up, a program run, or a register read |
 | `c47` under `xvfb-run` | the same binary with its GTK front end, so real key presses work | the path is only reachable through the keyboard or a menu |
 
-The corpus never touches the keyboard, the menus, or the screen. Anything
-reached only through those is verified by human inspection unless you drive the
-GTK binary yourself.
+The corpus never touches the keyboard or the menus. It reaches the screen in
+exactly one file: `graphs_cov.txt` renders each plot with `SNAP` and pins a
+SHA-256 of the bitmap, so the grapher, the fonts and the blitter are covered.
+Every other display path - register lines, the status bar, the softmenus, matrix
+rendering - carries no assertion at all.
+
+**Asserting the screen does not need a GUI.** The test HAL renders into a real
+1bpp frame buffer (`src/testSuite/hal/lcd.c`) with the same row stride as the
+GTK blitter, which is how `SNAP` works with no window; `./c47 --headless` and
+`t47` are GTK-less the same way. What needs `xvfb-run` is `press`, because a key
+event needs a realized window.
+
+**A softmenu can be opened and hashed headlessly**, so the gap above is a gap,
+not a constraint. Measured at upstream `709423619`, `DISPLAY` and
+`WAYLAND_DISPLAY` unset, SHA-256 of the first 16 hex digits of each bitmap:
+
+```bash
+./t47 --reset --exec 'snap s_base'             # 50dd8e4c347f6dc8
+./t47 --reset --exec 'menu STAT; snap s_stat'  # d6ddd78d6c23cf34
+./t47 --reset --exec 'menu PROB; snap s_prob'  # fae840fdc0d3a57f
+./t47 --reset --exec 'menu MATX; snap s_matx'  # cf34826d16ad4f42
+```
+
+Four distinct hashes: the menu really is rendered into the buffer, and a wrong
+menu fails the comparison. That is the same mechanism `graphs_cov.txt` already
+uses for plots, so covering the softmenus is a corpus or UI-lane test to write,
+not a missing capability. Pin the upstream commit when you do - a font or
+blitter change moves every hash at once.
 
 
 Four drivers, ascending in realism and descending in convenience. Pick the least

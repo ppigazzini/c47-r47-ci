@@ -48,10 +48,10 @@ that **-1 means nothing is selected**, that `c47.c` documents it, and that
 segfaults. Write the sentence a reader needs before they delete your line.
 
 **Describe a gap as a gap, never as a design.** "The corpus tests computation"
-sounds like a scope decision. The fact is that **nothing asserts the screen**, so
-a display regression passes CI. Framing a hole as a choice is what keeps it
-alive: nobody fixes a design. If something is missing, say missing, and say what
-it costs.
+sounds like a scope decision. The fact is that **only `graphs_cov.txt` asserts
+the screen**, so a regression anywhere else in the display passes CI. Framing a
+hole as a choice is what keeps it alive: nobody fixes a design. If something is
+missing, say missing, say how far the exception reaches, and say what it costs.
 
 **Never rationalise a defect into a convention.** When you find yourself
 explaining why the odd thing is fine, check whether it is. Written down as

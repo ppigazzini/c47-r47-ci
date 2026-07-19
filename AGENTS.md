@@ -156,8 +156,11 @@ catalogue. Read it before trusting any lane result.
   repo root** on Linux - the chdir that would lift that is `__APPLE__`-only
   (`c47-gtk.c:73`). Upstream's `res/SCRIPTS/cli_automation_examples.txt` is the
   DSL's own reference; read it before writing a script.
-- **The corpus tests computation only.** Nothing asserts the screen. A display
-  regression will pass CI.
+- **One corpus file asserts the screen; the rest do not.** `graphs_cov.txt`
+  renders through `SNAP` and pins a SHA-256 of the bitmap (`fnHashBmpCov`), so a
+  change to the grapher, the fonts or the blitter fails it. Nothing else does:
+  a regression in register-line rendering, the status bar, the softmenus or
+  matrix display passes CI.
 - **The lanes share one upstream tree** at `/tmp/c43-test-harness` and each wipes
   it on entry, so two run at once will corrupt each other and the failure surfaces
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
