@@ -14,7 +14,7 @@ make test     # builds the testPgms fixture, then runs the corpus
 **It passes clean**, so a failure is a regression, not a baseline to compare
 against. The target depends on `testPgms` and generates the fixture first;
 run the binary without it and the corpus reports failures that are fixture
-artifacts, not defects (Section 6). Read the summary the run prints rather
+artifacts, not defects (Section 5). Read the summary the run prints rather
 than a count written down here - it moves with upstream.
 
 ## The three ways to drive it

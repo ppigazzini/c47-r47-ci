@@ -93,7 +93,7 @@ Three consequences worth knowing before choosing a harness:
   place, `defines.h:419`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
   `press` is registered in every build but refuses when headless, so keyboard tests need
-  the GTK binary under xvfb ([04-debugging.md](04-debugging.md) s9).
+  the GTK binary under xvfb ([03-testing.md](03-testing.md) s3).
 
 Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
 179885 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
@@ -541,7 +541,7 @@ The RPN stack is the first four or eight lettered registers:
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
 I, J and K are the matrix index registers as well as user registers. That dual
-role is a real source of defects; [04-debugging.md](04-debugging.md) s8.1 records two bugs
+role is a real source of defects; [04-debugging.md](04-debugging.md) s3 records two bugs
 found there and the sentinel battery that finds them.
 
 **There are two register numberings, and they are not the same.** A program step
@@ -620,7 +620,7 @@ know:
   dimensions in its own header (`registers.c:1154-1192`). Corrupt one and the
   next free passes a wrong size to the allocator.
 - An over-long write inside the pool is invisible to ASan and valgrind, because
-  the pool is one `malloc`. That is why [04-debugging.md](04-debugging.md) s13 exists.
+  the pool is one `malloc`. That is why [04-debugging.md](04-debugging.md) s5 exists.
 
 **GMP does not use the pool.** `allocGmp` rounds to block size for accounting
 and then calls libc `malloc`; the `freeListAlloc` call is commented out
@@ -988,7 +988,7 @@ The corpus bypasses the top of this: it calls `runFunction` directly with a
 declared input state, which is why it tests computation and not presentation.
 `t47` enters at the same point through a Jim/Tcl DSL. Only the GTK simulator
 under xvfb exercises the keyboard and menu layer, which is why
-[04-debugging.md](04-debugging.md) s9 exists.
+[03-testing.md](03-testing.md) s3 exists.
 
 A user program enters at the same place. Programs are a raw byte array at the
 top of `ram` (Section 6), encoded as item numbers: one byte below 128, otherwise
@@ -1042,7 +1042,7 @@ time, not decoration:
 - `res/PROGRAMS/` - `.p47` keystroke programs plus `.rtf` human-readable exports.
 - `res/STATE/`, `res/DATA/` - saved state and data files.
 - `res/testPgms/testPgms.bin` - a fixture the corpus needs; its absence fakes a
-  dead program engine ([04-debugging.md](04-debugging.md) s11).
+  dead program engine ([03-testing.md](03-testing.md) s5).
 - `res/keymaps/`, `res/fonts/`, `res/offimg/`, `res/tone/`, `res/dmcp/`,
   `res/dmcp5/`, `res/combo/`.
 - `res/SCRIPTS/` - the t47 DSL's own reference, `cli_automation_examples.txt`.
