@@ -592,9 +592,15 @@ rather than six. The six:
   mathematics/rsd.c:152       refreshRegisterLine(REGISTER_X);
 ```
 
-These six are not mathematics. They are interactive commands filed under
-`mathematics/` because that is where their arithmetic lives. Moving them makes
-the numeric core UI-free by content rather than by percentage.
+These six are upward edges, but "misfiled" is the wrong word for them. Each has
+a product reason to reach the screen: `int.c` and `prime.c` run long enough that
+they must show progress or the user concludes the calculator has died - that is
+what the hourglass exists for; `rdp.c`, `round.c` and `rsd.c` round X **in
+place**, so the X line must repaint; and opening the simultaneous-equations menu
+**is** what `matrix.c`'s SIMQ does. Moving the files does not remove the
+requirement, it relocates it. Cutting these edges means giving compute a way to
+report progress and a changed register without calling the renderer, which is a
+larger design change than a file move.
 
 Note what is NOT UI: `displayCalcErrorMessage` / `moreInfoOnError` (the library's
 error channel) and the `charString` helpers (text utilities). Counting those as UI
@@ -627,16 +633,98 @@ What this buys the reader: the numeric core is cleaner than the SCC suggests.
 `logicalOps/`, `registers.c` and `memory.c`. The maths does not know what mode
 the calculator is in.
 
+```mermaid
+flowchart TD
+  subgraph ENG["dispatch, input, execution"]
+    keyboard["keyboard.c"]
+    items["items.c indexOfItems"]
+    buf["bufferize.c + ui/tam.c"]
+    prog["programming/ + solver/"]
+  end
+  subgraph PRES["presentation"]
+    screen["screen.c"]
+    display["display.c"]
+    softmenus["softmenus.c"]
+  end
+  subgraph COMP["compute"]
+    maths["mathematics/ distributions/ logicalOps/"]
+    convu["conversionUnits.c"]
+  end
+  subgraph VAL["value store"]
+    registers["registers.c"]
+    flags["flags.c"]
+  end
+  subgraph BASE["base"]
+    memory["memory.c + core/freeList.c"]
+    charstring["charString.c"]
+    error["error.c"]
+  end
+  hal["hal/ headers"]
+  tempinfo(["global temporaryInformation"])
+
+  keyboard --> items
+  keyboard --> screen
+  items --> maths
+  items --> buf
+  items --> prog
+  prog --> items
+  maths --> registers
+  maths --> error
+  registers --> memory
+  screen --> display
+  screen --> softmenus
+  screen --> hal
+
+  buf -.-> items
+  convu -.-> items
+  maths -.-> softmenus
+  maths -.-> screen
+  display -.-> screen
+  registers -.-> display
+  flags -.-> screen
+  error -.-> screen
+  charstring -.-> error
+
+  display -. writes .-> tempinfo
+  tempinfo -. read by .-> keyboard
+  tempinfo -. read by .-> charstring
+```
+
+Solid arrows run down the level order. Dashed arrows are the upward edges that
+close the cycle, and the rounded node is a global that carries a value across
+levels with no call at all - the thing a call-graph tool cannot see. Note what
+leaves `maths`: two downward edges, and two upward ones.
+
+| edge | proof |
+|---|---|
+| keyboard -> items | `keyboard.c:2272` `runFunction(item)` |
+| items -> the command | `items.c:402` `indexOfItems[func].func(param)` |
+| items -> buf | `items.c:697` `tamEnterMode(func)` |
+| prog -> items | `programming/lblGtoXeq.c:784` |
+| maths -> registers | `mathematics/addition.c:56` |
+| maths -> error | `mathematics/addition.c:35` |
+| registers -> memory | `registers.c:520` `allocC47Blocks` |
+| screen -> display | `screen.c:2551` `real34ToDisplayString` |
+| buf -.-> items | `ui/tam.c:219` `reallyRunFunction` |
+| convu -.-> items | `conversionUnits.c:761` `runFunction` |
+| maths -.-> softmenus | `mathematics/matrix.c:1469` |
+| maths -.-> screen | `mathematics/prime.c:818` |
+| display -.-> screen | `display.c:3511` |
+| registers -.-> display | `registers.c:1585` |
+| error -.-> screen | `error.c:348` `showString` |
+| charstring -.-> error | `charString.c:297` `displayBugScreen` |
+| temporaryInformation | written `display.c:3101`, read `charString.c:241` |
+
 **What a cut would cost.** The upward edges are not evenly spread; they fall into
 a few classes, and one of them carries most of the weight:
 
 | class | edges | where |
 |---|---|---|
 | the error TU | 1 structural cut, 6 sites | `error.c:339-380` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
-| misfiled maths | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - move them, do not rewrite them |
+| compute reaching the screen | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - each has a product reason (progress, in-place round, menu); needs a reporting channel, not a file move |
 | conversion re-enters dispatch | 3 | `conversionUnits.c:761,779,782` call `runFunction` rather than the conversion directly |
 | store reaches formatting | 1 | `registers.c:1585` calls `shortIntegerToDisplayString` |
-| primitives reach up | 2 | `charString.c:241,297` - a string helper calling the bug screen |
+| primitives reach up | 1 | `charString.c:297` - a string helper calling the bug screen. `charString.c:241` looks like a second, but it is a `temporaryInformation` read: the data channel reaching the very bottom of the graph |
 | flags, timer, store reach up | 6 | `flags.c:359`, `store.c:199`, `timer.c:189` and neighbours |
 | the data channel | 56 writers | `temporaryInformation` - not cuttable by moving files; the writers must return a status instead |
 

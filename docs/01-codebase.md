@@ -325,6 +325,29 @@ failure mode and the remedy.
 
 ## 5. The spine: one library, one header, one table
 
+### 5.0 The words this page uses
+
+C47 is an RPN calculator descended from the HP-42S by way of WP34S, WP43 and
+C43. The rest of this page assumes the vocabulary below; the source assumes it
+too.
+
+| term | what it is |
+|---|---|
+| **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:870`). X is what you see and what commands consume. |
+| **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:881`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
+| **LastX** | register `L`. Commands that consume X save it there first (`saveLastX`, called from 87 files), so the user can recover the operand. A new command that forgets this is a user-visible regression. |
+| **f / g** | the two shift keys. The DM42 has one physical shift, so C47 cycles it - that single constraint is why this fork exists. |
+| **USER mode** | `FLAG_USER` (`defines.h:866`) swaps the factory keyboard `kbd_std` for the user's own assignments `kbd_usr`. ASSIGN is how entries get there. |
+| **softmenu** | the six softkeys. f and g reveal two more rows, so 18 items are one page; the arrows page through. Menus stack (depth 8), and each entry remembers its page and its parent mode. |
+| **catalog** | a browsable list of commands. `status & CAT_STATUS` (13 values) says which catalog a command appears in; `generateCatalogs` sorts each one by name at build time. |
+| **item** | one row of `indexOfItems[]`: a thing the calculator can do. It carries the user-facing name in two widths, the function and its parameter, the argument it prompts for, which catalogs list it, and what it does to the stack and undo. Keys, menus, programs and the corpus all address commands by item number. |
+| **NIM / AIM** | number and alpha entry. Both accumulate into `aimBuffer` as text; the value's *type* is decided when entry closes. |
+| **TAM** | the prompt that collects a command's argument after you press it - `STO` then `05`. Not a `calcMode`; see Section 5's mode discussion. |
+| **PEM / MIM / EIM** | program entry, matrix entry, equation entry. In PEM a command is *recorded* rather than run. |
+| **programmable** | whether a command may appear in a program, and how its argument is stored there (`status & PTP_*`). Making an existing command programmable is a recurring unit of work. |
+| **angular mode / tag** | a real can carry an angular unit (DEG, RAD, GRAD, DMS, multiples of pi) in its register `tag`; complex values additionally carry polar or rectangular. |
+| **word size / base** | short integers have a user-set width and base, and a sign convention (2's complement, 1's complement, sign-magnitude, unsigned). |
+
 Three facts explain most of the codebase's shape.
 
 **`src/c47/c47.h` is a bundle, not an API.** 639 lines, 134 `#include`
@@ -437,6 +460,33 @@ Each mode has an owning file: NIM/AIM in `bufferize.c`, MIM in
 `ui/matrixEditor.c`, PEM in `programming/`, the browsers in `browsers/`.
 `calcMode.c` performs the transitions. Reading `calcMode` is how shared code
 discovers who is in control.
+
+```mermaid
+stateDiagram-v2
+  state Calculator {
+    [*] --> NORMAL
+    NORMAL --> NIM : digit / . / EEX
+    NIM --> NORMAL : ENTER, SST, BST, or TAM entry
+    NORMAL --> ENTRY : alpha, equation or matrix
+    ENTRY --> NORMAL : EXIT
+    NORMAL --> PEM : P/R
+    PEM --> NORMAL : P/R
+    NORMAL --> MODAL : previousCalcMode = calcMode
+    ENTRY --> MODAL : previousCalcMode = calcMode
+    PEM --> MODAL : previousCalcMode = calcMode
+    MODAL --> NORMAL : calcMode = previousCalcMode
+    --
+    [*] --> TAM_OFF
+    TAM_OFF --> TAM_ON : param in TM_VALUE..TM_CMP
+    TAM_ON --> TAM_OFF : value complete, or cancel
+  }
+```
+
+Two regions run at once: `calcMode` on the left, `tam.mode` on the right. You
+are in `CM_NORMAL` *and* in TAM. `ENTRY` collapses AIM, EIM and MIM, which
+behave alike at the dispatch level. `MODAL` collapses the browsers, the
+confirmation prompt, ASSIGN, the bug screen and the graph views - all of which
+save and restore through one slot.
 
 **TAM is not one of these modes.** There is no `CM_TAM`. Parameter entry is a
 second, parallel state machine held in `tamState_t tam` (`typeDefinitions.h:672`,
