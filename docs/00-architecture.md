@@ -156,6 +156,58 @@ A spreadsheet is also a build input, but not one of these: CI clones and builds
 source consumed by hand, which is why `items.c:1777` records that the item table
 was "generated (manually)".
 
+## 2.1 The logical components
+
+The directories do not name the components, so this table does. Levels are what
+the dependency evidence supports, not a plan: a component calls downward freely,
+and every upward call is one of the violations catalogued in Section 8.3.
+
+| L | component | owns | entry point |
+|---|---|---|---|
+| 0 | platform | nothing; five headers | `hal/io.h`, `hal/lcd.h` |
+| 1 | block allocator | `ram`, `freeMemoryRegions[]` | `memory.c:76` `allocC47Blocks` |
+| 2 | primitives | glyphs, string and real helpers | `charString.c`, `realType.c`, `fonts.c`, `sort.c` |
+| 3 | error signalling | `lastErrorCode`, `errorMessageRegisterLine` | `error.c:261` `displayCalcErrorMessage` |
+| 4 | register and variable store | `globalRegister[]`, `allNamedVariables` | `registers.c:212` `getRegisterDataPointer` |
+| 4 | stack and undo | undo snapshot, lift semantics | `stack.c:20` `liftStack` |
+| 5 | types and conversions | `shortIntegerMask`, `denMax` | `registerValueConversions.c` |
+| 6 | mathematics | the four type-dispatch tables | `mathematics/addition.c:10` |
+| 7 | derived numerics | statistical sums, unit tables | `stats.c`, `conversionUnits.c` |
+| 8 | program store | program memory, `labelList`, `programList` | `programming/manage.c:102` |
+| 9 | value formatting | `displayFormat*`, grouping | `display.c:228` `real34ToDisplayString` |
+| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:5993` `refreshScreen` |
+| 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:237` `reallyRunFunction` |
+| 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:750` `executeOneStep` |
+| 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:439` |
+| 12 | application | file formats, config | `saveRestoreBackup.c:242` `saveCalc` |
+
+Levels 9 to 11 are one block in practice, not three. `display.c` and `screen.c`
+are mutually recursive (`display.c:3511` against `screen.c:2551`), as are
+`screen.c` and `softmenus.c`, and `screen.c` and `items.c`. They are listed
+apart because that is the shape a split would take, not because the split exists.
+
+**Three components are fused in the source, and each fusion is a finding.**
+
+- **Number entry and alpha entry are one component.** They share a buffer, and
+  `c47.c:122` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
+  `addItemToBuffer` routes AIM, TAM, NIM and MIM from one if/else chain
+  (`bufferize.c:445`).
+- **The matrix type and the matrix editor are one component.**
+  `mathematics/matrix.h:234-236` declares `showMatrixEditor`, `mimEnter` and
+  `mimAddNumber`, all implemented in `ui/matrixEditor.c`. A maths header exports
+  a user interface.
+- **Statistics and plotting have no seam.** `plotstat.c` reads the statistics
+  matrix, computes screen coordinates and draws the regression line in the same
+  file.
+
+**Why the components have to be inferred rather than read off.** `src/c47/c47.c`
+defines exactly **one** function; everything else in it is global variable
+definitions for every component in the system, declared through the 345 `extern`s
+in `c47.h`. There is almost no file-private state anywhere, so a component owns
+its globals by convention only - nothing enforces it. That is the root cause of
+the coupling this page measures, and it is why "which module owns this variable"
+is a question the compiler cannot answer.
+
 ## 3. The god header and the global state
 
 - `src/c47/c47.h`: **639 lines, 134 `#include` directives.**

@@ -567,6 +567,42 @@ X and Y, declared in `c47.h:278-281` and defined in
 DM42 flash. `addition[dtA][dtB]()` is the whole of operator dispatch: there is no
 switch forest.
 
+### 6.1 Ownership, and the ways it goes wrong
+
+The pool stores no allocation header, so **the caller is the authority on size**:
+`freeC47Blocks(ptr, sizeInBlocks)` trusts the size it is handed
+(`memory.c:116`), and `freeRegisterData` recomputes that size from the register's
+*current* header (`defines.h:2204`). Change a register's type, string length or
+matrix dimensions before freeing it and the wrong number of blocks is returned.
+The mismatch detector is compiled out on the DM42, so on hardware the free list
+is corrupted silently.
+
+`reallocC47Blocks` **always moves** - it allocates, copies, frees
+(`freeList.c:89-93`); there is no in-place growth. Three consequences a newcomer
+meets in this order:
+
+- **A linked matrix dies when its register is resized.** `linkTo*MatrixRegister`
+  points `matrixElements` straight into the register's pool block. Anything that
+  calls `reallocateRegister` frees that block (`registers.c:2035`) and the
+  best-fit allocator hands it to the next caller immediately. `matrix.h:309-311`
+  warns about this for `redimMatrixRegister` and `appendRowAtMatrixRegister` -
+  but it is true of every path through `reallocateRegister`, including
+  `initMatrixRegister`, `copySourceRegisterToDestRegister` and `clearRegister`.
+- **Owned and borrowed matrices look identical.** `realMatrixInit` allocates and
+  the caller must free; `linkTo*MatrixRegister` borrows and the caller must not.
+  Both produce a `real34Matrix_t`. `realMatrixFree` frees unconditionally
+  (`matrix.c:2028`), so calling it on a linked matrix frees the register's
+  payload out from under the register.
+- **Adding a named variable moves the table.** `allNamedVariables` is itself
+  pool-allocated and grown one entry at a time (`registers.c:862`), so any
+  pointer into it is stale afterwards. The same applies to `currentLocalRegisters`
+  across `allocateLocalRegisters`, which is why that function re-derives its own
+  pointers and re-links the frame.
+
+The rule underneath all four: **never cache a pointer derived from a register
+across an allocation.** Every `REGISTER_*` accessor re-resolves through the
+header on each use, and that is the contract, not an inefficiency.
+
 ## 7. The calculator's state
 
 There is no state object. The calculator's state is ~312 mutable globals
@@ -836,6 +872,43 @@ Three things surprise most readers:
   TAM.
 - **In PEM most items are recorded, not run.** `runFunction` calls
   `addStepInProgram(func)` instead of executing, subject to an exception list.
+
+### 10.1 What the diagram cannot show
+
+**The item survives the press only in a global.** `showFunctionName` stores it -
+`showFunctionNameItem = item` (`screen.c:2097`) - and `btnReleased` reads it back
+(`keyboard.c:2137-2138`). Nothing else carries the item between the two halves of
+a key press, so anything that clears that global mid-press cancels the command.
+
+**Digits are the exception: they act on press.** `processKeyAction` consumes
+`ITM_0`..`ITM_9`, `ITM_PERIOD` and `ITM_EXPONENT` immediately and sets
+`keyActionProcessed` (`keyboard.c:2803`), so they never reach the release path.
+Every other item defers. Typing is therefore a different code path from
+commanding, not a special case of it.
+
+**The stack lifts when number entry opens, not when it closes.** `calcModeNim`
+calls `liftStack()` and then zeroes X (`calcMode.c:269`), so the display already
+shows a pushed stack while you are still typing. `closeNim` re-arms the *next*
+lift with `setSystemFlag(FLAG_ASLIFT)` as its first statement
+(`bufferize.c:2344`). That is why ENTER, which clears `FLAG_ASLIFT`, makes the
+following digits overwrite X instead of pushing.
+
+**Errors are polled, never returned.** No function in the dispatch chain returns
+a status. `displayCalcErrorMessage` sets `lastErrorCode`, and each layer tests it
+afterwards: `reallyRunFunction` undoes the operation (`items.c:581`), and
+`runProgram` breaks out of its loop without advancing the step
+(`lblGtoXeq.c:919`), which is why a stopped program rests on the offending line.
+
+**The next key press clears the error and executes.** Any item except EXIT and
+BACKSPACE zeroes `lastErrorCode` on the way in (`keyboard.c:2368`), so dismissing
+an error and acting on it are the same keystroke - there is no acknowledge step.
+
+**`refreshScreen` is not a pure renderer and not idempotent.** It pushes
+softmenus, can write `calcMode`, and on exit latches
+`SCRUPD_MANUAL_STATUSBAR | SCRUPD_MANUAL_STACK | SCRUPD_MANUAL_MENU`
+(`screen.c:5965`), so an immediate second call is close to a no-op until
+something clears those bits. Register lines are drawn T, Z, Y, X in that order
+and the order is load-bearing.
 
 The corpus bypasses the top of this: it calls `runFunction` directly with a
 declared input state, which is why it tests computation and not presentation.
