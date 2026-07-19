@@ -441,6 +441,20 @@ in TAM. `determineItem` checks `tam.mode` before it checks `calcMode`
 (`keyboard.c:1675`) and resolves the key through the `primaryTam` column,
 ignoring shift.
 
+**Eight of the modes are modal: they save the mode they interrupted and restore
+it on exit.** The slot is `previousCalcMode`, written by `fnAssign`
+(`assign.c:557`), the four browsers (`registerBrowser.c:172`, `flagBrowser.c:71`,
+`fontBrowser.c:102`, `asnBrowser.c:144`), `setConfirmationMode`
+(`config.c:1054`), `displayBugScreen` (`error.c:339`) and the graph entry
+(`graphs.c:306,309`). Exit assigns `calcMode = previousCalcMode`.
+
+It is **one slot, not a stack**, and no writer checks whether the mode it is
+saving is itself a modal one. Open a browser from a confirmation prompt and the
+prompt's own restore target is overwritten. The only patch for this is a
+special case for the timer at `keyboard.c:3929`, and it covers the browsers
+only. Treat "modal over modal" as unsupported rather than as a bug to work
+around.
+
 Two mode values are worth knowing for the wrong reasons. `CM_ERROR_MESSAGE` (9)
 has **no writer anywhere** - errors set `lastErrorCode` instead (`error.c:277`) -
 yet four `switch` arms still handle it. `CM_NO_UNDO` (16) is in no `determineItem`
