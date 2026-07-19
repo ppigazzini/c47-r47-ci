@@ -546,6 +546,33 @@ Note what is NOT UI: `displayCalcErrorMessage` / `moreInfoOnError` (the library'
 error channel) and the `charString` helpers (text utilities). Counting those as UI
 classifies the allocator as a user-interface component.
 
+**The edge 151 files ride: `error.c` is two modules in one file.**
+`displayCalcErrorMessage` renders nothing. Its success path is three assignments
+-- `lastErrorCode`, `errorMessageRegisterLine`, `screenUpdatingMode`
+(`error.c:277-279`) -- and the message is painted much later by
+`_refreshRegisterLine` (`screen.c:3723`), which is why the name misleads. But the
+same translation unit holds `displayBugScreen` (`error.c:333`), a real renderer:
+it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:345`) and
+`showString` (`error.c:348`). The two validation-failure paths of
+`displayCalcErrorMessage` call it.
+
+So every file that merely wants to *signal* an error links, through one file, to
+the renderer, the fonts and a `calcMode` write. That is the mass of the cycle,
+and the two halves share nothing but `errorMessage`. Splitting the file is the
+cheapest structural cut available.
+
+**The cycle is not only calls.** `temporaryInformation` is a return channel made
+of a global: 56 files write it, 13 read it, and the readers are `display.c` and
+`keyboard.c` deciding what to draw. `lastErrorCode` works the same way -- error
+flag, control-flow gate and render input on one `uint8_t`. No call goes upward;
+a value does. A call-graph tool cannot see this, which is why "97% is one SCC"
+has never come with an explanation.
+
+What this buys the reader: the numeric core is cleaner than the SCC suggests.
+`calcMode` appears **zero** times in `mathematics/`, `distributions/`,
+`logicalOps/`, `registers.c` and `memory.c`. The maths does not know what mode
+the calculator is in.
+
 **Base services are trapped by single edges.** Degrees inside the cycle:
 
 ```

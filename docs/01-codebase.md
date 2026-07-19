@@ -428,9 +428,24 @@ keyboard (`defines.h:1632-1650`):
 ```
 
 Each mode has an owning file: NIM/AIM in `bufferize.c`, MIM in
-`ui/matrixEditor.c`, PEM in `programming/`, TAM in `ui/tam.c`, the browsers in
-`browsers/`. `calcMode.c` performs the transitions. Reading `calcMode` is how
-shared code discovers who is in control.
+`ui/matrixEditor.c`, PEM in `programming/`, the browsers in `browsers/`.
+`calcMode.c` performs the transitions. Reading `calcMode` is how shared code
+discovers who is in control.
+
+**TAM is not one of these modes.** There is no `CM_TAM`. Parameter entry is a
+second, parallel state machine held in `tamState_t tam` (`typeDefinitions.h:672`,
+declared `c47.h:451`) and tested as `tam.mode`, whose values are the `TM_*`
+constants 10001..10022 (`defines.h:1673-1694`) - a range chosen so it cannot
+collide with a `calcMode`. Both are live at once: you are in `CM_NORMAL` *and*
+in TAM. `determineItem` checks `tam.mode` before it checks `calcMode`
+(`keyboard.c:1675`) and resolves the key through the `primaryTam` column,
+ignoring shift.
+
+Two mode values are worth knowing for the wrong reasons. `CM_ERROR_MESSAGE` (9)
+has **no writer anywhere** - errors set `lastErrorCode` instead (`error.c:277`) -
+yet four `switch` arms still handle it. `CM_NO_UNDO` (16) is in no `determineItem`
+branch, so a key pressed while `complexSolver()` holds it reaches the bug screen
+at `keyboard.c:1688`.
 
 ## 6. The data model
 
