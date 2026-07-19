@@ -517,21 +517,30 @@ surface (`lcd_fill_rect`, `showString`/`showGlyph`, `showSoftmenu`,
   distributions/   0/16   files touch UI    CLEAN
   logicalOps/      0/11   files touch UI    CLEAN
   core/            0/1    files touch UI    CLEAN
-  mathematics/     3/128  files touch UI    97.7% CLEAN
+  mathematics/     6/128  files touch UI    95.3% CLEAN
   ---------------------------------------------------
   solver/ 6/8    programming/ 5/7    browsers/ 4/4    ui/ 3/3
 ```
 
 **153 of the 156 `.c` files in mathematics/distributions/logicalOps/core never
 touch the UI** (34278 of the 46253 `.c` lines in those four directories; blob
-lines, `.c` only). The three exceptions are three named lines:
+lines, `.c` only). Probe with the full render surface: a set that omits
+`refreshScreen`, `refreshRegisterLine` and `popSoftmenu` reports three files
+rather than six. The six:
 
 ```
   mathematics/int.c:24        refreshLcd(NULL);        // integration refreshes the LCD
   mathematics/matrix.c:1469   showSoftmenu(-MNU_SIMQ); // matrix maths opens a menu
   mathematics/matrix.c:1470   showSoftmenu(-MNU_TAM);
-  mathematics/prime.c         (same class)
+  mathematics/prime.c:818     refreshScreen(253);      // factorising reports progress
+  mathematics/rdp.c:119       refreshRegisterLine(REGISTER_X);
+  mathematics/round.c:120     refreshRegisterLine(REGISTER_X);
+  mathematics/rsd.c:152       refreshRegisterLine(REGISTER_X);
 ```
+
+These six are not mathematics. They are interactive commands filed under
+`mathematics/` because that is where their arithmetic lives. Moving them makes
+the numeric core UI-free by content rather than by percentage.
 
 Note what is NOT UI: `displayCalcErrorMessage` / `moreInfoOnError` (the library's
 error channel) and the `charString` helpers (text utilities). Counting those as UI
@@ -656,7 +665,8 @@ way a project of this size moves. Order is forced by dependency, not by cost.
        prior stack.c -> solver/graph.c edge no longer holds (fnEqSolvGraph is
        called from graphs.c and keyboard.c at 33328e4cc).
 
-  3. ESCALATE the three compute->UI lines: int.c:24, matrix.c:1469-70, prime.c.
+  3. ESCALATE the six compute->UI files: int.c, matrix.c, prime.c, rdp.c,
+       round.c, rsd.c.
        Buys a 46253-line level that can be compiled and tested alone.
 
   4. CUT the four single-edge base traps: charString->error, realType->
@@ -828,7 +838,7 @@ document came from reconstructing something the build had already computed.
 | link graph | `nm` over `build.sim/src/c47-gtk/c47.p/*.o` (228 objects): 2408 edges; 222/228 in one SCC; CCD 50624; ACD 222.0; NCCD 32.10; 3023 globals, 0 duplicated |
 | no object partition | 228 objects for 229 `.c` -- one per compiled source |
 | the maths cycle | `addition.c --fnSwapXY--> stack.c --fnEqSolvGraph--> solver/graph.c --addComplex--> addition.c` |
-| compute is clean | 153 of 156 `.c` in mathematics/distributions/logicalOps/core touch no true-UI symbol; exceptions `int.c:24`, `matrix.c:1469-70`, `prime.c` |
+| compute is clean | 150 of 156 `.c` in mathematics/distributions/logicalOps/core touch no true-UI symbol; the six exceptions are `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` |
 | base traps | `charString.c` in=41 out=1 (`displayBugScreen` in `error.c`); `error.c` in=72 out=8; `flags.c` in=68 out=9 |
 | split effect | removing the dispatch edges: 224 -> 114 trapped; ACD 221.1 -> 108.4; NCCD 31.94 -> 15.67 |
 | churn | 12mo window, existing paths, 5 sweeps >100 files excluded; stable for thresholds 100-400 |
