@@ -201,12 +201,14 @@ apart because that is the shape a split would take, not because the split exists
   file.
 
 **Why the components have to be inferred rather than read off.** `src/c47/c47.c`
-defines exactly **one** function; everything else in it is global variable
-definitions for every component in the system, declared through the 345 `extern`s
-in `c47.h`. There is almost no file-private state anywhere, so a component owns
-its globals by convention only - nothing enforces it. That is the root cause of
-the coupling this page measures, and it is why "which module owns this variable"
-is a question the compiler cannot answer.
+defines just **two** functions - `convertKeyCode` (`c47.c:430`) and
+`program_main` (`c47.c:594`, the DMCP run loop) - and everything else in its
+1258 lines is global variable definitions for every component in the system,
+declared through the 345 `extern`s in `c47.h`. There is almost no file-private
+state anywhere, so a component owns its globals by convention only - nothing
+enforces it. That is the root cause of the coupling this page measures, and it
+is why "which module owns this variable" is a question the compiler cannot
+answer.
 
 ## 3. The god header and the global state
 

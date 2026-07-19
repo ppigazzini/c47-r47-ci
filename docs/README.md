@@ -64,8 +64,10 @@ bash scripts/test/run-smoke.sh
 # log: ${HARNESS_WORK:-/tmp/c43-test-harness}/logs/smoke.log
 ```
 
-`make test` failing 6 tests is the healthy baseline. Compare the failure *set*
-against master, never the count.
+`make test` passes clean, so any failure is a regression rather than a baseline
+to compare against. Read the summary the run prints; the count moves with
+upstream, so do not trust one written down here.
+[03-testing.md](03-testing.md) owns this.
 
 ## Technology
 
