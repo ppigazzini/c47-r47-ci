@@ -708,14 +708,28 @@ measurement of c43.
 | HAL as function-pointer struct, link-time substitution | swap the adapter without recompiling | `#if DMCP_BUILD` forks inside `hal/gui.h`, `hal/lcd.h` | **FAIL** |
 | Dependency inversion | the app defines the port | the port IS `dmcp.h`; other targets emulate the DM42 | **FAIL** |
 | Application layer hardware-agnostic | no toolkit types above the HAL | `gboolean`/`GtkWidget*`/`cairo_t*` in 12 library files | **FAIL** |
-| Features not switched at compile time | runtime flags / plugins | 2781 conditionals; `EXTRA_INFO` in 172 files | **FAIL** |
+| Features not switched at compile time | runtime flags / plugins | 2781 conditionals; but see below - this one is the product, not a defect | **N/A** |
 | Build-input provenance diffable | text sources | keyboard layout + CONFIG defaults in binary `.xlsx` | **FAIL** |
 | Table-driven dispatch | data, not switch forests | `indexOfItems[]`, 2871 slots | **PASS**, exemplary |
 | Tests as data | corpus over code | 322 `.txt` vs 6 `.c` runner | **PASS**, exemplary |
 | Every target built in CI | no untested branch | macOS/Linux/Windows/dmcp/dmcp5/testSuite | **PASS** |
 | Generated artefacts reproducible | one source of truth | generators are targets, but outputs are also checked in and nothing diffs them; some inputs are `.xlsx` | **WEAK** |
 
-8 fail, 3 pass, 1 weak. The three passes are what most projects get wrong and C47
+**The compile-time switching is the product, and scoring it FAIL is a category
+error.** C47 ships *different calculators* from one tree. `Makefile:17` sets
+`DMCP_PACKAGE = 4`; `defines.h:144-148` defines `PACKAGE1_NOBESSEL_NOORTHO`,
+`PACKAGE2_NODISTR` and `PACKAGE3_NOBESSEL_NOORTHO_NOFBR`. Above them sit 73
+`OPTION_*` switches (`defines.h:32-61`), each commented with the *user-visible
+functions* it adds or removes - `OPTION_FACTOR` is "FACTORS, M.FACT, EULPHI,
+SIGMA, NumTh menu". `BUILD.md` exposes it: `make DMCP_PACKAGE=1 dist_dmcp`.
+
+A runtime flag cannot do this job. On a DM42 the code must not be *linked*, not
+merely not executed - the flash is the constraint, which is also what
+`EXTRA_INFO_ON_CALC_ERROR` in 172 files is buying. Removing a feature is not
+deleting code either: it strikes the item out of the catalog and the menus, so
+the user never finds a softkey that does nothing.
+
+7 fail, 3 pass, 1 weak, 1 not applicable. The three passes are what most projects get wrong and C47
 gets right. Every failure traces to one root.
 
 ## 10. Verdict

@@ -53,9 +53,15 @@ One library, several targets:
 | `t47` | the `r47` simulator built with `-DT47`, driven by a Jim/Tcl DSL |
 | `generateConstants`, `generateCatalogs`, `generateTestPgms`, `ttf2RasterFonts`, `forcecrc32` | build-time generators |
 
-`R47` is not a platform. It is a keymap and model variant of the same sources,
-selected with `-DCALCMODEL=USER_R47` (`src/c47-gtk/meson.build:84`,
-`src/c47-dmcp/meson.build:183`) and shipped with `res/keymaps/keymap_R47.bin`.
+`R47` is not a platform, and it is not a build either. `calcModel` is a runtime
+`uint8_t` (`c47.h:237`) that the **user** changes from the settings menu
+(`config.c:2161`, `calcModel = choice;`) and which persists across a restart.
+`-DCALCMODEL` only picks the power-on default - and `USER_R47` is not even a
+runtime value: `c47.c:33` rewrites it to `USER_R47f_g`. Ten models exist
+(`c47.h:257-258`), four of them R47 variants that differ by where f, g and
+backspace sit on the faceplate. That is the product's premise: C47 gives the
+DM42's single shift key the two-shift behaviour WP43 needs, so a faceplate
+overlay converts the hardware.
 
 ### 2.1 What differs between the targets
 
@@ -816,8 +822,12 @@ tanh-sinh, not Romberg), `differentiate` (finite-difference stencils), `graph`,
 `ui/` - `matrixEditor`, `tam`, `tone`. `core/` - `freeList`. `hal/` - five
 headers, no `.c`.
 
-`c47Extensions/` is the fork seam. It holds the fork's additive layer, kept out of the
-WP43-inherited core so upstream merges stay tractable; its header still reads
+`c47Extensions/` is where the fork's **new files** live - not the seam. The seam
+is hand-marked with `//JM` comments, and of 818 such markers across 53 files only
+**85 are inside `c47Extensions/`**; the other 733 are edits in the inherited
+core, led by `items.c` (142), `keyboard.c` (102) and `screen.c` (90). Treat the
+inherited core as forked, not pristine: that is what the marker convention exists
+to record. `c47Extensions/` holds the additive layer; its header still reads
 `Copyright The WP43 and C47 Authors` (`c47Extensions.h:2`). The split is visible
 in the grapher: the rendering and plot-mode half is `c47Extensions/graphs.c`,
 while the sampling and solver engine stayed in the inherited `solver/graph.c`.
