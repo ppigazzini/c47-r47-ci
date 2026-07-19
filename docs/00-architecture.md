@@ -9,9 +9,12 @@ the tree.
 
 Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the
 older `c43` name; the application it builds is C47). Commit analysed:
-`33328e4cc25588eb7504f38f4076f8feae3ae766`. Every figure is measured from git
-objects at that commit or from the `build.sim/` object tree; the method for each
-is stated with it, and every load-bearing claim is indexed in Annex C. Line
+`33328e4cc25588eb7504f38f4076f8feae3ae766` for every figure measured from git
+objects. **The `nm` link-graph metrics are older**: they come from an object
+build at `d969ec75db` and were not re-derived here, which is why s11's
+before-column (224 trapped, ACD 221) does not match s8.2's headline (222, ACD
+222.0) - two builds, comparable deltas, non-comparable absolutes. The method for
+each figure is stated with it, and every load-bearing claim is indexed in Annex C. Line
 counts are blob lines, not SLOC: an upper bound, used for relative scale only.
 
 ## Read this before quoting a number
@@ -929,7 +932,7 @@ build targets; meson stays.
 
 ---
 
-# ANNEX A: Metrics and tools
+## ANNEX A: Metrics and tools
 
 ## A.1 The metrics
 
@@ -988,7 +991,7 @@ inventing a metric. The gap is that no one runs them.
 **Rule: ask the build first.** Every wrong number produced while preparing this
 document came from reconstructing something the build had already computed.
 
-# ANNEX B: References
+## ANNEX B: References
 
 - **John Lakos, _Large-Scale C++ Software Design_** (Addison-Wesley, 1996) and
   **_Large-Scale C++ Volume I: Process and Architecture_** (2019). Physical
@@ -1016,7 +1019,7 @@ document came from reconstructing something the build had already computed.
   **GNU cflow** <http://www.gnu.org/s/cflow/manual/cflow.html>;
   **lakos (Dart)** <https://pub.dev/packages/lakos>.
 
-# ANNEX C: Evidence index
+## ANNEX C: Evidence index
 
 | claim | evidence |
 |---|---|

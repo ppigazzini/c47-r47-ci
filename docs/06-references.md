@@ -33,9 +33,11 @@ this repository are additional, not a replacement.
 - Security hardening: <https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions>
 
 
-External literature only. These age on the field's clock, not the repo's.
+## External literature
 
-## The consensus shape of a memory-debugging toolchain
+These age on the field's clock, not the repo's.
+
+### The consensus shape of a memory-debugging toolchain
 
 The current consensus for memory-correctness testing of a C codebase is a
 **layered pipeline**, because no single tool finds everything: static analysis
