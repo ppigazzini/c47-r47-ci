@@ -61,7 +61,7 @@ Run a CI lane the way CI runs it:
 
 ```bash
 bash scripts/test/run-smoke.sh
-# log: ${HARNESS_WORK:-/tmp/c43-test-harness}/logs/smoke.log
+# log: ${HARNESS_WORK:-${RUNNER_TEMP:-/tmp}/c43-test-harness}/logs/smoke.log
 ```
 
 `make test` passes clean, so any failure is a regression rather than a baseline
@@ -79,7 +79,7 @@ upstream, so do not trust one written down here.
 | Big integers | GMP - the system library on hosts, a Meson wrap when cross-compiling |
 | Simulator UI | GTK 3, plus a Jim/Tcl DSL (`t47`) for scripted control |
 | Firmware targets | DM42 (DMCP, Cortex-M4) and DM42n/DM32 (DMCP5, Cortex-M33), `arm-none-eabi-gcc` |
-| Tests | a 322-file declarative `.txt` corpus run by `src/testSuite` |
+| Tests | a declarative `.txt` corpus run by `src/testSuite` |
 | Harness | POSIX shell scripts under `scripts/test/`, sourced from `lib/common.sh` |
 | CI | GitHub Actions (this repo); upstream itself uses GitLab CI |
 

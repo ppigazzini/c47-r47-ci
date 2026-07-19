@@ -909,7 +909,7 @@ Target structure, once the graph permits it -- `#include` points DOWN only:
       testsuite/    main + port adapters + the corpus runner
     tools/          generateConstants generateCatalogs generateTestPgms
                     ttf2RasterFonts        (unchanged: already correct)
-  tests/            the 322 .txt corpus (data, not source)
+  tests/            the .txt corpus (data, not source; 03-testing owns the count)
   design/           the spreadsheets, converted to CSV/TSV so provenance is
                     diffable and CI stops building xlsxio
 ```

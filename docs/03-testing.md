@@ -69,10 +69,11 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size at upstream `33328e4cc`: **321 test files in
-`src/testSuite/tests/`, 317 listed** in `testSuiteList.txt`. The directory also
-holds `testSuiteList.txt` itself and `validate_tvm.py`, so a raw `ls` counts 323.
-(All three numbers move; re-count rather than quoting this line.)
+Corpus size at upstream `8bf795092`: **322 test files in
+`src/testSuite/tests/`, 318 listed** in `testSuiteList.txt`. Count test files,
+not `.txt` blobs: the directory also holds `testSuiteList.txt` itself and
+`validate_tvm.py`, so a raw `ls` counts 324. (All three move; re-count rather
+than quoting this line.)
 
 A file that is not listed in `testSuiteList.txt` never runs, and the suite stays
 green while reporting the same pass count - add a corpus file and confirm the

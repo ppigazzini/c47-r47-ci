@@ -161,7 +161,7 @@ catalogue. Read it before trusting any lane result.
   change to the grapher, the fonts or the blitter fails it. Nothing else does:
   a regression in register-line rendering, the status bar, the softmenus or
   matrix display passes CI.
-- **The lanes share one upstream tree** at `/tmp/c43-test-harness` and each wipes
+- **The lanes share one upstream tree** at `${RUNNER_TEMP:-/tmp}/c43-test-harness` and each wipes
   it on entry, so two run at once will corrupt each other and the failure surfaces
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
   legitimately takes 2-3 hours; it is not hung.

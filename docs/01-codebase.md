@@ -96,7 +96,8 @@ Three consequences worth knowing before choosing a harness:
   the GTK binary under xvfb ([03-testing.md](03-testing.md) s3).
 
 Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
-179885 lines; 229 `.c` in the library; 322 corpus tests; 15 `meson.build` files.
+179885 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count
+is [03-testing.md](03-testing.md) s1.
 
 ## 3. Repository map
 
@@ -675,7 +676,7 @@ header on each use, and that is the contract, not an inefficiency.
 
 ## 7. The calculator's state
 
-There is no state object. The calculator's state is ~312 mutable globals
+There is no state object. The calculator's state is the mutable globals
 declared in `c47.h` (345 `extern` declarations in total) and visible to all 228
 translation units - see [00-architecture.md](00-architecture.md) s3 for what that costs. What
 follows is where the state that matters actually lives.
@@ -1072,9 +1073,10 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
 - **One branch is compiled at a time.** `PC_BUILD` and `DMCP_BUILD` code is not
   type-checked by the other target's build. Only CI compiling every target
   catches that.
-- **Presentation is untested.** The corpus asserts computed values. Everything
-  reached through `screen.c`, `display.c`, `statusBar.c` and `softmenus.c` is
-  verified by human inspection.
+- **Presentation is untested except for the grapher.** Only `graphs_cov.txt`
+  asserts the screen, by hashing a rendered bitmap; everything else reached
+  through `screen.c`, `display.c`, `statusBar.c` and `softmenus.c` is verified by
+  human inspection. [03-testing.md](03-testing.md) s1 owns this.
 - **Not verified here.** This page was written from static reads of the tree at
   `33328e4cc`; no build was executed for it. The subsystem responsibilities in
   Section 9 are from directory contents and call sites, not from an exhaustive
