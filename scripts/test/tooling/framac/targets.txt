@@ -1,0 +1,64 @@
+# scripts/test/tooling/framac/targets.txt
+#
+# The c43 source files the Frama-C parse gate certifies. One repo-relative path
+# per line (paths are under the upstream clone root). Blank lines and #comments
+# ignored. A trailing "@needs-generated" tag marks files that reference a
+# generated constant (constantPointers.h) and so parse only against a BUILT
+# tree's real src/generated; run-framac.sh SKIPS them (does not fail) when it
+# falls back to the parse-only generated-stubs.
+#
+# Certified green at upstream master ccafdfe51 (2026-07-20), Frama-C 32.1,
+# machdep gcc_x86_64. See REPORT-15 (__DEV) for the tier rationale.
+#
+# Known-unparseable, deliberately EXCLUDED (no analysis value / kernel limits):
+#   src/c47/sort.c                    - string-literal static init not const-folded by the kernel
+#   src/c47/c47Extensions/graphText.c - preprocessor #if the analyser cannot balance
+#   src/c47/printing/martelFonts.c    - font DATA blob, no logic
+#   src/c47/printing/printerFont8.c   - font DATA blob, no logic
+# Tier-B kernels (rotateBits/and/not, matrix index) are added in M1/M2, not here.
+
+# --- logicalOps: pure bitwise kernels ---
+src/c47/logicalOps/countBits.c
+src/c47/logicalOps/mask.c
+src/c47/logicalOps/nand.c
+src/c47/logicalOps/nor.c
+src/c47/logicalOps/or.c
+src/c47/logicalOps/xnor.c
+src/c47/logicalOps/xor.c
+src/c47/logicalOps/setClearFlipBits.c
+
+# --- allocator / pool accounting / value store ---
+src/c47/core/freeList.c
+src/c47/memory.c
+src/c47/flags.c
+
+# --- byte / string / serialization ---
+src/c47/charString.c
+src/c47/saveRestorePrograms.c
+src/c47/fonts.c
+
+# --- program decode / step navigation (Tier-B bug sites) ---
+src/c47/programming/decode.c
+src/c47/programming/nextStep.c              @needs-generated
+
+# --- small integer math (no decNumber/GMP values) ---
+src/c47/mathematics/ceil.c
+src/c47/mathematics/floor.c
+src/c47/mathematics/min.c
+src/c47/mathematics/max.c
+src/c47/mathematics/integerPartShortinteger.c
+src/c47/mathematics/cosh.c
+src/c47/mathematics/log2.c                  @needs-generated
+src/c47/mathematics/pcg_basic.c
+
+# --- UI-adjacent index/layout tables (parse only; Eva value is limited) ---
+src/c47/assign.c
+src/c47/statusBar.c
+src/c47/browsers/asnBrowser.c
+src/c47/browsers/fontBrowser.c
+src/c47/c47Extensions/jm.c
+src/c47/c47Extensions/keyboardTweak.c
+src/c47/c47Extensions/radioButtonCatalog.c
+src/c47/c47Extensions/textfiles.c
+src/c47/c47Extensions/xeqm.c
+src/c47/ui/tone.c

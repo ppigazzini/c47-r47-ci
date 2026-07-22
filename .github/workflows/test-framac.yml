@@ -1,0 +1,100 @@
+name: Test Frama-C Parse Gate
+# Thin CI caller for the Frama-C parse gate (M0). All logic lives in
+# scripts/test/run-framac.sh so it runs identically on a maintainer's machine.
+# The lane installs the opam Frama-C switch, then parses the curated c43 slice
+# (scripts/test/tooling/framac/targets.txt) as one C17 program to the kernel.
+#
+# Without src/generated (this lane does not build the tree) it runs in the
+# self-contained stub-header mode and SKIPS the @needs-generated targets; that is
+# reported, not hidden. Full certification of the whole slice runs against a
+# built tree locally (FRAMAC_C43_DIR=<built c43>). If the opam install ever fails
+# the script's own 127 path would report SKIPPED, but here we install it so the
+# gate actually fires.
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  framac:
+    name: Frama-C parse gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+      # Pin the toolchain so a gate result names the versions behind it.
+      FRAMAC_VERSION: "32.1"
+    steps:
+      - name: Configure Git init defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
+      - name: Check out planning repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            ca-certificates git opam bubblewrap m4 build-essential libgmp-dev
+
+      - name: Cache opam switch
+        id: opam-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.opam
+          key: opam-framac-${{ env.FRAMAC_VERSION }}-${{ runner.os }}
+
+      - name: Install Frama-C and Z3 via opam
+        if: steps.opam-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          opam init --disable-sandboxing --yes --bare
+          opam switch create default ocaml-base-compiler --yes || opam switch set default
+          eval "$(opam env)"
+          opam install --yes frama-c.${FRAMAC_VERSION} z3
+
+      - name: Run Frama-C parse gate (M0)
+        shell: bash
+        run: bash scripts/test/run-framac.sh
+
+      - name: Run Frama-C Eva/RTE gate (M1)
+        shell: bash
+        run: bash scripts/test/run-framac-eva.sh
+
+      - name: Run Frama-C regression wall (M2)
+        shell: bash
+        run: bash scripts/test/run-framac-regress.sh
+
+      - name: Run Frama-C WP proof gate (M3)
+        shell: bash
+        run: bash scripts/test/run-framac-wp.sh
+
+      - name: Run Frama-C Tier-D frontier gate (M4)
+        shell: bash
+        run: bash scripts/test/run-framac-nonterm.sh
+
+      - name: Upload parse-gate log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-framac-log
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14

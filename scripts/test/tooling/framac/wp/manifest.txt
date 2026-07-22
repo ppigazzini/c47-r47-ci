@@ -1,0 +1,22 @@
+# scripts/test/tooling/framac/wp/manifest.txt
+# M3 WP proof drivers. One driver per line; run-framac-wp.sh runs
+#   frama-c -wp -wp-prover z3 -wp-rte
+# on each and requires EVERY goal proved (Proved goals: N / N). A driver with any
+# unproved goal fails the gate. Contracts are extracted kernels carrying ACSL, so
+# c43 source stays untouched (upstream-governance friendly).
+# Audit basis: upstream master ccafdfe51, Frama-C 32.1, Z3 4.16, machdep gcc_x86_64.
+#
+# Proved here:
+#   regnum_bijection.c - regKStoC/regCtoKS round-trip identity, both directions
+#   to_blocks.c        - TO_BLOCKS rounding law (ceil to 4-byte blocks, no wrap)
+#   mask_shift.c       - MASKL shift-in-bounds (resolves the M1 PRECISION-WP handoff)
+#
+# Deferred (documented, need heavier machinery - NOT silently dropped):
+#   fnLj `w<<=count`   - needs a __builtin_clzll axiomatization; clz-value relation
+#                        is opaque to both Eva and WP. Tracked, not proved.
+#   freeList sortedness- needs full loop invariants over freeMemoryRegions[];
+#                        a larger annotation effort than M3's scope.
+#
+regnum_bijection.c
+to_blocks.c
+mask_shift.c

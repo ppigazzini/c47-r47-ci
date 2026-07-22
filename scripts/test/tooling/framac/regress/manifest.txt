@@ -1,0 +1,14 @@
+# scripts/test/tooling/framac/regress/manifest.txt
+# M2 regression wall. One row per historic OOB bug:
+#   <kernel.c> | <eva-slevel> | <fix-commit> | <note>
+# run-framac-regress.sh compiles each kernel TWICE: default (pre-fix logic) must
+# raise >=1 Eva alarm (the detector fires - negative control), and -DFIXED (the
+# shipped fix) must raise 0 (the fix closes it). A kernel where the buggy mode
+# stops firing, or the fixed mode alarms, FAILS the gate. Each kernel reproduces
+# the cited access verbatim with buffers sized to the real allocation.
+# Audit basis: upstream master ccafdfe51, Frama-C 32.1, machdep gcc_x86_64.
+#
+findkey.c       | 200 | 886d26ce3 | indexOfItems[op] read, op>LAST_ITEM (nextStep.c:307)
+inscol.c        | 200 | fb1f7f483 | newMat[] write 1 past rows*(cols+1) (matrix.c:2552) - pool-OOB, ASan/Valgrind-blind
+eigenvalue.c    | 200 | b9e4f7519 | previousDiagonal[] write past size*2 (matrix.c:6625) - pool-OOB, ASan/Valgrind-blind
+printregister.c | 200 | 1754a7808 | complex matrix[] read, r*rows+c stride bug (registers.c:1738)

@@ -1,0 +1,19 @@
+# scripts/test/tooling/framac/eva/ledger.txt
+# M1 Eva/RTE alarm ledger. One row per harness:
+#   <harness.c> | <expected-alarms> | <class> | <note>
+# The gate (run-framac-eva.sh) runs `frama-c -rte -eva -eva-slevel 500` on each
+# harness and FAILS if the alarm count EXCEEDS the expected value (a regression:
+# a newly exposed runtime-error). A count BELOW expected is reported so the
+# ledger can be tightened. Classes:
+#   PROVED       - 0 alarms; runtime-safe over the whole modelled input domain.
+#   PRECISION-WP - safe by hand but Eva's non-relational domain cannot close it;
+#                  a relational precondition -> hand off to WP (milestone M3).
+#   CONTRACT-OOB - a real out-of-bounds surface, safe only if the caller upholds
+#                  a stated precondition. A finding, tracked for a caller audit.
+# Audit basis: upstream master ccafdfe51, Frama-C 32.1, machdep gcc_x86_64.
+#
+logic_ops.c       | 0 | PROVED       | and/or/xor/popcount total & mask-safe over all inputs
+freelist_insert.c | 0 | PROVED       | sorted insert stays in freeMemoryRegions[] given n <= MAX-1 (caller guard)
+mask_kernel.c     | 1 | PRECISION-WP | MASKL shift <<(ws-n) needs n<ws (guard chain); relational, WP-provable
+shift_rotate.c    | 1 | PRECISION-WP | fnLj w<<=count needs w<=mask => count in [0,ws-1]; clz-value relation, WP
+charstring_walk.c | 1 | CONTRACT-OOB | stringNextGlyphNoEndCheck_JM reads str[pos+2]; OOB unless caller keeps pos+2<=last

@@ -1,0 +1,16 @@
+diff --git a/src/c47/solver/finite_differences.h b/src/c47/solver/finite_differences.h
+index 8e69af70a..1735bc4f6 100644
+--- a/src/c47/solver/finite_differences.h
++++ b/src/c47/solver/finite_differences.h
+@@ -12,7 +12,11 @@ typedef struct {
+     uint8_t n;      // Number of steps from the x, each step is by h in either direction
+     uint8_t order;  // Order of the derivative (1 or 2 only at present)
+     uint8_t denom; // Denominator of the finite different equation
++#ifdef __FRAMAC__
++    uint8_t coeff[MAX_F_EVAL]; // Frama-C shim: kernel rejects static init of a flexible array member
++#else
+     uint8_t coeff[/*2*n+1*/]; // Coefficients for each function evaluation point
++#endif
+ } FINITE_DIFF_COEFF;
+ 
+ 
