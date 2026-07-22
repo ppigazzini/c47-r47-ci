@@ -1,0 +1,11 @@
+# Self-referential SUMn: reaches program evaluation through neither solver() nor integrate(), so it
+# crashes even a tree with per-engine SOLVE/INT caps - the case that requires a shared budget. Run: xeq A
+LBL 'A'
+LIT 1
+ENTER
+LIT 2
+ENTER
+LIT 1
+SUMN 'A'
+RTN
+END

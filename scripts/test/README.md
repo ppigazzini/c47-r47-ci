@@ -53,6 +53,14 @@ to reproduce a CI coverage failure.
   and 1 with the failing check named. `ui/ij-preservation.t47` locks in upstream
   MR !1553: the matrix editor and the vector functions must leave the user's
   `I` and `J` alone.
+- `run-nestcheck.sh` - probes self-referential engine nesting. Assembles the six
+  `tooling/nestcheck/*.pgm` listings with `p47asm.py`, builds `simc47 t47`, and
+  runs each headless under `timeout`, classifying survived / crashed / hung. The
+  legal depth-2 nest (`nested2`, root exactly 2) is the lane's control and must
+  always survive. Report-only by default (`NESTCHECK_GATE=0`): upstream master
+  still crashes on the SOLVE/SUM/PLOT probes, so the standing log count is the
+  deliverable; `NESTCHECK_GATE=1` makes any non-survival a hard failure once the
+  nesting budget merges.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
@@ -66,6 +74,13 @@ to reproduce a CI coverage failure.
   `testSuiteList.txt`. The corpus itself merged upstream on 2026-07-09 (MR !1487),
   so `coverage.patch` is retired and the coverage lane no longer overlays it; this
   audit is retained for any future carried corpus patch.
+- `tooling/p47asm.py` + `tooling/nestcheck/*.pgm` - a `.p47` assembler that turns
+  a mnemonic listing into the calculator's byte-code program file, reading opcode
+  numbers from the resolved clone's `src/c47/items.h` so it follows upstream
+  renumbering. `--selftest` checks the encoder against byte streams executed
+  against upstream, so a drifted encoding fails loudly instead of emitting
+  plausible garbage. Used by `run-nestcheck.sh`; run standalone to craft any
+  program repro without hand-counting bytes.
 - `tooling/function-reachability.py` - summarizes the effective testSuite
   `funcTestNoParam[]` whitelist against c47 `LAST_ITEM`, so the coverage lane
   reports how much of the catalog is directly callable from corpus tests.

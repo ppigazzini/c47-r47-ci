@@ -1,0 +1,9 @@
+# Self-referential program plot: PGMPLT of itself; dumps core headless on an unguarded tree. Run: xeq P
+LBL 'P'
+PGMPLT 'P'
+LIT 1
+ENTER
+LIT 5
+PLTF 'x'
+RTN
+END

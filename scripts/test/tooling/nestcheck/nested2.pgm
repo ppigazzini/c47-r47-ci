@@ -1,0 +1,26 @@
+# Legal SOLVE(SOLVE) at depth 2 - upstream supports this deliberately. The inner solve roots u-2=0,
+# the outer f(v)=2-v, exact root 2. This one must ALWAYS survive with X=2: it is the lane's own
+# control - if it fails, the runner (not upstream) is broken. Run: xeq N, expect X=2
+LBL 'N'
+PGMSLV 'M'
+LIT 0
+ENTER
+LIT 5
+SOLVE 'v'
+RTN
+LBL 'M'
+PGMSLV 'P'
+LIT 0
+ENTER
+LIT 5
+SOLVE 'u'
+RCL 'u'
+RCL 'v'
+SUB
+RTN
+LBL 'P'
+RCL 'u'
+LIT 2
+SUB
+RTN
+END

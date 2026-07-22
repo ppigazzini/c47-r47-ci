@@ -1,0 +1,10 @@
+# Self-referential SOLVE: the program solves itself. Crashes an unguarded tree (C-stack overflow); a
+# nesting-budget tree halts it with the solver-abort error. Run: xeq A
+LBL 'A'
+PGMSLV 'A'
+LIT 2
+ENTER
+LIT 3
+SOLVE 'x'
+RTN
+END

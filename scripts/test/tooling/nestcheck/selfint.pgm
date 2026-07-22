@@ -1,0 +1,9 @@
+# Self-referential INT (the c43 !1598 repro). Run: xeq A
+LBL 'A'
+PGMINT 'A'
+LIT 0
+ENTER
+LIT 1
+INTYX 'x'
+RTN
+END

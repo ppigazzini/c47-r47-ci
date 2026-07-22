@@ -1,0 +1,17 @@
+# Alternating INT/SOLVE nest: G integrates H, H solves G. Measures cap compounding - per-engine caps
+# stack both budgets before either trips; a shared budget bounds the mix. Run: xeq G
+LBL 'G'
+PGMINT 'H'
+LIT 0
+ENTER
+LIT 1
+INTYX 'x'
+RTN
+LBL 'H'
+PGMSLV 'G'
+LIT 1
+ENTER
+LIT 3
+SOLVE 'v'
+RTN
+END
