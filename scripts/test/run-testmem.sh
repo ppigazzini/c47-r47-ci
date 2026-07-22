@@ -92,8 +92,7 @@ main() {
 
     [[ -f "$BASELINE" ]] || harness_die "no baseline at $BASELINE; run once with UPDATE_BASELINE=1"
     local base_sorted="$LOG_DIR/testmem-baseline.sorted"
-    # Tolerate an all-comment baseline (every growth case fixed): grep -v then
-    # matches nothing and exits 1, which pipefail+set -e would turn into an abort.
+    # Tolerate an all-comment baseline (every growth case fixed): grep -v then matches nothing and exits 1, which pipefail+set -e would turn into an abort.
     { grep -vE '^\s*(#|$)' "$BASELINE" || true; } | LC_ALL=C sort -u > "$base_sorted"
 
     local new missing
