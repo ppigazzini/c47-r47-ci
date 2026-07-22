@@ -100,8 +100,13 @@ this class comes up again:
   an abort, not just the absence of a crash.
 - **The cap needs a stack-budget argument on the target**, not just on the
   simulator: a limit of N heavy frames is only known-safe once
-  frames-times-size is measured against the device stack. Unmeasured on the
-  DM42 as of 2026-07.
+  frames-times-size is measured against the device stack. The usage side is
+  measurable without hardware - frame sizes read straight off the built ARM
+  ELF with `objdump -d` (prologue `sub sp` plus the `stmdb sp!` callee
+  saves), and a hijacked command returning the address of a local gives the
+  live stack pointer on the device. The capacity side - what the DMCP OS
+  grants - is stated in no public document, so it ends as a hardware
+  measurement, not a datasheet lookup.
 
 ## Reference list
 
