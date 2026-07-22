@@ -669,6 +669,27 @@ Every one of these has silently passed a broken thing at least once.
     leaves a committed fix in the tree, and the A/B then compares the branch with
     itself and agrees. Check out the ref, force a rebuild (Section 7 method discipline in [03-testing.md](03-testing.md)), and print the
     resolved HEAD in the same command that prints the reading (16, 6).
+19. **A conditional breakpoint on a stale line number never fires, and silence
+    reads as a pass.** A refactor shifted `solve.c` and a key-injection probe at
+    the old line "measured" a clean final state on a path it never touched - the
+    injected key was even consumed downstream, so the readings looked plausible.
+    Before trusting any gdb probe, re-grep the anchor expression for its current
+    line and make the probe print the source context it hit; a breakpoint script
+    that cannot show the code it stopped on has not run.
+20. **A single-run free-pool baseline flags retained state as a leak.**
+    Asserting `getFreeRamMemory()` unchanged across one operation
+    false-positives on everything the operation legitimately keeps - the
+    `saveForUndo` snapshot alone moved the pool 24 bytes under the first
+    nested-solve gate. Measure steady-state: run the operation once to warm the
+    retained allocations, take the baseline, run it again, then assert. The
+    warmed second run separates a leak from a cache.
+21. **A negative control that restores files restores the last commit, not your
+    last edit.** `git checkout -- <file>` after a neuter-the-gate control
+    silently discarded an uncommitted comment rewrite in the same file, and
+    three history rebuilds carried the stale text before an audit caught it.
+    Sibling of 18: after any control that touches tracked files, diff the
+    touched paths against what you believe the tree contains before building
+    anything on top.
 
 ## 13. Current gaps
 

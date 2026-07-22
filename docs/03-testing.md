@@ -23,8 +23,13 @@ in [08-glossary.md](08-glossary.md).
 ## The one-line version
 
 ```bash
-make test     # builds the testPgms fixture, then runs the corpus
+make test     # builds the testPgms fixture, then runs the corpus - SERIAL ONLY, never -j
 ```
+
+`make test -j` corrupts itself: the target's prerequisites are `clean build.sim
+testPgms` (`Makefile:157`) and under `-j` they run concurrently, so `clean`
+deletes directories meson is mid-regenerate in - the failure is a meson
+`FileNotFoundError`, not a test result.
 
 **It passes clean**, so a failure is a regression, not a baseline to compare
 against. The target depends on `testPgms` and generates the fixture first;
@@ -215,6 +220,25 @@ Those reasons are the durable fact; the count moves with the catalog.
 | `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1098`). |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
 | `press` | registered in every build; **refuses at runtime when headless** (`dsl.c:995-1001`) | Section 3. |
+
+**A single-letter name is a register, never a named variable.** `reg` and `var`
+resolve their argument through `dslParseRegisterArg` (`value.c:59`): one
+alphabetic character is case-folded into `registerFlagLetters`
+("XYZTABCDLIJKMNPQRSEFGHOUVW", `c47.c:29`) - all 26 letters map to a lettered,
+stat or spare register, so the lookup never misses and never reaches the named
+variables. `[var x]` reads stack register X and `[var u]` reads spare register
+U, whatever named variables exist. A named variable is reachable only with a
+name of two or more characters; do not use single-letter `var`/`reg` output as
+evidence about named variables.
+
+**After an engine abort, the next `xeq` silently does nothing.** A solver-family
+abort (error 60) halts the machine with the modal error still raised; on the
+keyboard the next keypress acknowledges it, but the DSL enters through
+`reallyRunFunction`, skipping that acknowledgment, and `fnExecute` runs a
+program only when `lastErrorCode == ERROR_NONE` (`lblGtoXeq.c:201`) - the `xeq`
+returns with nothing run and no DSL-visible failure. No DSL command performs
+the acknowledgment (`nim` does not clear it, measured). Split the script at the
+abort, or drive `c47` under xvfb and `press` EXIT first.
 
 Value literals (`src/t47/value.c`): real `2.5`; complex `"3 + ix4"`; short
 integer `"FF#16"` (base 2..16); long integer `"12345678901234567890"`; date
@@ -626,6 +650,18 @@ say so, not to invent an assertion:
 
 **Do not add tests that execute code without assertions unless the test is purely
 a sanitizer/fuzz harness and says so explicitly.**
+
+### 6.11 Global labels in fixture programs share one namespace - stake before you name
+
+Every program a cov driver loads shares the calculator's single global-label
+namespace with every other fixture's programs. A duplicate label does not error:
+`findNamedLabel` resolves to one of the two bodies, and execution walks the
+wrong program - the failure surfaces far from the collision (measured: a
+fixture reusing `Q` sent `covProgramFlow`'s XEQ into a self-integrating
+program). Before staking a new name, grep `testSuite.c` for
+`STRING_LABEL_VARIABLE` stakes and `fnExecute`/`findNamedLabel` uses; the
+single letters are nearly exhausted (S, T, U, C, E, G, H, P, Q and more), so
+prefer two-character names.
 
 ## 7. Method discipline
 
