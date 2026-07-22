@@ -106,6 +106,7 @@ Accounting facts worth knowing before you measure anything:
 | Logic bug (wrong value) | corpus with value assertions | every sanitizer |
 | Register/state collision | t47 sentinel battery ([03-testing.md](03-testing.md) Section 2); the UI lane for the keyboard path | every memory tool |
 | **Keyboard/menu-only regression** | UI lane (`run-ui.sh`, real GTK under `xvfb-run`) | the corpus, t47, every memory tool |
+| **Unbounded C-stack recursion** (a program re-entering its own engine) | nestcheck lane (`run-nestcheck.sh`); Frama-C Nonterm on the guard shape | ASan/Valgrind see the crash, not the cause; the corpus never nests a program in itself |
 
 The last row matters more than it looks: two of the most recent real bugs (the
 matrix editor clobbering I/J, and the STOVEL/RCLVEL off-by-one) are register

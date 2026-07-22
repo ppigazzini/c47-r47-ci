@@ -432,6 +432,16 @@ PROGRAM
 Extensions (`src/c47/hal/io.h`): `.p47` programs, `.s47` state, `.d47` data,
 `.rtf`/`.txt` human-readable exports.
 
+**Do not hand-count the bytes.** `scripts/test/tooling/p47asm.py` assembles a
+`.p47` from a mnemonic listing (`LBL 'A'` / `PGMSLV 'A'` / `LIT 2` / `SOLVE 'x'`
+...), reading the opcode numbers from the resolved clone's `src/c47/items.h` so
+it follows upstream renumbering. Its `--selftest` checks the encoder against
+byte streams that were run against upstream, so a drift fails loudly. One
+instruction encodes to several bytes across line boundaries; counting them by
+hand is how a program repro ends up decoding into something other than what its
+comment claims - the tool removes the step where that goes wrong. The
+`nestcheck` lane's `tooling/nestcheck/*.pgm` are worked examples.
+
 ```bash
 ./t47 --reset --exec 'readp res/PROGRAMS/SPIRALk.p47; xeq SPIRALk; puts "X=[reg X]"'
 ./t47 --reset --exec 'readp ./docs/appnotes/sources/AN0022b_programs/func.p47; xeq PLTROOT'
