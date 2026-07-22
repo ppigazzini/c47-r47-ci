@@ -36,7 +36,8 @@ def collect_patch_facts(lines: list[str]) -> tuple[set[str], set[str]]:
 
         if in_test_list and line.startswith("+") and not line.startswith("+++"):
             entry = line[1:].strip()
-            if entry and not entry.startswith("#"):
+            # testSuiteList.txt comments start with ';', not '#'.
+            if entry and not entry.startswith(("#", ";")):
                 listed_tests.add(entry)
 
     return added_tests, listed_tests
