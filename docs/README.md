@@ -37,10 +37,33 @@ The repository holds three things:
 | [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
 | [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
 | [07-writing.md](07-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
+| [08-glossary.md](08-glossary.md) | Anyone reading any of the above | Two tiers of vocabulary: the calculator's own terms, which upstream owns, and the harness terms this repo invented |
+| [09-modules.md](09-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see
 [scripts/test/README.md](../scripts/test/README.md), which owns that subject.
+
+## By task
+
+The table above is keyed by subject, which helps once you know what you are
+looking for. This one is keyed by what brought you here.
+
+| you want to | read |
+|---|---|
+| look up a term you do not recognise | [08-glossary.md](08-glossary.md) |
+| find where something lives in the c43 tree | [01-codebase.md](01-codebase.md) |
+| understand why the code is shaped the way it is, or argue it should change | [00-architecture.md](00-architecture.md) |
+| build the simulator, or work out why a build is stale | [02-build.md](02-build.md) |
+| write a test, or drive the calculator headlessly | [03-testing.md](03-testing.md) |
+| chase a leak, a crash or an overrun | [04-debugging.md](04-debugging.md) |
+| work out which lane catches the change you just made | [05-ci.md](05-ci.md) - "Which lane to run first" |
+| reproduce a CI failure locally | [05-ci.md](05-ci.md) - and note the coverage exception |
+| understand why CI is red when nothing here changed | [05-ci.md](05-ci.md) - pin `UPSTREAM_COMMIT` |
+| add a lane, or change one | [05-ci.md](05-ci.md), then [scripts/test/README.md](../scripts/test/README.md) |
+| identify which high-level module you are in, and what to search for it | [09-modules.md](09-modules.md) |
+| find an authoritative external reference | [06-references.md](06-references.md) |
+| write a doc, a comment or a commit message | [07-writing.md](07-writing.md) |
 
 ## Quick start
 

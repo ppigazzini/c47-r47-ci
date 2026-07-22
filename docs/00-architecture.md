@@ -1,5 +1,7 @@
 # C47 Architecture
 
+Audit basis: upstream `33328e4cc25588eb7504f38f4076f8feae3ae766`, 2026-07-18.
+
 A measured architecture analysis of the upstream C47 calculator application:
 what shape the code is in, why, and what that costs anyone changing it.
 
@@ -7,9 +9,25 @@ Read this before proposing any structural change. Read
 [01-codebase.md](01-codebase.md) instead if you only need to find your way around
 the tree.
 
+## What this page does not cover
+
+This page and [01-codebase.md](01-codebase.md) both describe the god header, the
+item table and the HAL, and they are not saying the same thing about them: this
+page owns what those structures **cost**, 01 owns what they **are** and where
+they live. Anything below is someone else's, and is not re-derived here.
+
+| subject | owner |
+|---|---|
+| where a thing lives, the register file, the memory model, control flow | [01-codebase.md](01-codebase.md) |
+| the `make` targets, the Meson graph, the generators, packaging | [02-build.md](02-build.md) |
+| the corpus, the drivers, how to write a test | [03-testing.md](03-testing.md) |
+| the detectors and the false-pass catalogue | [04-debugging.md](04-debugging.md) |
+| the lanes, the baselines, what CI gates | [05-ci.md](05-ci.md) |
+| what a term means | [08-glossary.md](08-glossary.md) |
+
 Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the
-older `c43` name; the application it builds is C47). Commit analysed:
-`33328e4cc25588eb7504f38f4076f8feae3ae766` for every figure measured from git
+older `c43` name; the application it builds is C47). The audit basis above is
+the commit behind every figure measured from git
 objects. **The `nm` link-graph metrics are older**: they come from an object
 build at `d969ec75db` and were not re-derived here, which is why s11's
 before-column (224 trapped, ACD 221) does not match s8.2's headline (222, ACD
@@ -212,6 +230,36 @@ state anywhere, so a component owns its globals by convention only - nothing
 enforces it. That is the root cause of the coupling this page measures, and it
 is why "which module owns this variable" is a question the compiler cannot
 answer.
+
+## 2.2 What the layers add up to
+
+(Verified against upstream `b18a42df7`, 2026-07-22.)
+
+Section 2.1 layers the code; this paragraph names what the layers *are*,
+because the directory names hide it. **C47 is not a fixed-function calculator:
+it is a programmable machine in the HP-41/42 lineage that embeds several
+complete language surfaces - a byte-code program language with its own
+assembler, disassembler and virtual machine; an infix formula language; a
+number-entry lexer; an embedded Tcl automation DSL; and text serialization
+formats - alongside a portfolio of numeric engines**, all sharing a 96 KiB-RAM
+embedded target. The full module inventory, with each engine named by its
+canonical domain term and mapped to the literature that studies it, is
+[09-modules.md](09-modules.md); the curated references themselves live in
+[06-references.md](06-references.md).
+
+Two consequences belong here, with the dependency evidence:
+
+- **The VM is re-entrant by design and by feature.** A solved program may
+  itself contain SOLVE; an integrand may contain INT (upstream enables
+  SOLVE(SOLVE) and PLOT(SOLVE) deliberately). Recursion through the engines is
+  therefore *user input*, and the C-stack discipline in
+  [06-references.md](06-references.md) ("Recursion guards on an embedded C
+  stack") is load-bearing, not theoretical.
+- **Every engine shares one arena.** Programs, registers, matrices, subroutine
+  frames and menus all live in the single `ram` pool of Section 3's global
+  state, which is why an overrun in any one engine can surface as corruption
+  in another (the pool-overrun blindness catalogued in
+  [04-debugging.md](04-debugging.md)).
 
 ## 3. The god header and the global state
 

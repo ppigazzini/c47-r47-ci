@@ -13,8 +13,9 @@ page in the SAME commit; sync upstream, re-read the pages that track it.
 repo writes for a reader - pages, comments and commit messages alike - and maps
 every page to what it owns and which run hot. `bash scripts/test/run-docs-lint.sh`
 catches a dead link, a dead path, a stale pinned count, a non-ASCII byte, a
-`__DEV/` citation, or a broken `@AGENTS.md` import. It cannot tell you a sentence
-has become false. That part is yours.
+`__DEV/` citation, a broken `@AGENTS.md` import, or an upstream-tracking page
+with no audit basis. It cannot tell you a sentence has become false, and an
+audit basis is itself a sentence. That part is yours.
 
 ## What this repository is
 
@@ -66,6 +67,8 @@ debugs a product whose source lives somewhere else.
 | understand or add a CI lane | [docs/05-ci.md](docs/05-ci.md) |
 | find an authoritative external reference | [docs/06-references.md](docs/06-references.md) |
 | write a doc, a code comment or a commit message | [docs/07-writing.md](docs/07-writing.md) |
+| look up a term, or check which tier of vocabulary it belongs to | [docs/08-glossary.md](docs/08-glossary.md) |
+| identify the high-level module you are touching, and the literature to search for it | [docs/09-modules.md](docs/09-modules.md) |
 
 ## This file, and CLAUDE.md
 

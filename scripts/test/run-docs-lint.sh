@@ -24,6 +24,9 @@
 #     as non-negotiable in AGENTS.md and were enforced by nothing. __DEV/ is
 #     gitignored, so a citation into it is a dangling reference for every reader
 #     who is not the maintainer.  -> checks 4 and 5
+#   * Four pages describe upstream, which moves without a commit here. Two named
+#     the commit they were measured at and two named nothing at all, so a reader
+#     could not tell a page checked last week from one never checked.  -> check 7
 #
 # NOT checked, deliberately: whether a sentence is true. A baseline rationale
 # reading "the SHOI->real conversion caches a scratch real in the pool" parses,
@@ -43,8 +46,12 @@ log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 fail=0
 note() { printf 'docs-lint: %s\n' "$*"; fail=1; }
 
-mapfile -t DOCS < <(git ls-files '*.md')
-log "docs rot gate over ${#DOCS[@]} tracked markdown files"
+# Tracked files AND untracked-but-not-ignored ones: a brand new page is exactly
+# the page most likely to be wrong, and listing only --cached skips it until the
+# commit that adds it has already been made. --exclude-standard keeps __DEV/ and
+# the build dirs out. Sort -u because the two lists overlap.
+mapfile -t DOCS < <(git ls-files --cached --others --exclude-standard '*.md' | sort -u)
+log "docs rot gate over ${#DOCS[@]} markdown files (tracked and new)"
 
 # --- 1. every internal link resolves ------------------------------------------
 # Resolve relative to the LINKING FILE's directory, not the cwd: docs/README.md
@@ -157,6 +164,45 @@ if [[ -f CLAUDE.md ]]; then
     fi
 fi
 log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
+
+# --- 7. the upstream-tracking pages declare an audit basis --------------------
+# Four pages describe a tree this repo does not control, so they rot when
+# upstream moves and nothing here changes: that is how a361b6797 -> 87c70c77a
+# broke three lanes with no commit here. Before this check, 00 and 01 named the
+# commit they were measured at and 02 and 03 named nothing, so a reader could
+# not tell an unchecked page from a checked one.
+#
+# Two legal forms, both one line:
+#   Audit basis: upstream `<40-hex>`, YYYY-MM-DD.
+#   Audit basis: none recorded.
+# The second is not a loophole - it is the honest value, and it is visible in
+# the rendered page, which "no line at all" is not.
+#
+# The SHA must be all 40 characters, matching what common.sh already demands of
+# UPSTREAM_COMMIT: an abbreviation is ambiguous against a growing history and
+# cannot be fed straight back to a lane to re-verify the page.
+#
+# The LIMIT, and it is the whole point of writing it down: this checks that a
+# stamp exists and parses. It cannot check that anyone read the page at that
+# commit. Upstream here is deliberately unpinned - every lane resolves master at
+# runtime - so there is no file to diff a stamp against, and a stamp is a claim
+# with the same shelf life as the prose under it. It dates the claim; it does
+# not verify it.
+n=0
+for page in 00-architecture 01-codebase 02-build 03-testing; do
+    f="docs/$page.md"
+    [[ -e "$f" ]] || { note "MISSING PAGE  $f (named in the audit-basis list)"; n=$((n + 1)); continue; }
+    basis="$(grep -m1 '^Audit basis:' "$f" || true)"
+    if [[ -z "$basis" ]]; then
+        note "NO BASIS      $f has no 'Audit basis:' line (use 'none recorded' if it has never been checked)"
+        n=$((n + 1))
+    elif [[ "$basis" != "Audit basis: none recorded." ]] \
+        && ! [[ "$basis" =~ ^Audit\ basis:\ upstream\ \`[0-9a-f]{40}\`,\ [0-9]{4}-[0-9]{2}-[0-9]{2}\.$ ]]; then
+        note "BAD BASIS     $f: '$basis' is neither 'none recorded.' nor 'upstream \`<40-hex>\`, YYYY-MM-DD.'"
+        n=$((n + 1))
+    fi
+done
+log "check 7: upstream-tracking pages declare an audit basis ($n problems)"
 
 if [[ "$fail" -ne 0 ]]; then
     log "DOCS GATE FAILED"

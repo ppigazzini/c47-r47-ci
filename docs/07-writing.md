@@ -140,6 +140,8 @@ exactly that way, in the session that changed it.
 | [05-ci.md](05-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
 | [06-references.md](06-references.md) | external links | cold |
 | this page | the rules | cold |
+| [08-glossary.md](08-glossary.md) | what the words mean, product and harness | mixed - see below |
+| [09-modules.md](09-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3
 describe a tree **this repo does not control**, so they rot when upstream moves
@@ -151,43 +153,84 @@ change.
 Cold does not mean unowned. It means the claim outlives a release, so when it
 *is* wrong it has usually been wrong for a long time.
 
+**A page can be both, and the glossary is the one that is.** What a word means
+barely moves; the `file:line` beside it moves every time upstream edits that
+file. Splitting a page's temperature by *column* rather than by page is the
+honest reading, and the page says so where a reader will hit it: grep the symbol
+when a citation misses, rather than assuming the definition went with it.
+
+### The audit basis
+
+Because those four pages rot without a commit here, each one states, on its own
+line directly under the title, the commit it was last read against:
+
+```
+Audit basis: upstream `<40-character sha>`, YYYY-MM-DD.
+```
+
+The SHA is full-length because that is what `UPSTREAM_COMMIT` accepts, so a
+reader can paste it straight back into a lane and re-derive the page's claims.
+
+When a page has never been checked, the line reads `Audit basis: none
+recorded.` and the page says so in prose. **That is the honest value, not a
+loophole.** An unchecked page with no line looks exactly like a checked one; an
+unchecked page that says "none recorded" tells a reader how much to trust it and
+tells a maintainer what to do next. `03-testing.md` carries it today.
+
+**State the limit, because this one is easily overread.** Check 7 verifies that
+a stamp exists and parses. It cannot verify that anyone read the page at that
+commit - a stamp is prose, with the same shelf life as the prose under it.
+Upstream here is deliberately unpinned; every lane resolves `master` at runtime,
+so there is no file in this repo to diff a stamp against. It dates a claim. It
+does not check one.
+
 ## Code comments
 
 This repo's own code is shell; the product it drives is C. The rules above hold,
 plus these.
 
-**Imperative mood, leading with a verb.** "Resolve the upstream commit", not
-"Returns the commit" or "This function resolves...". A comment is an order to the
-reader, not a description of the author.
+**A comment lives two lives.** As you code and debug it is a **breadcrumb** - the
+history, the hypothesis, the value that surprised you all earn their place. Once
+the change merges it is a **fact**, and none of that survives. Write the
+breadcrumbs freely, then compact every one to the form below in the same pass as
+the commit; they always come out too long. A comment reaches the diff only if it
+is still necessary once the code reads plainly - if the line speaks for itself,
+say nothing.
 
-**Write only the constraint the code cannot show.** Never restate the next line.
-Never say where the code came from, or why your change is right - that is the
-commit message's job, and it is noise the moment the change merges. If the line
-reads plainly, say nothing.
+**Present tense, about what is there now.** Imperative, leading with a verb:
+"Resolve the upstream commit", not "Returns the commit", "This function
+resolves...", or "used to be a stub".
 
-**Name the invariant and what breaks without it.** The lane scripts do this well;
-keep it:
+**State the invariant the code keeps, never the bug that motivated it.** "uvw to
+keep ll positive", not "xyz because ll went negative". The failure is history;
+the standing guarantee is the fact. The lane scripts do this well:
 
 ```sh
-# Tolerate an all-comment baseline (every finding fixed): grep -v then matches
-# nothing and exits 1, which pipefail+set -e would turn into a spurious abort.
+# Tolerate an all-comment baseline (every finding fixed): grep -v then matches nothing and exits 1, which pipefail+set -e would turn into a spurious abort.
 ```
 
 That comment survives a refactor. "Filter the comments" does not.
+
+**No history, no meta.** Not "was X", not "fixed in Y", not "the following block
+does". Why your change is right is the commit's job, and noise the moment it
+merges.
 
 **Say why code is absent when the absence is deliberate.** The reader cannot see
 a check that is not there - `run-docs-lint.sh` says why it does not hold a bare
 filename, so nobody "fixes" it into a false-positive machine.
 
 **Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:259` is
-checkable against a sha. "upstream does this too" is not.
+checkable against a sha; "upstream does this too" is not.
 
-**Never explain an oddity into a convention.** If you are writing a sentence that
-makes a strange thing sound intended, stop and check whether it is a bug. That
-sentence is load-bearing for the next reader who might otherwise have fixed it.
+**Never explain an oddity into a convention.** If a sentence makes a strange
+thing sound intended, stop and check whether it is a bug - that sentence is
+load-bearing for the next reader who might otherwise have fixed it.
 
-**No history, no meta.** Not "was X", not "fixed in Y", not "the following block
-does". A comment describes the code as it is, to someone who has never seen it.
+**Terse, and wide.** Keep to the fact and cut every word that is not it. Wrap
+comments at **160-170 columns**, never at 80 - a short wrap costs the maintainer
+a reflow on every read. Do not break before column 160 unless a punctuation mark
+falls between 150 and 170; then break there, ending the line on one of
+`, . ; : ! ? "`.
 
 ## Commit messages
 
@@ -221,7 +264,9 @@ The commit is the durable record of *why*, and the only place history belongs.
 5. a tracked doc citing a path under `__DEV/`,
 6. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced or gone - Claude Code reads `CLAUDE.md`, never
-   `AGENTS.md`, so that one line carries the whole contract.
+   `AGENTS.md`, so that one line carries the whole contract,
+7. an upstream-tracking page (`00` to `03`) with no **audit basis**, or one
+   whose basis does not parse.
 
 It needs no upstream clone and no toolchain, so it runs in seconds on every push.
 Nothing gates a commit message.

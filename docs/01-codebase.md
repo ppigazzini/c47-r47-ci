@@ -10,10 +10,11 @@ The product source is not in this repository. Clone it first:
 git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
-Verified against upstream `master` at commit
-`33328e4cc25588eb7504f38f4076f8feae3ae766` (2026-07-18). Every count on this
-page was measured at that commit; re-measure before relying on one. Line counts
-are blob lines, not SLOC: an upper bound, useful for relative scale only.
+Audit basis: upstream `33328e4cc25588eb7504f38f4076f8feae3ae766`, 2026-07-18.
+
+Every count on this page was measured at that commit; re-measure before relying
+on one. Line counts are blob lines, not SLOC: an upper bound, useful for
+relative scale only.
 
 ## 1. What this page does not cover
 

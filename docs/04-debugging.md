@@ -10,9 +10,12 @@ and Valgrind, and a block never returned to the free list is invisible to LSan.
 Reaching for ASan and concluding "clean" is the most common way to miss a real
 bug in this codebase.
 
-For how to drive the calculator and write tests, see
-[03-testing.md](03-testing.md). For the lane scripts that run these detectors in
-CI, see [05-ci.md](05-ci.md).
+This page owns the **detectors** and the false-pass catalogue. The neighbouring
+subjects are not restated here: how to drive the calculator and write a test is
+[03-testing.md](03-testing.md); the lane scripts that run these detectors in CI,
+and what each one gates on, are [05-ci.md](05-ci.md); where in the source tree a
+symbol lives is [01-codebase.md](01-codebase.md); and a term you do not
+recognise is in [08-glossary.md](08-glossary.md).
 
 
 ## 1. Why the standard tools are not enough

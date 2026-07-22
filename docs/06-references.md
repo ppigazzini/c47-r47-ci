@@ -69,6 +69,40 @@ Notes that are easy to lose:
 - TSan is irrelevant to a single-threaded simulator unless a threaded HAL
   appears.
 
+### Recursion guards on an embedded C stack
+
+C47 lets a program re-enter its own numeric engines (a solved program can
+contain SOLVE; an integrand can contain INT), so unbounded recursion on the C
+stack is a reachable user input, not a coding accident - and the DM42's stack
+is a small fixed budget the tree does not even state (the STM32L476 linker
+script sizes RAM, the DMCP OS supplies the stack). Upstream caps integrator
+self-nesting with a depth counter (`MAX_INTEGRATOR_NESTING_DEPTH` in
+`defines.h`, merged from !1598). The mature-interpreter consensus, for when
+this class comes up again:
+
+- **One budget per stack, not one per facility.** Lua bounds *all* nested C
+  calls with a single `LUAI_MAXCCALLS` rather than a counter per entry point:
+  the C stack is one resource, and per-engine counters compound in mixed
+  nests (each engine can be at its own cap simultaneously).
+- **Count-based guards are the portable floor; byte probes are the precise
+  ceiling.** PostgreSQL's `check_stack_depth()` measures actual headroom
+  against a recorded stack base (`max_stack_depth`, default 2 MB) - more
+  accurate than frame counting, but it needs per-platform stack bounds, which
+  DMCP does not expose. Newer Lua adds the same idea (`LUAI_MINCSTACK` free
+  space) on top of the call counter.
+- **Separate C-stack safety from language-level recursion accounting** -
+  CPython's PEP 651 is the argument spelled out: the two limits protect
+  different things and should not share one knob.
+- **A depth cap is only half of the guard.** The abort must also unwind the
+  interpreter's own state - in C47's case the subroutine return stack that
+  each nested `execProgram` pushes - or the machine survives the abort with
+  dangling state and fails later, far from the cause. Test the *state after*
+  an abort, not just the absence of a crash.
+- **The cap needs a stack-budget argument on the target**, not just on the
+  simulator: a limit of N heavy frames is only known-safe once
+  frames-times-size is measured against the device stack. Unmeasured on the
+  DM42 as of 2026-07.
+
 ## Reference list
 
 Compiler hardening and warnings:
@@ -110,6 +144,103 @@ Fuzzing:
   https://arxiv.org/pdf/2503.24100
 - Metamorphic Fuzz Oracle Enhancement via LLMs (2026) -
   https://arxiv.org/pdf/2606.14164
+
+Embedded-world patterns for the high-level modules (the module-to-domain map is
+[09-modules.md](09-modules.md); every link verified 2026-07-22):
+
+- Cross-cutting embedded C discipline - the standards the field measures
+  against:
+  - BARR-C:2018, the Barr Group Embedded C Coding Standard (free PDF; the
+    pragmatic bug-prevention standard, harmonised with MISRA) -
+    https://barrgroup.com/sites/default/files/barr_c_coding_standard_2018.pdf
+  - MISRA C - the safety-industry baseline - https://misra.org.uk/
+  - Holzmann, "The Power of 10: Rules for Developing Safety-Critical Code"
+    (NASA/JPL; rule 1 bans unbounded recursion - directly the solver-family
+    nesting question) - https://spinroot.com/gerard/pdf/P10.pdf
+  - SEI CERT C Coding Standard -
+    https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard
+- Language VMs on microcontroller budgets (the keystroke VM's peer group -
+  how production interpreters live in tens of KiB of RAM):
+  - MicroPython internals (compiler, qstr interning, the VM) -
+    https://docs.micropython.org/en/latest/develop/index.html
+  - MicroPython on constrained RAM (the budget playbook) -
+    https://docs.micropython.org/en/latest/reference/constrained.html
+  - eLua - full Lua on MCUs, the design tradeoffs -
+    https://eluaproject.net/en_overview.html
+  - mruby / mruby-c - Ruby VMs for sub-64 KiB targets - https://mruby.org/
+- Input handling and file screening (the `.p47`/state screening pass, NIM,
+  the decoder): LangSec - treat every input as a formal language and fully
+  recognize before processing; the theory behind screen-then-load -
+  https://www.cs.dartmouth.edu/~sergey/langsec/
+- Event-driven state machines (keyboard shift planes, TAM, the modal
+  editors): Samek, "Practical UML Statecharts in C/C++" and the QP framework
+  - the embedded canon for hierarchical state machines -
+  https://www.state-machine.com/psicc2
+- Embedded GUI composition (screen compositor, softmenus, browsers): LVGL's
+  draw pipeline - the reference open-source architecture for frame-buffer
+  GUIs on MCUs (invalidation, task-based rendering) -
+  https://docs.lvgl.io/master/main-modules/draw/draw_pipeline.html
+- Key scanning and debouncing (the keyboard driver): Ganssle, "A Guide to
+  Debouncing" - the standard reference, with measurements -
+  http://www.ganssle.com/debouncing.htm
+- Real-time memory allocation (the block pool and `freeList.c`'s peer
+  group): TLSF - the constant-time, low-fragmentation allocator for RTOS use
+  - http://www.gii.upv.es/tlsf/
+
+Interpreters, virtual machines and embedded scripting (the language surfaces
+mapped in [09-modules.md](09-modules.md)):
+
+- Crafting Interpreters (Nystrom) - bytecode VMs, dispatch, Pratt expression
+  parsing; the single best on-ramp - https://craftinginterpreters.com/
+- Ertl: interpreter construction and dispatch techniques (threaded code vs
+  switch) - https://www.complang.tuwien.ac.at/projects/interpreters.html
+- Jim Tcl (the interpreter embedded in t47) - https://github.com/msteveb/jimtcl
+- Ousterhout, "Scripting: Higher-Level Programming for the 21st Century" (the
+  embedded-extension-language argument) -
+  https://web.stanford.edu/~ouster/cgi-bin/papers/scripting.pdf
+
+Calculator heritage (the behavioural spec of the keystroke language):
+
+- Free42 (Thomas Okken) - an independent, actively maintained HP-42S
+  reimplementation; the best cross-check for keystroke-language semantics -
+  https://thomasokken.com/free42/
+- The hpcalc.org literature archive (HP-41/42 owner's and programming
+  manuals) - https://literature.hpcalc.org/
+- HP Museum forum - where the DM42/WP43/C47 lineage is discussed by its
+  authors - https://www.hpmuseum.org/forum/
+
+Arithmetic engines:
+
+- General Decimal Arithmetic (Cowlishaw) - the specification decNumber
+  implements; authoritative for every rounding and special-value question -
+  https://speleotrove.com/decimal/
+- GMP manual - https://gmplib.org/manual/
+
+Numerical algorithms (the solver family and the mathematics tree):
+
+- Brent, "Algorithms for Minimization without Derivatives" (the root finder's
+  method; free from the author) -
+  https://maths-people.anu.edu.au/~brent/pub/pub011.html
+- Mori, "Discovery of the double exponential transformation and its
+  developments" (the integrator's tanh-sinh method, by its inventor) -
+  https://www.kurims.kyoto-u.ac.jp/~prims/pdf/41-4/41-4-38.pdf
+- NIST Digital Library of Mathematical Functions (special functions:
+  Bessel, gamma, erf...) - https://dlmf.nist.gov/
+- Golub and Van Loan, "Matrix Computations" (the linear-algebra canon; book,
+  no canonical URL)
+
+Recursion and stack safety (embedded interpreters):
+
+- Lua `llimits.h` (`LUAI_MAXCCALLS`, the single C-call budget) -
+  https://www.lua.org/source/5.4/llimits.h.html
+- Lua C-stack overflow test suite (`cstack.lua`) -
+  https://github.com/lua/lua/blob/master/testes/cstack.lua
+- CPython PEP 651: Robust Stack Overflow Handling -
+  https://peps.python.org/pep-0651/
+- PostgreSQL `max_stack_depth` / `check_stack_depth()` -
+  https://postgresqlco.nf/doc/en/param/max_stack_depth/
+- SQLite run-time limits (expression depth, trigger recursion) -
+  https://www.sqlite.org/limits.html
 
 Static analysis:
 

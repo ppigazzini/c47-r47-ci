@@ -1,5 +1,7 @@
 # Building c43
 
+Audit basis: upstream `8bf795092ff7a03e85c5688abc8d56a90fa583f1`, 2026-07-19.
+
 The `make` targets, the Meson graph underneath them, the generators, and how
 each platform package is produced. The product source is not in this
 repository; every target below is run inside a clone of upstream c43.
@@ -66,7 +68,7 @@ From upstream `Makefile` / `BUILD.md`:
 | `make test` | `clean` + build + run the corpus. Cleans first to avoid ASan contamination. |
 | `make repeattest` | re-run without the clean (timing/stability); stamp-driven |
 | `make test_asan` | the suite with `-Db_sanitize=address` |
-| `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** (`ldd \| grep asan`) |
+| `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** - `otool -L` then `ldd`, so it holds on macOS and Linux alike (`Makefile:63`, `Makefile:71`) |
 | `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [03-testing.md](03-testing.md) Section 5) |
 | `make docs` | needs `sphinx-build`, `doxygen`, `breathe-apidoc`; silently produces no target if any is missing |
 | `make XVFB=xvfb-run dist_linux` | packaging; `XVFB` is an override variable, empty by default |
