@@ -29,6 +29,24 @@
 # is not bisected here. These are removals of findings that no longer reproduce,
 # not a re-blessing: the gate still fails on any new growing case (verified with
 # an injected control).
+#
+# 6 cases added against a39865f53 (11 -> 17), all pool-only (gmp=+0), from two
+# upstream test additions after the 1624e09b3 pin:
+#
+#   nested_cov.txt    new file (56212cbf6, the AN0022 nested engine corpus).
+#                     FARG=0 is fnLoadNestedPgmsCov appending the AN0022
+#                     programs (+1504, retained like the graphs_cov loaders);
+#                     the four engine cases are +24..+36 of solver/integrator
+#                     residue in the pool, the class the solve_cov and
+#                     integrate_cov entries already bless.
+#   readp_cov.txt     the program-file screening added in 09280ff24 + 55a835764
+#                     (over-long-label refusal, screen-before-load) grew the
+#                     driver's one-shot residue to +108.
+#
+# Measured with a doubled test list (each file run twice in one process): the
+# second pass adds only the by-design program appends and +12/-0 engine residue,
+# no repeated growth of the same magnitude - one-shot retention, not a
+# per-iteration leak.
 
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
@@ -39,5 +57,11 @@ graphs_cov.txt|IN: FARG=1
 graphs_cov.txt|IN: FL_ASLIFT=1 R00=STRI:"S" RY=REAL:"-5" RX=REAL:"5" PGM="G2"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"SIN(X)" PGM="G1"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
+nested_cov.txt|IN: FARG=0
+nested_cov.txt|IN: FL_ASLIFT=1 PGM="DBLINT"
+nested_cov.txt|IN: FL_ASLIFT=1 PGM="PLTINT3"
+nested_cov.txt|IN: FL_ASLIFT=1 PGM="SLVSLV"
+nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
+readp_cov.txt|IN: FARG=0
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
