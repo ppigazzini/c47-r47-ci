@@ -31,9 +31,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build dependencies
+        # The same list the UI lane uses to build the simulator, minus xvfb
+        # (t47 runs headless). cmake/libminizip-dev/libexpat1-dev are for the
+        # xlsxio toolchain harness_setup_xlsxio builds; without libminizip-dev
+        # its CMake configure fails on FindMinizip.
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential meson ninja-build \
-            libgtk-3-dev libgmp-dev
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            ccache \
+            cmake \
+            git \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config
+      - name: Cache xlsxio toolchain
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/c43/xlsxio
+          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
       - name: Run nestcheck (report-only)
         run: bash scripts/test/run-nestcheck.sh
