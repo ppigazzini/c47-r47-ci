@@ -50,8 +50,12 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
+          # graphviz/libcairo2-dev/libgtk-3-dev/libgtksourceview-3.0-dev are
+          # opam depexts of frama-c 32.1 (lablgtk3-sourceview3); on a cache miss
+          # the opam install prompts for them and dies with exit 10 if absent.
           sudo apt-get install --yes --no-install-recommends \
-            ca-certificates git opam bubblewrap m4 build-essential libgmp-dev
+            ca-certificates git opam bubblewrap m4 build-essential libgmp-dev \
+            graphviz libcairo2-dev libgtk-3-dev libgtksourceview-3.0-dev
 
       - name: Cache opam switch
         id: opam-cache
