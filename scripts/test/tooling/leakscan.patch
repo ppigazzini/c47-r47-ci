@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 8c13ef1a1..8b1cb46cc 100644
+index 819de3344..b35051305 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -13,7 +13,7 @@ index 8c13ef1a1..8b1cb46cc 100644
  
 @@ -24,6 +26,13 @@ int32_t lineNumber, numTestsFile, numTestsTotal, successfulTests, failedTests;
  int32_t functionIndex, funcType, correctSignificantDigits;
- bool_t noFailForNow;
+ bool_t noFailForNow = true; // abortTest counts a failure only while set; starts true so the run's first test can fail
  
 +// Per-test pool/GMP attribution (--testmem mode).
 +bool_t          testMemMode = false;
@@ -25,7 +25,7 @@ index 8c13ef1a1..8b1cb46cc 100644
  uint16_t label, functionParameter;
  
  GtkWidget      *screen;
-@@ -4455,6 +4464,53 @@ void stopTimerAndPrint(void) {
+@@ -5088,6 +5097,53 @@ void stopTimerAndPrint(void) {
  
  
  
@@ -79,7 +79,7 @@ index 8c13ef1a1..8b1cb46cc 100644
  void processLine(void) {
    // convert to upper case
    int32_t lg = strlen(line);
-@@ -4490,6 +4546,10 @@ void processLine(void) {
+@@ -5123,6 +5179,10 @@ void processLine(void) {
  
    else if(strncmp(line, "IN: ", 4) == 0) {
      //printf("%s\n", line);
@@ -90,7 +90,7 @@ index 8c13ef1a1..8b1cb46cc 100644
      strcpy(lastInParameters, line);
      inParameters(line + 4);
    }
-@@ -4538,6 +4598,9 @@ void processLine(void) {
+@@ -5171,6 +5231,9 @@ void processLine(void) {
      successfulTests++;
      noFailForNow = true;
      outParameters(line + 5);
@@ -100,7 +100,7 @@ index 8c13ef1a1..8b1cb46cc 100644
    }
  
    else if(line[0] != 0) {
-@@ -4680,6 +4743,56 @@ int processTests(const char *listPath) {
+@@ -5313,6 +5376,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -157,7 +157,7 @@ index 8c13ef1a1..8b1cb46cc 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -4694,6 +4807,340 @@ int main(int argc, char* argv[]) {
+@@ -5327,6 +5440,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
