@@ -107,24 +107,29 @@ this class comes up again:
   live stack pointer on the device. The capacity side - what the DMCP OS
   grants - is stated in no public document, so it ends as a hardware
   measurement, not a datasheet lookup.
-- **Shrinking a frame is not bounding a recursion.** A tempting alternative to
-  the cap is to move the big engine locals off the C stack into the heap so the
-  small hardware stack no longer overflows. It does not fix the bug: a
-  self-referential program recurses without end, and infinite depth times any
-  positive per-frame cost exhausts any finite arena - the cap is still needed as
-  the terminator, whatever the frame lives in. Worse, the heap is the wrong
-  arena to overflow into. It is shared with the user's programs and registers,
-  where the C stack is dedicated and ephemeral, and heap exhaustion is not the
-  graceful stop it looks like: a program that solves-sums itself into the C47
-  pool prints 28 `MAX_ALLOCATED_REGIONS` errors and then SIGSEGVs anyway
-  (measured, upstream `c91ce37a2`). The frame relocation also lands on the
-  hottest, most delicate code - `solver()` alone has seven return paths and a
-  1468-byte working set of 39-digit `real_t` values, evaluated ~53 times per
-  single solve - so it is a large, risky refactor that leaves the cap in place.
-  Every prior-art guard above bounds depth; none makes recursion safe by
-  resizing the frame. Relocating frames is a legitimate but separate exercise
-  (reclaim RAM, or raise a ceiling nobody is hitting - real nesting peaks at
-  depth 3), never a substitute for the bound.
+- **A depth bound and a smaller frame are complementary, not rivals.** Moving
+  the big engine locals off the C stack into the heap - to shrink the per-level
+  stack cost - is a real technique: CPython 3.11 did exactly this, relocating
+  call frames to a per-thread heap datastack precisely to cut C-stack overflow
+  risk from nested calls. It does not remove the need for a bound, though:
+  infinite recursion exhausts any finite arena, so a limit is still required -
+  CPython kept its recursion limit alongside the heap frames. The two solve
+  different halves: the bound stops the runaway, the smaller frame raises the
+  ceiling and the safety margin. Which matters here depends on the one number
+  still unmeasured, the DMCP C-stack grant: if it comfortably exceeds the
+  ~12-13 KiB peak at depth 5, the bound alone suffices and relocation is
+  headroom nobody needs (real nesting peaks at depth 3); if it is tight,
+  relocation earns its keep. Cost of the relocation, for when it is weighed:
+  `solver()` has seven return paths and a 1468-byte working set of 39-digit
+  `real_t` values, so it is delicate to move (one heap alloc/free per solver
+  entry, i.e. per nesting level - not per function evaluation), and the pool it
+  would lean on has its own unguarded exhaustion path - a self-summing program
+  that fills the 5000-region pool on the simulator crashes in a `labelList`
+  access (`lblGtoXeq.c:73`), with megabytes of C stack still free, rather than
+  failing cleanly with `RAM_FULL` (measured, `c91ce37a2`); relocating frames
+  onto the pool without hardening that path would trade a stack overflow for a
+  pool crash. Land the bound first (it stops the crash on every arena); treat
+  relocation as a separate improvement, sized against the measured stack grant.
 
 ## Reference list
 
