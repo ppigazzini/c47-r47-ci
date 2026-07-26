@@ -4,9 +4,12 @@
 #
 # A "level" is one nested engine evaluation: the frames a user program spends
 # between re-entering execProgram and reaching the engine kernel. Multiply by the
-# runtime nesting cap and compare against the platform's stack band - 2,472 B on
-# the DM42, 148 KiB on the DM42n, the host thread's limit on the simulator.
-# That comparison is the whole point of the lane; see docs/10-memory.md.
+# runtime nesting cap and compare against what that platform has for it - on the
+# DM42, 24,568 B of malloc arena left after C47's pool, shared with GMP and every
+# other allocation, because a program runs on a scheduler task stack out of that
+# arena and NOT on the 2,472 B MSP handler band; 148 KiB on the DM42n; the host
+# thread's limit on the simulator. That comparison is the whole point of the lane;
+# see docs/10-memory.md.
 #
 # A row keyed `DM42` serves every DM42-pkgN target: the DMCP packages are feature
 # subsets of one memory model and share their engine chain.
@@ -33,9 +36,15 @@
 # Measured at upstream 5e628d1e0f8552360c56c12f44fb14b8fe2d0f37,
 # arm-none-eabi-gcc 13.2.1 and gcc 13.3.0, DECNUMBER_FASTMUL:
 #
-#   DM42 (pkg4)  solve-level 2000   int-level 2120
-#   DM42n        solve-level 2392   int-level 2120
+#   DM42 (pkg4)  solve-level 1976   int-level 2088
+#   DM42n        solve-level 2368   int-level 2088
 #   sim (x86-64) solve-level 3272   int-level 2984
+#
+# Those are tail-call aware: a member whose only edge to the next one is a branch
+# has run its epilogue first, so its frame is gone before the callee's exists and
+# the chain must not charge it. On the firmware that removes fnExecute (24 B) and
+# _fnIntegrate (8 B); the simulator's numbers do not move, because at -O0 nothing
+# is tail-called. Summing every frame instead reads 24-32 B high per level.
 #
 # The simulator's levels are the largest and its stack is the largest by three
 # orders of magnitude. It is the platform on which this class of bug cannot be

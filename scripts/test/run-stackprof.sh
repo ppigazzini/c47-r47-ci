@@ -16,9 +16,12 @@
 #      UNDER-report fails the lane whatever STACKPROF_GATE says: a bound below
 #      the real frame is a bound that permits the overflow it was meant to stop.
 #   3. What does a nested engine evaluation cost on each platform, against the
-#      stack that platform actually has? 2,472 guaranteed bytes on the DM42,
-#      which one level fills; 148 KiB on the DM42n; the host thread's 8 MiB on
-#      the simulator, which is why the simulator can never show you this bug.
+#      memory that platform actually has for it? On the DM42 that is what is left
+#      of the firmware malloc arena once C47's pool is taken - 24,568 B, shared
+#      with GMP and every other allocation - because a program runs on a
+#      scheduler task stack out of that arena, NOT on the MSP band. 148 KiB on
+#      the DM42n; the host thread's 8 MiB on the simulator, which is why the
+#      simulator can never show you this bug.
 #
 # docs/10-memory.md owns the map, the derivation and the platform matrix.
 #
@@ -46,12 +49,20 @@ BASELINE="${BASELINE:-$SCRIPT_DIR/stackprof-baseline.txt}"
 ARM_OBJDUMP="${ARM_OBJDUMP:-arm-none-eabi-objdump}"
 HOST_OBJDUMP="${HOST_OBJDUMP:-objdump}"
 
-# Guaranteed downward stack per hardware target, read out of the shipped firmware
-# images by tooling/dmcp-stackband.py and re-derived in docs/10-memory.md s2.
-# DM42: initial MSP 0x20017FF0 down to 0x20017648, the highest address DMCP code
-# addresses as a fixed global and the end of its boot zero-fill. DM42n: MSP
-# 0x20040000 down to the newlib break 0x2001ACB8, above which DMCP5 puts nothing.
-DM42_BAND=2472
+# What a nested evaluation's stack has to fit inside, per hardware target, read out
+# of the shipped firmware images by tooling/dmcp-stackband.py and derived in
+# docs/10-memory.md s3.
+#
+# DM42: NOT the MSP band. DMCP's SVCall/PendSV are a context switch that writes
+# PSP, so a program runs in thread mode on a task stack allocated from the
+# firmware malloc arena - the 2,472 B between the top of kernel data and the
+# initial MSP is the handler and boot stack, which no program runs on. The bound
+# that applies is what is left of the 90,104 B arena once C47's 64 KiB pool is
+# taken, and it is shared with GMP's long integers and every other allocation.
+# DM42n: MSP 0x20040000 down to the newlib break 0x2001ACB8, above which DMCP5
+# puts nothing.
+DM42_BAND=24568
+DM42_MSP_BAND=2472
 DM42N_BAND=152392
 
 # The DM42 ships as feature packages that trade functions for flash; they share
@@ -201,6 +212,7 @@ main() {
             --buildtype=custom -DCI_COMMIT_TAG= -DDECNUMBER_FASTMUL=true "-Dc_args=-fstack-usage -fno-lto"
         harness_log "calibrated $verified_isas instruction sets, 0 under-reported frames"
 
+        harness_log "DM42: task-stack budget $DM42_BAND B (arena less the pool, shared with GMP); MSP handler band $DM42_MSP_BAND B"
         harness_log "--- per-platform profiles, shipped flags ---"
         local pkg
         for pkg in "${DM42_PACKAGES[@]}"; do

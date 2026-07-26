@@ -18,7 +18,7 @@ with no detector at all is the one this page is mostly about.
 
 | arena | who bounds it | what C47 puts there | what exhaustion looks like | what detects it |
 |---|---|---|---|---|
-| **C stack** | DMCP or the host thread, at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
+| **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
 | **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
 | **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:363`), then wrong answers | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
@@ -51,7 +51,8 @@ python3 scripts/test/tooling/platform-limits.py <c43-clone>
 | C47 pool | **64 KiB** | 256 KiB | **256 KiB** |
 | `MAX_FREE_REGIONS` | **50** | 200 | **200** |
 | `MAX_ALLOCATED_REGIONS` | not defined | not defined | 5000 |
-| guaranteed C stack | **2,472 B** | **152,392 B** | the host thread's, 8 MiB by default on Linux |
+| stack a program runs on | a scheduler **task stack** out of the 90,104 B arena; **24,568 B** left after the pool, shared with GMP | a task stack inside the **~152 KiB** shared heap-and-stack region below the MSP | the host thread's, 8 MiB by default on Linux |
+| MSP band (handlers and boot) | ~2.4 KiB - **not** a program's stack | ~148 KiB, shared with the heap | n/a |
 | optimisation | `-Os -flto` | `-Os -flto` | `-O0`, LTO overridden per target |
 
 **The simulator is built with the new hardware's memory model.** Its pool and its
@@ -91,12 +92,11 @@ whether upstream CI's toolchain still fits them is not something this repo can
 see. **Package 3 is the one that matters most and the one nobody can measure** -
 it is the only build carrying eigenvalues, on the target with the least stack.
 
-## 3. The DM42: a 2.4 KiB stack above 5.6 KiB of firmware state
+## 3. The DM42: three stacks, and only one of them is a program's
 
 The DM42 is an STM32L476 with 96 KiB of SRAM1 at `0x20000000` and 32 KiB of
 SRAM2. C47's own linker script (`src/c47-dmcp/stm32_program.ld`) puts `.data`
-and `.bss` in SRAM2 and claims **none** of SRAM1: all of it belongs to DMCP,
-which splits it into an allocator arena, its own globals, and the stack.
+and `.bss` in SRAM2 and claims **none** of SRAM1: all of it belongs to DMCP.
 
 DMCP states none of this. The numbers below are read out of the shipped image
 `DMCP_flash_3.29_DM42-3.26.bin` (sha256 `c81e0dee...b2b29`) by
@@ -104,37 +104,77 @@ DMCP states none of this. The numbers below are read out of the shipped image
 which prints the evidence for each one:
 
 ```sh
-python3 scripts/test/tooling/dmcp-stackband.py DMCP_flash_3.29_DM42-3.26.bin --sram-size 0x18000
+python3 scripts/test/tooling/dmcp-stackband.py DMCP_flash_3.29_DM42-3.26.bin \
+    --sram-size 0x18000 --pool-bytes 65536
 ```
 
 | region | bounds | size | how it is known |
 |---|---|---|---|
-| low system words | `0x20000000`-`0x20000047` | 72 B | addressed by the allocator |
-| **firmware malloc arena** | `0x20000048`-`0x20016040` | 90,104 B | the allocator's lazy init: a literal base, `add.w #90112`, `sub.w #8`, `bic #7` |
-| allocator globals | `0x20016048`-`0x20016057` | 16 B | the four words its core and `free` both address |
-| **DMCP OS globals** | `0x20016058`-`0x20017647` | 5,616 B | 67 distinct word addresses that firmware code loads, up to 37 sites each |
-| **C stack** | `0x20017648`-`0x20017FF0` | **2,472 B** | the remainder, below the initial MSP |
+| **firmware malloc arena** | `0x20000048`-`0x20016040` | 90,104 B | the allocator's lazy init: an 8-aligned literal base, `add.w #90112`, `sub.w #8`, `bic #7` |
+| **DMCP kernel globals** | `0x2001604C`-`0x20017647` | 5,628 B | 71 distinct addresses firmware code loads as fixed data, 418 times; the lowest is `&pxCurrentTCB` |
+| **MSP: handler and boot stack** | `0x2001764C`-`0x20017FF0` | 2,468-2,472 B | the remainder, below the initial MSP |
 | initial MSP | `0x20017FF0` | - | vector[0] |
 
-Two independent readings put the floor at `0x20017648`: it is the top of the
-cluster of addresses firmware code loads as fixed data, and it is the exclusive
-upper bound of the reset handler's zero-fill loop (`0x0802CEC4`, comparing
-against `0x20017648` from its literal pool). A boot loop that zeroes SRAM must
-stop below the stack it is running on, so that bound *is* the stack floor.
+**A program does not run on that MSP band.** `vector[11]` (SVCall) and
+`vector[14]` (PendSV) are a context switch: they load a task's saved registers
+and write **PSP** (`0x0801876A`, `0x08018840`), the shape of FreeRTOS's
+`vPortSVCHandler` and `xPortPendSVHandler`. No `msr CONTROL` appears anywhere, so
+the switch to the process stack comes from the exception return. Thread mode
+therefore runs on a **task stack**, and a task stack is `malloc`'d - out of the
+arena in the first row.
 
-**The arena top is not the stack floor**, and reading it that way overstates the
-stack by more than three times - it skips the 5.6 KiB of OS globals between
-them. That matters beyond the arithmetic: C47 uses far more than 2,472 bytes on
-ordinary work, so its stack routinely descends past `0x20017648`. What it grows
-into is **live firmware state**, not spare heap.
+So the number that bounds a nested evaluation is not either stack band. It is
+what is left of the arena once C47's pool is taken:
 
-The C47 pool - 64 KiB on this target (`RAM_SIZE_IN_BLOCKS` 16384) - is
-`malloc`'d out of that same 90 KiB arena. So a stack deep enough to leave its
-band crosses the OS globals first and reaches the top of the arena next, which
-is exactly the memory the allocator hands to the next caller. One 96 KiB SRAM,
-consumed from both ends, with nothing in between to stop either.
+```
+  usable arena                                       90,104 B
+  less the C47 pool (RAM_SIZE_IN_BLOCKS 16384 x 4)  -65,536 B
+  left for the task stack, GMP and everything else   24,568 B
+```
 
-## 4. The DM42n: the same map without the problem
+GMP is in that number, not beside it: `allocGmp` rounds for accounting and then
+calls libc `malloc` ([01-codebase.md](01-codebase.md) Section 6), so every long
+integer competes with the stack a program is running on.
+
+### Two mislabellings of the same region, and how to avoid the third
+
+This boundary has now been read wrongly twice, in the same direction - both times
+by taking a gap below the initial MSP and calling it "the C stack a program gets":
+
+- **arena top to MSP, 8,088 B.** Skips the kernel globals entirely.
+- **top of kernel data to MSP, ~2.4 KiB.** The measurement is right and the label
+  is not: that is the handler and boot stack. (And it is good to one word, not to
+  the byte - see below.)
+
+What makes the region above the arena *kernel globals* rather than spare stack is
+reference density, and the tool prints it because it is the whole argument:
+
+| region | span | distinct addresses | references | per KiB |
+|---|---|---|---|---|
+| SRAM2 (DMCP `.data`/`.bss` + SDB) | 32 KiB | 639 | 5,723 | 178.8 |
+| malloc arena | 88 KiB | 6 | 8 | **0.09** |
+| SRAM1 above the arena | 8 KiB | 71 | 418 | **52.7** |
+
+A 580x density step at the arena top is not decode noise, and the identity of the
+lowest address in the cluster settles it: `0x2001604C` holds the pointer the
+context switch dereferences on every switch - `pxCurrentTCB`. The region is the
+scheduler's own state.
+
+The floor is confirmed by a second, independent signal: the boot fill loop at
+`0x0802CEC0` stops at `0x20017648`, one word past the highest addressed datum. A
+loop clearing SRAM must stop below the stack it is running on, so the two agree.
+
+They agree to **one word, not to the byte**, and that limit is irreducible from an
+image: a literal pool holds bare words, so nothing in it distinguishes the address
+of the last variable from a pointer value the code happens to store. On the DM42n
+the highest such word is the initial heap break, not a variable at all. The tool
+reports the conservative end of the range and says which it is.
+
+Upstream carries the matching fact for SRAM2: the DMCP **system data block** is
+at a fixed `0x10002000`, and `src/c47-dmcp/stm32_program.ld` now fails the link if
+C47's `.bss` reaches it (upstream `2e6493156`, 660 bytes of headroom).
+
+## 4. The DM42n: the same shape, far more room
 
 `DMCP5_flash_3.55.bin` (sha256 `f6aa86be...c53ce`), same tool, no `--sram-size`
 override:
@@ -143,12 +183,21 @@ override:
 - DMCP5 addresses no fixed data above `0x2001ACB8`, which is also where the
   newlib break starts; `_sbrk` is clamped at `0x2003FC00`, one kilobyte below
   the MSP
-- so 152,392 B sit between the top of firmware state and the MSP, shared
-  between a growing heap and a descending stack
+- so ~152,390 B sit between the top of firmware state and the MSP (152,388 or
+  152,392, one word either way as Section 3 explains)
+
+**The same caveat as Section 3 applies:** DMCP5's SVCall/PendSV also write PSP, so
+that 152,392 B is the MSP band, and a program still runs on a task stack. The
+difference is that on this target the region is shared between a heap growing up
+from the break and the stack coming down from the MSP, with 148 KiB of it free -
+so the task stack has room the DM42 does not have, and the tool cannot locate a
+separate arena here at all (DMCP5 has no `b.w` veneer table at
+`LIBRARY_FN_BASE`, which is itself the evidence that its allocator is a different
+one).
 
 C47's 256 KiB pool on this target comes from a separate pool allocator whose
-control block is in firmware `.bss`, so pool pressure does not squeeze the
-stack. Every stack conclusion on this page is an **old-hardware** conclusion.
+control block is in firmware `.bss`, so pool pressure does not squeeze the stack.
+Every alarming conclusion on this page is an **old-hardware** conclusion.
 
 ## 5. What one nested evaluation costs, per platform
 
@@ -164,11 +213,11 @@ The per-level chains and their measured cost live in
 [`scripts/test/stackprof-baseline.txt`](../scripts/test/stackprof-baseline.txt),
 which the stack lane re-measures on every run and gates on when
 `STACKPROF_GATE=1`. Read the numbers there, not here. The shape of it is the
-part that does not move: **one nested SOLVE level costs roughly the whole DM42
-stack band**, so any nesting at all on the old hardware is already spending
-memory the firmware did not guarantee, and the payload inside the nest - a trig
-evaluation is several kilobytes on its own - is spent on top. On the DM42n the
-same level fits sixty times over.
+part that does not move: **on the DM42 a nested SOLVE level and the trig payload
+inside it are spending the same 24,568 bytes that GMP's long integers and every
+other allocation come out of** - the arena left after the pool, and the only
+memory a program's task stack can grow into. On the DM42n the same level fits
+sixty times over in a region nothing else competes for.
 
 **The simulator does not even have the same call chain.** The firmware is built
 with `-flto`, the simulator at `-O0`: LTO inlines `executeOneStep` into
@@ -291,14 +340,18 @@ their callees.
 
 ## 9. What is not established
 
-- **Liveness of the DM42 OS globals.** The floor at `0x20017648` is where
-  firmware *addresses* data. Whether every byte below it is live while a program
-  runs is not provable statically; some may be boot-only. The band is therefore
-  a lower bound on the stack, and the honest one to budget against.
-- **How much stack C47 actually uses.** Every number here is static. The
-  dynamic answer - paint the band at boot, run the corpus and real workloads,
-  read the high-water mark back - would also catch the `alloca` component that
-  no prologue sum sees. Nothing in this repo does that yet.
+- **The size of the task stack a program actually gets.** This is now the
+  load-bearing unknown, and an image cannot answer it: the scheduler passes a
+  stack depth at task creation and the stack is `malloc`'d, so only a running
+  machine knows. 24,568 B is the ceiling on it, not its size. Everything in
+  Section 5 is a per-level cost against a budget whose exact size is unmeasured.
+- **Which task, and whether one program runs on more than one.** The context
+  switch is identified; the task layout is not.
+- **How much stack C47 actually uses.** Every number here is static. The dynamic
+  answer would also catch the `alloca` component no prologue sum sees, and it is
+  cheaper than it looks: the firmware already paints new task stacks with `0xA5`
+  (four `#165` immediates in the image), so a high-water mark can be read back
+  without painting anything first. Nothing in this repo does that yet.
 - **The three packages that do not link.** Their frames are unmeasured because
   no ELF exists to measure, and package 2 and 3 are the ones carrying the
   stack-heaviest functions. Whether the overflow is upstream's or this

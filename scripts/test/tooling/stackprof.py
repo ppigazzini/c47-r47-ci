@@ -511,29 +511,50 @@ def report_chain(program: Program, spec: str, band: int | None, label: str = "",
     The per-level cost of a nested evaluation is a specific chain, not a worst path, so it is stated as one. The edge check is the point:
     an inlining change or a refactor upstream silently breaks the chain, and a sum over a chain that no longer exists is a wrong number
     that still looks like a measurement.
+
+    A chain sum must be exact, so unlike the worst-path walk it does NOT charge a frame a tail call has already released. Where the only
+    edge to the next member is a branch rather than a call, the caller has run its epilogue first and its frame is gone before the callee's
+    exists: `_fnIntegrate` releases 8 bytes with `ldmia.w sp!, {r3, lr}` and then `b.w _fnIntegrate.part.0`. Adding both over-reports.
     """
     names = [part.strip() for part in spec.split(",") if part.strip()]
     total, ok = 0, True
     print(f"\n-- {label or 'call chain'}: {' -> '.join(names)} --")
     previous: int | None = None
+    pending: tuple[str, int] | None = None  # the previous member's frame, charged only once we know the link is a real call
     for name in names:
         address = program.resolve(name)
         if address is None:
+            if pending:
+                total += pending[1]
+                print(f"  {pending[1]:8d} B   {pending[0]}")
             print(f"  {'?':>8}     {name}   [absent or ambiguous in this build]")
             ok = False
-            previous = None
+            previous, pending = None, None
             continue
-        if previous is not None and address not in program.functions[previous].edges:
+        released = False
+        if previous is not None:
             caller = program.functions[previous]
-            if caller.indirect:  # c47 dispatches items through `blx`, so a real link can carry no static edge; say which it is.
+            if address in caller.calls or address in caller.literals:
+                pass
+            elif address in caller.tail_calls:
+                # Exclusively a tail call: the caller's frame is released by its epilogue before the callee's prologue runs.
+                released = True
+            elif caller.indirect:  # c47 dispatches items through `blx`, so a real link can carry no static edge; say which it is.
                 print(f"  {'':>8}     ...   [indirect dispatch: {caller.name} reaches {name} through one of its {caller.indirect} blx sites]")
             else:
                 print(f"  {'':>8}     ...   [BROKEN LINK: {caller.name} does not call {name}]")
                 ok = False
-        frame = program.functions[address].frame
-        total += frame
-        print(f"  {frame:8d} B   {name}")
+        if pending:
+            if released:
+                print(f"  {0:8d} B   {pending[0]}   [{pending[1]} B released by its tail call to {name}, so not charged]")
+            else:
+                total += pending[1]
+                print(f"  {pending[1]:8d} B   {pending[0]}")
+        pending = (name, program.functions[address].frame)
         previous = address
+    if pending:
+        total += pending[1]
+        print(f"  {pending[1]:8d} B   {pending[0]}")
     notes = []
     if not ok:
         notes.append("CHAIN INVALID - the sum is not a cost")

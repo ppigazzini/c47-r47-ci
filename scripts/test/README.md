@@ -80,8 +80,10 @@ to reproduce a CI coverage failure.
 - `run-stackprof.sh` - the only lane that builds firmware, and the only one that
   compares platforms. Profiles every DM42 feature package, the DM42n and the host
   simulator with one instrument, reporting how much C stack one nested engine
-  evaluation costs against the stack that platform actually has: 2,472 bytes on
-  the DM42, which one level already fills, against the host thread's 8 MiB. It
+  evaluation costs against the memory that platform has for it: on the DM42, the
+  24,568 bytes of malloc arena left once C47's pool is taken - a program runs on a
+  scheduler task stack out of that arena, not on the 2,472 B MSP handler band -
+  against the host thread's 8 MiB. It
   also prints the compile-time limits matrix, where the load-bearing line is that
   **the simulator carries the new hardware's pool**, so a DM42 pool failure is not
   reproducible on it. Report-only for the per-level ceilings in
@@ -108,9 +110,17 @@ to reproduce a CI coverage failure.
   platforms. Integer constants only: every column is evaluated by the host
   compiler, so a limit derived from `sizeof` of a target type is refused rather
   than answered wrongly.
-- `tooling/dmcp-stackband.py` - reads the C-stack band out of a shipped DMCP
-  firmware image: initial MSP from the vector table, floor from the highest
-  address firmware code loads as fixed data. Manual, not a lane - it needs a
+- `tooling/dmcp-stackband.py` - maps the SRAM a shipped DMCP firmware image hands
+  out, and says **which stack is which**. Initial MSP from the vector table, the
+  top of firmware data from two independent signals (the highest address code loads
+  as a fixed datum, and where the boot fill loop stops), the malloc arena from the
+  allocator the SDK jump table points at, and the reference density per region -
+  which is the evidence that separates heap from kernel globals. Its headline
+  refuses to conflate: on the DM42 it reports the MSP band as the **handler and
+  boot** stack, because SVCall/PendSV write PSP and a program therefore runs on a
+  scheduler task stack out of the arena. Mislabelling that band is the mistake this
+  tool exists to stop; two successive readings of the same image made it.
+  Manual, not a lane - it needs a
   vendor image CI should not fetch. Re-run it when SwissMicros ships firmware;
   the constants in `run-stackprof.sh` and `docs/10-memory.md` are its output.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,

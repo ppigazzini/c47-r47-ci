@@ -173,12 +173,20 @@ catalogue. Read it before trusting any lane result.
 - **The simulator does not have the DM42's memory model, so it cannot reproduce
   a DM42 memory failure.** It is compiled with the *new* hardware's pool - 256 KiB
   against the DM42's 64 KiB, and 200 free regions against 50 - and its C stack is
-  the host thread's 8 MiB against a DM42 band of **2,472 bytes**, which one nested
-  SOLVE level fills. DMCP documents that band nowhere; it is read out of the
-  shipped firmware image. Recursion depth, pool exhaustion and any multi-kilobyte
-  local are hardware questions a host build answers wrongly, not slowly.
+  the host thread's 8 MiB. On the DM42 a program runs on a **scheduler task stack
+  out of the firmware heap** (DMCP's SVCall/PendSV are a context switch that writes
+  PSP), so the stack, C47's 64 KiB pool and every GMP long integer come out of one
+  90,104-byte arena, leaving **24,568 bytes** for the stack and everything else.
+  DMCP documents none of it; it is read out of the shipped firmware image.
+  Recursion depth, pool exhaustion and any multi-kilobyte local are hardware
+  questions a host build answers wrongly, not slowly.
   `bash scripts/test/run-stackprof.sh` profiles every platform with one
   instrument; see [docs/10-memory.md](docs/10-memory.md).
+- **A gap below the initial MSP is not "the stack a program gets".** That region
+  has been mislabelled twice on this repo's own evidence - once as 8,088 bytes,
+  once as 2,472. It is the handler and boot stack. Before quoting any stack
+  number, check which stack thread mode uses;
+  `tooling/dmcp-stackband.py` prints the verdict.
 - **The DM42 ships as four feature packages and only one of them links today.**
   `DMCP_PACKAGE` trades functions for flash, so each package has its own set of
   built code; measured at the audit-basis commit with `arm-none-eabi-gcc` 13.2.1,
