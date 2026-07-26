@@ -6,30 +6,38 @@ before changing anything that allocates, recurses, or sizes a buffer.
 
 [01-codebase.md](01-codebase.md) Section 6 owns the **C47 pool**: block numbers,
 the free list, program memory growing downward. This page is the machine under
-that pool - the SRAM it is carved out of, the C stack beside it, and the
-firmware or host that hands out both.
+that pool - the SRAM it is carved out of, the stack a program runs on, and the
+firmware or host that hands out both. On the DM42 those last two are the same
+memory, which is the fact the page is built around.
 
 Audit basis: upstream `5e628d1e0f8552360c56c12f44fb14b8fe2d0f37`, 2026-07-26.
 
-## 1. Four arenas, four failure modes
+## 1. Four arenas, and on the DM42 two of them are one
 
-C47 draws on four separate pools of memory. They fail differently, and the one
-with no detector at all is the one this page is mostly about.
+C47 draws on four pools of memory. They fail differently, the one with no
+detector at all is the one this page is mostly about, and **on the DM42 the C
+stack is not independent of the heap** - the scheduler allocates it there.
 
 | arena | who bounds it | what C47 puts there | what exhaustion looks like | what detects it |
 |---|---|---|---|---|
 | **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
 | **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
-| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:363`), then wrong answers | the leak and testmem lanes; the pool canary |
+| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:363`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
 
 Two consequences a newcomer gets wrong:
 
-- **The pool is not the heap and neither is the stack.** A nested engine
-  evaluation costs 12 bytes of pool for its subroutine level
+- **The pool is not the heap, and pool accounting cannot see the stack.** A
+  nested engine evaluation costs 12 bytes of pool for its subroutine level
   (`allocC47Blocks(3)`, `src/c47/programming/lblGtoXeq.c:171`) and about two
-  *kilobytes* of C stack for its frames. Pool accounting - `getFreeRamMemory()`,
-  the leak lanes, `--testmem` - cannot see the resource that actually runs out.
+  *kilobytes* of C stack for its frames. `getFreeRamMemory()`, the leak lanes and
+  `--testmem` measure the first and are blind to the second - which is the one
+  that runs out.
+- **On the DM42 the stack, the pool and every long integer are one budget.** The
+  scheduler's task stack, C47's `malloc` for the pool, and GMP all come out of the
+  same firmware arena, so growth in any of them takes room from the others.
+  Section 3 does that arithmetic. On the DM42n and on a host they are genuinely
+  separate.
 - **The stack is the only one with no detector.** Everything else fails loudly
   or is gated by a lane. Stack exhaustion corrupts and continues.
 
@@ -136,18 +144,15 @@ GMP is in that number, not beside it: `allocGmp` rounds for accounting and then
 calls libc `malloc` ([01-codebase.md](01-codebase.md) Section 6), so every long
 integer competes with the stack a program is running on.
 
-### Two mislabellings of the same region, and how to avoid the third
+### How the boundary is known, and how far to trust it
 
-This boundary has now been read wrongly twice, in the same direction - both times
-by taking a gap below the initial MSP and calling it "the C stack a program gets":
-
-- **arena top to MSP, 8,088 B.** Skips the kernel globals entirely.
-- **top of kernel data to MSP, ~2.4 KiB.** The measurement is right and the label
-  is not: that is the handler and boot stack. (And it is good to one word, not to
-  the byte - see below.)
+Two neighbouring gaps below the initial MSP both look like "the C stack a program
+gets", and neither is. Taking the arena top as the floor skips the kernel globals;
+taking the top of kernel data as the floor measures the handler stack. The checks
+below are what tell them apart, and the tool prints all of them.
 
 What makes the region above the arena *kernel globals* rather than spare stack is
-reference density, and the tool prints it because it is the whole argument:
+reference density:
 
 | region | span | distinct addresses | references | per KiB |
 |---|---|---|---|---|
@@ -235,10 +240,10 @@ of them are design decisions worth knowing before you touch them:
 - **The modulo pair splits by hardware.** `WP34S_Mod` / `WP34S_BigMod` take a
   `HARDWARE_MODEL == HWM_DM42` branch (`src/c47/mathematics/wp34s.c:1543`) that
   trades digits for stack on the old hardware; every other build keeps the full
-  precision and pays a frame of several kilobytes for it. On a target whose whole
-  guaranteed stack is 2.4 KiB, that trade is not optional - and because
-  `HARDWARE_MODEL` is undefined on host builds, the simulator pays the large
-  frame, so it cannot show you the small one working.
+  precision and pays a frame of several kilobytes for it. On a target whose task
+  stack shares 24 KiB with the pool's leftovers and every long integer, that trade
+  is not optional - and because `HARDWARE_MODEL` is undefined on host builds, the
+  simulator pays the large frame, so it cannot show you the small one working.
 - **The angle-reduction buffers were sized by crashing.**
   `src/c47/registerValueConversions.c:1325` sizes one under the comment "This
   cannot be increased to 6147 further. 6147 overruns the stack", and `:1328`

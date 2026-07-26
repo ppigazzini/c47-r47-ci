@@ -704,7 +704,20 @@ Every one of these has silently passed a broken thing at least once.
     Any lane that executes the simulator needs `xvfb-run` and the `xvfb`
     package. The exit code is the trap - **1 is indistinguishable from a product
     error**, so the failure reads as a real finding.
-23. **A lane that writes its evidence to `$LOG_DIR` and uploads nothing cannot
+23. **A stack number is a label as much as a measurement, and the label is the
+    easy thing to get wrong.** The DM42's C stack was read off the shipped firmware
+    twice, both times as "the gap below the initial MSP", and both times named "the
+    C stack a program gets": once from the allocator arena top (8,088 B), once from
+    the top of kernel globals (2,472 B). The second measurement is correct to a
+    word. The label is not: DMCP's SVCall and PendSV write **PSP**, so thread mode
+    runs on a `malloc`'d task stack and both gaps are the *handler and boot* stack.
+    The number that bounds a program is what is left of the arena after the pool.
+    Before quoting any embedded stack figure, ask which stack thread mode uses -
+    `tooling/dmcp-stackband.py` prints the verdict, and
+    [10-memory.md](10-memory.md) Section 3 carries the derivation. Two lessons
+    generalise: a plausible number invites a plausible label, and an arithmetic
+    check on a region says nothing about who owns it.
+24. **A lane that writes its evidence to `$LOG_DIR` and uploads nothing cannot
     be diagnosed at all.** The same nestcheck failure printed one line -
     `control nested2 did not survive (rc=1)` - and sent the probe output, and
     the build log, to files the workflow never collected. Three failures, no

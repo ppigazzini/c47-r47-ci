@@ -182,11 +182,12 @@ catalogue. Read it before trusting any lane result.
   questions a host build answers wrongly, not slowly.
   `bash scripts/test/run-stackprof.sh` profiles every platform with one
   instrument; see [docs/10-memory.md](docs/10-memory.md).
-- **A gap below the initial MSP is not "the stack a program gets".** That region
-  has been mislabelled twice on this repo's own evidence - once as 8,088 bytes,
-  once as 2,472. It is the handler and boot stack. Before quoting any stack
-  number, check which stack thread mode uses;
-  `tooling/dmcp-stackband.py` prints the verdict.
+- **A gap below the initial MSP is not "the stack a program gets".** On both DMCP
+  targets it is the handler and boot stack: SVCall and PendSV write PSP, so thread
+  mode runs on a `malloc`'d task stack. Ask which stack thread mode uses before
+  quoting any embedded stack figure - `tooling/dmcp-stackband.py` prints the
+  verdict, and it is the one number on this subject that is easy to measure and
+  easy to mislabel.
 - **The DM42 ships as four feature packages and only one of them links today.**
   `DMCP_PACKAGE` trades functions for flash, so each package has its own set of
   built code; measured at the audit-basis commit with `arm-none-eabi-gcc` 13.2.1,

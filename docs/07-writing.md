@@ -142,7 +142,7 @@ exactly that way, in the session that changed it.
 | this page | the rules | cold |
 | [08-glossary.md](08-glossary.md) | what the words mean, product and harness | mixed - see below |
 | [09-modules.md](09-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
-| [10-memory.md](10-memory.md) | the per-target memory map, the C-stack band, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
+| [10-memory.md](10-memory.md) | the per-target memory map, which stack is which, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3
 describe a tree **this repo does not control**, so they rot when upstream moves
