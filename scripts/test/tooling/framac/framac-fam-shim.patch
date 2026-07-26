@@ -14,3 +14,19 @@ index 8e69af70a..1735bc4f6 100644
  } FINITE_DIFF_COEFF;
  
  
+diff --git a/src/c47/typeDefinitions.h b/src/c47/typeDefinitions.h
+index 2eef48cb0..20e20a7d5 100644
+--- a/src/c47/typeDefinitions.h
++++ b/src/c47/typeDefinitions.h
+@@ -106,7 +106,11 @@ typedef struct {
+ typedef struct {
+   int8_t  id;              ///< 0=numeric 1=standard
+   uint16_t numberOfGlyphs; ///< Number of glyphs in the font
++#ifdef __FRAMAC__
++  glyph_t glyphs[1024];    // Frama-C shim: kernel rejects static init of a flexible array member; 1024 exceeds every font in src/generated/rasterFontsData.c
++#else
+   glyph_t glyphs[];        ///< Pointer to the glyph description structure
++#endif
+ } font_t;
+ 
+ 

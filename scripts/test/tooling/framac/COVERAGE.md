@@ -41,9 +41,10 @@ handoffs closed by WP - mask, and (documented deferred) `fnLj` clz relation.
 
 ## Reached: parse only (M0, structural, no semantic analysis)
 
-34 files parse and typecheck as one C17 program to the kernel
+35 files parse and typecheck as one C17 program to the kernel
 (`tooling/framac/targets.txt`) - the prerequisite for any Eva/WP work, not
-analysis itself. This is ~15% of the 229 `.c` files.
+analysis itself. 34 of them are library `.c` files, ~15% of the 229; the
+thirty-fifth is the generated font data, which exists only in a built tree.
 
 ## Out of reach (justified, not silently dropped)
 
@@ -69,7 +70,7 @@ noted option, listed so the gap is explicit.
 ## Exit status
 
 Every `src/c47` function falls into one of: **directly analysed** (~26),
-**parse-reached** (34 files), **out-of-reach** (192 numeric-valued + 14 UI +
+**parse-reached** (35 files), **out-of-reach** (192 numeric-valued + 14 UI +
 whole-program, each with a reason), or **not-yet** (the reachable remainder). The
 directly-analysed set has a green Eva/WP/regression/nonterm gate in CI
 (`test-framac.yml`); the out-of-reach set is justified line by line above. No lane

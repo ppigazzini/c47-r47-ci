@@ -66,7 +66,8 @@ main() {
         fi
 
         # 2. Apply the FAM shim (kernel rejects the static-init flexible array
-        #    member in finite_differences.h, which the god header pulls in).
+        #    members the god header pulls in: the finite-difference coefficient
+        #    table, and font_t, which carries the generated font data).
         [[ -f "$FAM_PATCH" ]] || harness_die "missing $FAM_PATCH"
         if git -C "$dir" apply --check "$FAM_PATCH" 2> /dev/null; then
             git -C "$dir" apply "$FAM_PATCH"
@@ -107,7 +108,15 @@ main() {
             [[ -z "$line" ]] && continue
             rel="${line%%@*}"; rel="$(printf '%s' "$rel" | xargs)"
             tag="${line#"$rel"}"; tag="$(printf '%s' "$tag" | xargs)"
-            [[ -f "$dir/$rel" ]] || harness_die "target not in tree: $rel"
+            # A generated target is itself absent from an unbuilt clone, not merely
+            # unparseable there, so its skip is decided before frama-c runs.
+            if [[ ! -f "$dir/$rel" ]]; then
+                if [[ "$mode" == stub && "$tag" == "@needs-generated" ]]; then
+                    skip=$((skip + 1)); printf ' skip %s (needs a built tree)\n' "$rel"
+                    continue
+                fi
+                harness_die "target not in tree: $rel"
+            fi
 
             if (cd "$dir" && frama-c -machdep "$MACHDEP" -cpp-extra-args="${cpp[*]}" "$rel") \
                 > "$LOG_DIR/framac.$$.tu" 2>&1; then
@@ -122,7 +131,7 @@ main() {
         rm -f "$LOG_DIR/framac.$$.tu"
 
         # 5. Leave the tree as we found it when we own it.
-        [[ -z "${FRAMAC_C43_DIR:-}" ]] || git -C "$dir" checkout -- src/c47/solver/finite_differences.h 2> /dev/null || true
+        [[ -z "${FRAMAC_C43_DIR:-}" ]] || git -C "$dir" apply --reverse "$FAM_PATCH" 2> /dev/null || true
 
         harness_log "parse gate [$mode]: $pass passed, $skip skipped, $fail failed"
         if ((fail > 0)); then

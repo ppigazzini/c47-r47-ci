@@ -2,16 +2,19 @@
 #
 # The c43 source files the Frama-C parse gate certifies. One repo-relative path
 # per line (paths are under the upstream clone root). Blank lines and #comments
-# ignored. A trailing "@needs-generated" tag marks files that reference a
-# generated constant (constantPointers.h) and so parse only against a BUILT
-# tree's real src/generated; run-framac.sh SKIPS them (does not fail) when it
-# falls back to the parse-only generated-stubs.
+# ignored. A trailing "@needs-generated" tag marks files that parse only against
+# a BUILT tree's real src/generated - either because they reference a generated
+# constant (constantPointers.h) or because they ARE generated; run-framac.sh
+# SKIPS them (does not fail) when it falls back to the parse-only
+# generated-stubs, and a generated target absent from an unbuilt clone skips on
+# the same tag rather than failing the run.
 #
-# Certified green at upstream master ccafdfe51 (2026-07-20), Frama-C 32.1,
-# machdep gcc_x86_64. See REPORT-15 (__DEV) for the tier rationale.
+# Certified green at upstream master 5e628d1e0 (2026-07-26), Frama-C 32.1,
+# machdep gcc_x86_64.
 #
 # Known-unparseable, deliberately EXCLUDED (no analysis value / kernel limits):
-#   src/c47/sort.c                    - string-literal static init not const-folded by the kernel
+#   src/c47/sort.c                    - GLYPH_TO_CHAR_CODE() indexes a string literal in a static initialiser, which the kernel does not const-fold.
+#                                       Costs coverage: sort.c holds compareString(), the name-fold helpers and the glyph rank lookups.
 #   src/c47/c47Extensions/graphText.c - preprocessor #if the analyser cannot balance
 #   src/c47/printing/martelFonts.c    - font DATA blob, no logic
 #   src/c47/printing/printerFont8.c   - font DATA blob, no logic
@@ -36,6 +39,7 @@ src/c47/flags.c
 src/c47/charString.c
 src/c47/saveRestorePrograms.c
 src/c47/fonts.c
+src/generated/rasterFontsData.c            @needs-generated
 
 # --- program decode / step navigation (Tier-B bug sites) ---
 src/c47/programming/decode.c
