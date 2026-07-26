@@ -17,3 +17,4 @@ inscol.c        | 200 | fb1f7f483 | newMat[] write 1 past rows*(cols+1) (matrix.
 eigenvalue.c    | 200 | b9e4f7519 | previousDiagonal[] write past size*2 (matrix.c:6625) - pool-OOB, ASan/Valgrind-blind
 printregister.c | 200 | 1754a7808 | complex matrix[] read, r*rows+c stride bug (registers.c:1738)
 glyphrank.c     | 200 | unfixed   | standardFont.glyphs[] read at index -1, findGlyph miss code (sort.c:202) - ASan-visible, Valgrind-blind
+wordsize.c      | 200 | unfixed   | 1<<wordSize and 1<<(wordSize-1) undefined outside 1..64 (config.c:706,709) - UBSan-visible, ASan-blind

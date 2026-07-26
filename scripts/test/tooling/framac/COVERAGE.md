@@ -29,7 +29,7 @@ proof is worth the hand-written harness.
 | milestone | c43 functions reached |
 |---|---|
 | M1 Eva/RTE | `fnAnd/Or/Xor/CountBits` kernels, `fnMaskl/fnMaskr`, `freeListFree/Reduce` insert, `stringNextGlyphNoEndCheck_JM`, shift/rotate family `fnAsr/Sl/Sr/Rl/Rr/Rrc/Lj/Rj` |
-| M2 regression | `findKey2ndParam`, `insColRealMatrix`, `insColComplexMatrix`, `calculateEigenvalues`, `indirectAddressing` (complex-matrix dump), `findGlyph` as `compareString` indexes it |
+| M2 regression | `findKey2ndParam`, `insColRealMatrix`, `insColComplexMatrix`, `calculateEigenvalues`, `indirectAddressing` (complex-matrix dump), `findGlyph` as `compareString` indexes it, `updateShortIntegerMasks` |
 | M3 WP | `regKStoC`, `regCtoKS`, `TO_BLOCKS`, `fnMaskl` shift precondition |
 | M4 nonterm | the integrator nesting (modelled; fix bound proved, unbounded form confirmed) |
 
@@ -39,7 +39,10 @@ OOB read (plausible-live at `bufferize.c:605`, unconfirmed), and `compareString`
 reading `standardFont.glyphs[-1]` for any code point the font has no glyph for
 (`sort.c:202`), confirmed live under ASan and still on upstream master.
 REGRESSION-WALLED - five OOBs, three of them ASan/Valgrind-invisible pool
-overruns. PRECISION handoffs closed by WP - mask, and (documented deferred)
+overruns, plus the undefined shifts `updateShortIntegerMasks()` takes from an
+unbounded restored word size (`config.c:706`, `:709`), which Eva found rather
+than confirmed: its two alarms named the word-size-0 case, where the uint8_t
+promotes and the shift amount goes negative. PRECISION handoffs closed by WP - mask, and (documented deferred)
 `fnLj` clz relation.
 
 The `sort.c` finding is the one the accounting above should be read against: it
