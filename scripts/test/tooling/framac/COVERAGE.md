@@ -29,15 +29,24 @@ proof is worth the hand-written harness.
 | milestone | c43 functions reached |
 |---|---|
 | M1 Eva/RTE | `fnAnd/Or/Xor/CountBits` kernels, `fnMaskl/fnMaskr`, `freeListFree/Reduce` insert, `stringNextGlyphNoEndCheck_JM`, shift/rotate family `fnAsr/Sl/Sr/Rl/Rr/Rrc/Lj/Rj` |
-| M2 regression | `findKey2ndParam`, `insColRealMatrix`, `insColComplexMatrix`, `calculateEigenvalues`, `indirectAddressing` (complex-matrix dump) |
+| M2 regression | `findKey2ndParam`, `insColRealMatrix`, `insColComplexMatrix`, `calculateEigenvalues`, `indirectAddressing` (complex-matrix dump), `findGlyph` as `compareString` indexes it |
 | M3 WP | `regKStoC`, `regCtoKS`, `TO_BLOCKS`, `fnMaskl` shift precondition |
 | M4 nonterm | the integrator nesting (modelled; fix bound proved, unbounded form confirmed) |
 
 Outcomes: PROVED safe/correct - logic ops, freeList insert, register bijection,
 block-rounding law, mask shift bound. FINDING - `stringNextGlyphNoEndCheck_JM`
-OOB read (plausible-live at `bufferize.c:605`, unconfirmed). REGRESSION-WALLED -
-four historic OOBs, three of them ASan/Valgrind-invisible pool overruns. PRECISION
-handoffs closed by WP - mask, and (documented deferred) `fnLj` clz relation.
+OOB read (plausible-live at `bufferize.c:605`, unconfirmed), and `compareString`
+reading `standardFont.glyphs[-1]` for any code point the font has no glyph for
+(`sort.c:202`), confirmed live under ASan and still on upstream master.
+REGRESSION-WALLED - five OOBs, three of them ASan/Valgrind-invisible pool
+overruns. PRECISION handoffs closed by WP - mask, and (documented deferred)
+`fnLj` clz relation.
+
+The `sort.c` finding is the one the accounting above should be read against: it
+sat in a file the parse gate excludes, so none of these milestones could have
+found it from the tree. It was found by harnessing the real `fonts.c` and the
+real generated font, which the M0 stubs do not reach either. Curated depth does
+not become breadth, and an excluded file is a blind spot, not a covered one.
 
 ## Reached: parse only (M0, structural, no semantic analysis)
 

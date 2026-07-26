@@ -2,13 +2,18 @@
 # M2 regression wall. One row per historic OOB bug:
 #   <kernel.c> | <eva-slevel> | <fix-commit> | <note>
 # run-framac-regress.sh compiles each kernel TWICE: default (pre-fix logic) must
-# raise >=1 Eva alarm (the detector fires - negative control), and -DFIXED (the
-# shipped fix) must raise 0 (the fix closes it). A kernel where the buggy mode
-# stops firing, or the fixed mode alarms, FAILS the gate. Each kernel reproduces
-# the cited access verbatim with buffers sized to the real allocation.
-# Audit basis: upstream master ccafdfe51, Frama-C 32.1, machdep gcc_x86_64.
+# raise >=1 Eva alarm (the detector fires - negative control), and -DFIXED must
+# raise 0 (the guard closes it). A kernel where the buggy mode stops firing, or
+# the fixed mode alarms, FAILS the gate. Each kernel reproduces the cited access
+# verbatim with buffers sized to the real allocation.
+# The fix-commit column names the upstream commit that shipped the guard, or
+# `unfixed` where the defect is still on upstream master and -DFIXED models a
+# proposed guard: that row gates the detector, not a merged fix.
+# Audit basis: upstream master ccafdfe51 for the first four rows, 5e628d1e0 for
+# glyphrank.c. Frama-C 32.1, machdep gcc_x86_64.
 #
 findkey.c       | 200 | 886d26ce3 | indexOfItems[op] read, op>LAST_ITEM (nextStep.c:307)
 inscol.c        | 200 | fb1f7f483 | newMat[] write 1 past rows*(cols+1) (matrix.c:2552) - pool-OOB, ASan/Valgrind-blind
 eigenvalue.c    | 200 | b9e4f7519 | previousDiagonal[] write past size*2 (matrix.c:6625) - pool-OOB, ASan/Valgrind-blind
 printregister.c | 200 | 1754a7808 | complex matrix[] read, r*rows+c stride bug (registers.c:1738)
+glyphrank.c     | 200 | unfixed   | standardFont.glyphs[] read at index -1, findGlyph miss code (sort.c:202) - ASan-visible, Valgrind-blind
