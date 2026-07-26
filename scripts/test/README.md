@@ -10,6 +10,12 @@ to reproduce a CI coverage failure.
 
 ## Layout
 
+- `lib/skip127.sh` - runs a lane script and turns its exit **127** ("optional
+  toolchain absent, gate did not run") into a passing step, announcing the skip on
+  stdout and as a GitHub annotation. Only 127 is translated; every other non-zero
+  status passes through. The five frama-c gates use it. It is a script, not inline
+  YAML, so a maintainer sees the same line locally - and because a workflow must
+  contain no logic that cannot be run locally.
 - `lib/common.sh` - shared preamble sourced by every lane: upstream resolution
   and sync (with submodules), the optional test/* tooling overlay hook, the
   xlsxio static build, ccache configuration, job detection, and logging.

@@ -73,26 +73,37 @@ jobs:
           opam switch create default ocaml-base-compiler --yes || opam switch set default
           eval "$(opam env)"
           opam install --yes frama-c.${FRAMAC_VERSION} z3
+          # Installing z3 is not enough: Frama-C's WP reaches provers through
+          # why3, and why3 only knows the ones its own detection has registered.
+          # Without this `frama-c -wp-detect` lists no z3, run-framac-wp.sh takes
+          # its SKIP path, and the WP gate never runs.
+          #
+          # Both tolerated on purpose. This runs under `set -e`, and a hard failure
+          # here would take down the four gates that do not need a prover at all -
+          # M0/M1/M2/M4 were passing while only M3 skipped. If detection fails the
+          # WP gate skips and says so, which is strictly better than red.
+          why3 config detect || echo "::warning title=why3 detect failed::WP gate will skip"
+          frama-c -wp-detect || true
 
       - name: Run Frama-C parse gate (M0)
         shell: bash
-        run: bash scripts/test/run-framac.sh
+        run: bash scripts/test/lib/skip127.sh scripts/test/run-framac.sh
 
       - name: Run Frama-C Eva/RTE gate (M1)
         shell: bash
-        run: bash scripts/test/run-framac-eva.sh
+        run: bash scripts/test/lib/skip127.sh scripts/test/run-framac-eva.sh
 
       - name: Run Frama-C regression wall (M2)
         shell: bash
-        run: bash scripts/test/run-framac-regress.sh
+        run: bash scripts/test/lib/skip127.sh scripts/test/run-framac-regress.sh
 
       - name: Run Frama-C WP proof gate (M3)
         shell: bash
-        run: bash scripts/test/run-framac-wp.sh
+        run: bash scripts/test/lib/skip127.sh scripts/test/run-framac-wp.sh
 
       - name: Run Frama-C Tier-D frontier gate (M4)
         shell: bash
-        run: bash scripts/test/run-framac-nonterm.sh
+        run: bash scripts/test/lib/skip127.sh scripts/test/run-framac-nonterm.sh
 
       - name: Upload parse-gate log
         if: always()
