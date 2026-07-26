@@ -1,0 +1,78 @@
+name: Test Firmware Stack Profile
+# Thin CI caller for scripts/test/run-stackprof.sh. All logic lives in the
+# script so it runs identically on a maintainer's machine.
+#
+# The lane cross-builds both DMCP firmware targets with -fstack-usage and
+# reports how much C stack one nested engine evaluation costs against the stack
+# DMCP actually grants - 8,088 guaranteed bytes on the DM42, which five nested
+# levels do not fit inside. It is REPORT-ONLY here (STACKPROF_GATE unset -> 0):
+# the numbers move with upstream inlining, so the standing reading in the log is
+# the deliverable. Set STACKPROF_GATE=1 in the env to fail on a ceiling breach.
+#
+# One check is hard whatever the gate says: the profiler's frame extraction is
+# compared against gcc's own -fstack-usage output on every run, and a mismatch
+# fails the lane. A stack number nobody can check is worse than none.
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  stackprof:
+    name: Firmware C-stack profile
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        # gcc-arm-none-eabi is the cross toolchain both DMCP targets need; the
+        # host GTK/GMP set is still required because Meson configures the whole
+        # project graph, and the generators (ttf2RasterFonts, generateConstants)
+        # are host binaries. cmake/libminizip-dev/libexpat1-dev build the xlsxio
+        # tool that ttf2RasterFonts shells out to - the firmware build runs it
+        # too, so it is not optional here. ccache must exist even though the
+        # lane disables it: the upstream cross files name it as the compiler.
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            ccache \
+            cmake \
+            gcc-arm-none-eabi \
+            git \
+            libexpat1-dev \
+            libgmp-dev \
+            libgtk-3-dev \
+            libminizip-dev \
+            libnewlib-arm-none-eabi \
+            libpulse-dev \
+            meson \
+            ninja-build \
+            pkg-config \
+            python3
+      - name: Cache xlsxio toolchain
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/c43/xlsxio
+          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
+      - name: Run stack profile (report-only)
+        run: bash scripts/test/run-stackprof.sh
+      - name: Upload stack profile
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: firmware-stack-profile
+          path: ci-artifacts/logs/
+          if-no-files-found: warn
+          retention-days: 14

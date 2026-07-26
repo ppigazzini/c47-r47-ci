@@ -61,6 +61,28 @@ to reproduce a CI coverage failure.
   still crashes on the SOLVE/SUM/PLOT probes, so the standing log count is the
   deliverable; `NESTCHECK_GATE=1` makes any non-survival a hard failure once the
   nesting budget merges.
+- `run-stackprof.sh` - the only lane that builds firmware. Cross-builds both
+  DMCP targets with `-fstack-usage` and reports how much C stack one nested
+  engine evaluation costs against the stack DMCP actually grants - 2,472 bytes
+  on the DM42, which one level already fills. Report-only for the per-level
+  ceilings in `stackprof-baseline.txt` (`STACKPROF_GATE=1` to gate); the
+  extraction self-check against `gcc -fstack-usage` is hard either way, because
+  a stack number nobody can check is worse than none. It is the one lane that
+  deliberately disables ccache: `-fstack-usage` writes a second output file per
+  object that a cache hit would not replay.
+- `tooling/stackprof.py` - the call-graph stack profiler the lane runs. Keys
+  functions by address, not name (three GMP statics share one inside a single
+  DM42 ELF); follows tail calls and the literal-pool handler edges every `fn*`
+  dispatch wrapper needs, without which `fnSin` scores 0 B; reports a recursion
+  cycle as unbounded rather than cutting its back edge and printing a finite
+  number. `--chain` sums a named call chain and fails if a link is not really an
+  edge; `--cut` drops the recursion edge on purpose and says so. Run it
+  standalone on any ELF, ARM or host.
+- `tooling/dmcp-stackband.py` - reads the C-stack band out of a shipped DMCP
+  firmware image: initial MSP from the vector table, floor from the highest
+  address firmware code loads as fixed data. Manual, not a lane - it needs a
+  vendor image CI should not fetch. Re-run it when SwissMicros ships firmware;
+  the constants in `run-stackprof.sh` and `docs/10-memory.md` are its output.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
@@ -94,6 +116,10 @@ to reproduce a CI coverage failure.
 
 A lane script:
 
+0. and one deviation worth naming: `run-stackprof.sh` skips
+   `harness_configure_ccache` and exports `CCACHE_DISABLE=1` instead, because
+   `-fstack-usage` emits a per-object `.su` file a cache hit does not replay,
+   and an empty `.su` tree would make its self-check vacuous rather than loud;
 1. sources `lib/common.sh`;
 2. uses `harness_resolve_commit` and `harness_sync_upstream` to obtain the
    upstream tree at the resolved commit;
@@ -135,3 +161,9 @@ bash scripts/test/run-smoke.sh
   upstream `.clang-tidy`) are documented deferrals.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
   analysis, `-Werror` hardening warnings).
+- `run-stackprof.sh` + `test-stackprof.yml`: firmware C-stack profile over both
+  DMCP targets, self-checked against `gcc -fstack-usage`. Done. Open follow-up,
+  and the one that would settle the residual: a dynamic high-water measurement -
+  paint the band at boot, run the corpus, read back how far the stack got. That
+  is the only method that also catches GMP's `alloca` temporaries, which no
+  prologue sum can see.

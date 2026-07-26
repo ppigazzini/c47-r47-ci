@@ -69,6 +69,7 @@ debugs a product whose source lives somewhere else.
 | write a doc, a code comment or a commit message | [docs/07-writing.md](docs/07-writing.md) |
 | look up a term, or check which tier of vocabulary it belongs to | [docs/08-glossary.md](docs/08-glossary.md) |
 | identify the high-level module you are touching, and the literature to search for it | [docs/09-modules.md](docs/09-modules.md) |
+| work out whether something fits in the firmware's memory | [docs/10-memory.md](docs/10-memory.md) |
 
 ## This file, and CLAUDE.md
 
@@ -169,6 +170,13 @@ catalogue. Read it before trusting any lane result.
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
   legitimately takes 2-3 hours; it is not hung.
   See [docs/05-ci.md](docs/05-ci.md).
+- **The simulator has a stack you will never exhaust; the DM42 has 2,472 bytes.**
+  DMCP grants a program the SRAM between the initial MSP and its own globals, and
+  documents the size nowhere - it is read out of the shipped firmware image. One
+  nested SOLVE level spends about all of it, so recursion depth and any
+  multi-kilobyte local are hardware questions a host build cannot answer.
+  `bash scripts/test/run-stackprof.sh`; see
+  [docs/10-memory.md](docs/10-memory.md).
 - **A lane failing does not mean this repo changed.** Every lane resolves upstream
   `master` at runtime, so an upstream commit breaks CI here with no commit here.
   Pin with `UPSTREAM_COMMIT` to tell the two apart.

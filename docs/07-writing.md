@@ -96,7 +96,7 @@ thoroughness; it is where rot hides.
 ## Doc pages
 
 `README.md` is the index - GitHub renders it for the folder, so it is what a
-reader lands on. The rest are `00-` to `07-`, numbered by **reading order**, not
+reader lands on. The rest are `00-` to `10-`, numbered by **reading order**, not
 importance: a contributor works down from the architecture into a subsystem, out
 through the build into testing, debugging and the lanes. The prefix is the only
 ordinal; nothing else numbers them.
@@ -142,6 +142,7 @@ exactly that way, in the session that changed it.
 | this page | the rules | cold |
 | [08-glossary.md](08-glossary.md) | what the words mean, product and harness | mixed - see below |
 | [09-modules.md](09-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
+| [10-memory.md](10-memory.md) | the per-target memory map, the C-stack band, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3
 describe a tree **this repo does not control**, so they rot when upstream moves
@@ -149,6 +150,12 @@ and nothing here changed. That is the failure the leak gate hit - upstream moved
 `a361b6797` to `87c70c77a` and three lanes broke without a commit here. Pages
 that track upstream need re-reading on an upstream sync, not only on a local
 change.
+
+`10-memory.md` tracks a **second** tree nobody here controls: the DMCP firmware
+image. Its map moves when SwissMicros ships an OS, on no schedule this repo can
+see and with no lane that would go red. Re-derive it with
+`scripts/test/tooling/dmcp-stackband.py` against the new image, which is why
+that page names the image and its hash beside every constant.
 
 Cold does not mean unowned. It means the claim outlives a release, so when it
 *is* wrong it has usually been wrong for a long time.
@@ -161,8 +168,8 @@ when a citation misses, rather than assuming the definition went with it.
 
 ### The audit basis
 
-Because those four pages rot without a commit here, each one states, on its own
-line directly under the title, the commit it was last read against:
+Because those pages rot without a commit here, each one states, on its own line
+directly under the title, the commit it was last read against:
 
 ```
 Audit basis: upstream `<40-character sha>`, YYYY-MM-DD.
@@ -265,8 +272,8 @@ The commit is the durable record of *why*, and the only place history belongs.
 6. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced or gone - Claude Code reads `CLAUDE.md`, never
    `AGENTS.md`, so that one line carries the whole contract,
-7. an upstream-tracking page (`00` to `03`) with no **audit basis**, or one
-   whose basis does not parse.
+7. an upstream-tracking page (`00` to `03`, and `10`) with no **audit basis**,
+   or one whose basis does not parse.
 
 It needs no upstream clone and no toolchain, so it runs in seconds on every push.
 Nothing gates a commit message.

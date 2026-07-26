@@ -1,0 +1,30 @@
+# Per-level C-stack ceilings for the firmware stack lane (run-stackprof.sh).
+#
+# Columns, whitespace separated:  target  label  ceiling_bytes  call_chain
+#
+# A "level" is one nested engine evaluation: the frames a user program spends
+# between re-entering execProgram and reaching the engine kernel. Multiply by
+# MAX_SOLVER_NESTING_DEPTH (defines.h) for the peak the nesting budget permits,
+# and compare against the target's guaranteed stack band - 8,088 B on the DM42.
+# That comparison is the whole point of the lane; see docs/10-memory.md.
+#
+# The chain is edge-checked on every run. A link that is neither a direct call
+# nor an indirect dispatch fails the lane rather than being summed: an upstream
+# refactor that reroutes the engine must update the chain, not silently produce
+# a total for a path that no longer exists. Compiler-generated members
+# (`.part.0`, `.constprop.0`) are part of the contract for the same reason -
+# when GCC stops splitting a function the link breaks and the lane says so.
+#
+# Ceilings sit ~8% above the measured value so an inlining change does not flap
+# the gate. Raise one only with the measurement and the reason; a rise is real
+# stack, and on the DM42 there is nowhere for it to come from.
+#
+# Measured at upstream 757d5c029, arm-none-eabi-gcc 13.2.1, DECNUMBER_FASTMUL:
+#
+#   DM42   solve-level 2000   int-level 2120
+#   DM42n  solve-level 2392   int-level 2120
+#
+DM42   solve-level  2200  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnSolve,solver
+DM42   int-level    2300  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnIntegrate,_fnIntegrate,_fnIntegrate.part.0,integrate,dbl_exp_int_new
+DM42n  solve-level  2600  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnSolve,solver
+DM42n  int-level    2300  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnIntegrate,_fnIntegrate,_fnIntegrate.part.0,integrate,dbl_exp_int_new

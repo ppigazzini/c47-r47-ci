@@ -11,3 +11,7 @@ __DEV
 *.bmp
 /backup.cfg
 /c47.sav
+
+# Python bytecode from running the tooling helpers in place
+__pycache__/
+*.pyc

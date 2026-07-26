@@ -49,6 +49,7 @@ do; grep the symbol if a citation misses.
 | **HAL** | hardware abstraction layer: the adapters between the calculator core and a platform. [00-architecture.md](00-architecture.md) Section 5 owns what it does and does not cover |
 | **DMCP, DMCP5** | SwissMicros' firmware platforms - DMCP for the DM42, DMCP5 for the newer board, selected by the `DMCPVERSION` Meson option (`meson.build:120` in the clone) |
 | **QSPI, `TO_QSPI`** | the DM42's external flash, and the attribute that places a const table there rather than in scarce internal memory (`src/c47/items.c:1775`) |
+| **the arena** | the firmware allocator's own heap, which every C47 `malloc` comes out of - including the one that creates the pool. A DMCP term by behaviour, not by name: nothing in c43 calls it this. [10-memory.md](10-memory.md) has its bounds per target |
 | **`.p47`, `.s47`, `.d47`** | the keystroke-program, saved-state and data file extensions (`src/c47/hal/io.h:20`, `:12`, `:15`) |
 | **`SNAP`** | the item that captures the LCD to a bitmap (`src/c47/items.h:1452`). Its handler is an **empty stub in the testSuite build** (`src/c47/items.c:1495`), which is why a skipped `SNAP` leaves a stale bitmap behind rather than failing |
 | **SHOI** | how many stack lines the hex/binary integer display takes over in base mode, held in `displayStackSHOIDISP` (`src/c47/c47.h:422`). **The acronym is expanded nowhere in the c43 source.** The behaviour is verified; the letters are not |
@@ -87,6 +88,9 @@ script wins.
 | **negative control** | a run against the **unfixed** tree that must show the bug, proving the check can fail at all. A gate that has never fired is not a gate. **No script enforces this** - it is a discipline, stated in [AGENTS.md](../AGENTS.md) |
 | **the pool** | this set's name for the calculator's own heap. **It is not a c43 term**: the source calls it the free list and free memory regions, and allocates from it with `allocC47Blocks` (`src/c47/memory.c:76`). Do not grep the product for "pool" and conclude it is absent |
 | **the canary, `POOL_GUARD`** | a by-hand patch that writes a position-dependent value around each allocated block to catch an overrun *inside* the pool - the class ASan and Valgrind are structurally blind to. Not a lane. [04-debugging.md](04-debugging.md) Section 5 owns it |
+| **the band** | this set's name for the C stack a target owns unconditionally: initial MSP down to the highest address the firmware addresses as fixed data. **DMCP names and documents no such thing** - the number is read out of the shipped image. [10-memory.md](10-memory.md) owns it |
+| **level** | one nested engine evaluation, and the unit stack cost is quoted in: the frames between re-entering `execProgram` and reaching the kernel. Multiply by `MAX_SOLVER_NESTING_DEPTH`, compare against the band (`scripts/test/stackprof-baseline.txt`) |
+| **cut** | a call-graph edge deliberately dropped so a recursive engine yields a per-level number. A declared input that the profiler prints - unlike a walk that prunes back edges silently and reports a finite bound for something unbounded |
 | **sweep** | driving one operation across every item, or every stack type, to find the case that breaks. Not a garbage-collection term |
 | **tooling overlay** | a not-yet-upstream patch under `scripts/test/tooling/` applied onto the freshly synced clone, because this repo may not carry product code |
 | **`HARNESS_WORK`** | the single scratch root every lane derives its paths from. Two lanes sharing one destroy each other's clone (`scripts/test/lib/common.sh`) |

@@ -166,7 +166,7 @@ fi
 log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 
 # --- 7. the upstream-tracking pages declare an audit basis --------------------
-# Four pages describe a tree this repo does not control, so they rot when
+# Five pages describe a tree this repo does not control, so they rot when
 # upstream moves and nothing here changes: that is how a361b6797 -> 87c70c77a
 # broke three lanes with no commit here. Before this check, 00 and 01 named the
 # commit they were measured at and 02 and 03 named nothing, so a reader could
@@ -177,6 +177,9 @@ log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 #   Audit basis: none recorded.
 # The second is not a loophole - it is the honest value, and it is visible in
 # the rendered page, which "no line at all" is not.
+#
+# 10-memory tracks a second uncontrolled tree, the shipped DMCP firmware image,
+# and names the image and its hash inline for the same reason this stamp exists.
 #
 # The SHA must be all 40 characters, matching what common.sh already demands of
 # UPSTREAM_COMMIT: an abbreviation is ambiguous against a growing history and
@@ -189,7 +192,7 @@ log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 # with the same shelf life as the prose under it. It dates the claim; it does
 # not verify it.
 n=0
-for page in 00-architecture 01-codebase 02-build 03-testing; do
+for page in 00-architecture 01-codebase 02-build 03-testing 10-memory; do
     f="docs/$page.md"
     [[ -e "$f" ]] || { note "MISSING PAGE  $f (named in the audit-basis list)"; n=$((n + 1)); continue; }
     basis="$(grep -m1 '^Audit basis:' "$f" || true)"
