@@ -1,17 +1,26 @@
-name: Test Firmware Stack Profile
+name: Test Platform Memory Limits
 # Thin CI caller for scripts/test/run-stackprof.sh. All logic lives in the
 # script so it runs identically on a maintainer's machine.
 #
-# The lane cross-builds both DMCP firmware targets with -fstack-usage and
-# reports how much C stack one nested engine evaluation costs against the stack
-# DMCP actually grants - 8,088 guaranteed bytes on the DM42, which five nested
-# levels do not fit inside. It is REPORT-ONLY here (STACKPROF_GATE unset -> 0):
-# the numbers move with upstream inlining, so the standing reading in the log is
-# the deliverable. Set STACKPROF_GATE=1 in the env to fail on a ceiling breach.
+# The lane reports every supported platform's memory limits and profiles the C
+# stack of each: all four DM42 feature packages, the DM42n, and the host
+# simulator. The headline it exists to publish is that the SIMULATOR CARRIES THE
+# NEW HARDWARE'S MEMORY MODEL - four times the DM42's pool and a host thread's
+# 8 MiB of stack against the DM42's 2,472 guaranteed bytes - so a simulator run
+# cannot reproduce a DM42 memory failure.
+#
+# It is REPORT-ONLY here (STACKPROF_GATE unset -> 0): the per-level numbers move
+# with upstream inlining, so the standing reading in the log is the deliverable.
+# Set STACKPROF_GATE=1 in the env to fail on a ceiling breach.
 #
 # One check is hard whatever the gate says: the profiler's frame extraction is
-# compared against gcc's own -fstack-usage output on every run, and a mismatch
-# fails the lane. A stack number nobody can check is worse than none.
+# calibrated against gcc's own -fstack-usage output, once per instruction set,
+# and an UNDER-report fails the lane. A bound below the real frame is a bound
+# that permits the overflow it was meant to prevent.
+#
+# It builds eight trees (six shipped, two no-LTO calibration twins), which is
+# what the timeout allows for. A DMCP package that no longer fits in internal
+# flash is reported and skipped rather than failing the lane.
 
 on:
   workflow_dispatch:
@@ -27,9 +36,9 @@ concurrency:
 
 jobs:
   stackprof:
-    name: Firmware C-stack profile
+    name: Platform memory limits and C-stack profile
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
     steps:
@@ -66,13 +75,13 @@ jobs:
         with:
           path: ~/.cache/c43/xlsxio
           key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
-      - name: Run stack profile (report-only)
+      - name: Run platform memory profile (report-only)
         run: bash scripts/test/run-stackprof.sh
       - name: Upload stack profile
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: firmware-stack-profile
+          name: platform-memory-profile
           path: ci-artifacts/logs/
           if-no-files-found: warn
           retention-days: 14

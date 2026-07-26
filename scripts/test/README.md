@@ -61,23 +61,37 @@ to reproduce a CI coverage failure.
   still crashes on the SOLVE/SUM/PLOT probes, so the standing log count is the
   deliverable; `NESTCHECK_GATE=1` makes any non-survival a hard failure once the
   nesting budget merges.
-- `run-stackprof.sh` - the only lane that builds firmware. Cross-builds both
-  DMCP targets with `-fstack-usage` and reports how much C stack one nested
-  engine evaluation costs against the stack DMCP actually grants - 2,472 bytes
-  on the DM42, which one level already fills. Report-only for the per-level
-  ceilings in `stackprof-baseline.txt` (`STACKPROF_GATE=1` to gate); the
-  extraction self-check against `gcc -fstack-usage` is hard either way, because
-  a stack number nobody can check is worse than none. It is the one lane that
-  deliberately disables ccache: `-fstack-usage` writes a second output file per
-  object that a cache hit would not replay.
-- `tooling/stackprof.py` - the call-graph stack profiler the lane runs. Keys
+- `run-stackprof.sh` - the only lane that builds firmware, and the only one that
+  compares platforms. Profiles every DM42 feature package, the DM42n and the host
+  simulator with one instrument, reporting how much C stack one nested engine
+  evaluation costs against the stack that platform actually has: 2,472 bytes on
+  the DM42, which one level already fills, against the host thread's 8 MiB. It
+  also prints the compile-time limits matrix, where the load-bearing line is that
+  **the simulator carries the new hardware's pool**, so a DM42 pool failure is not
+  reproducible on it. Report-only for the per-level ceilings in
+  `stackprof-baseline.txt` (`STACKPROF_GATE=1` to gate); the calibration against
+  `gcc -fstack-usage` is hard either way when it finds an under-report, because a
+  bound below the real frame permits the overflow it was meant to stop. A DMCP
+  package that no longer fits in flash is reported, not fatal. It is the one lane
+  that deliberately disables ccache: `-fstack-usage` writes a second output file
+  per object that a cache hit would not replay.
+- `tooling/stackprof.py` - the call-graph stack profiler the lane runs, for Thumb
+  and x86-64, with the instruction set detected from the disassembly. Keys
   functions by address, not name (three GMP statics share one inside a single
-  DM42 ELF); follows tail calls and the literal-pool handler edges every `fn*`
-  dispatch wrapper needs, without which `fnSin` scores 0 B; reports a recursion
-  cycle as unbounded rather than cutting its back edge and printing a finite
-  number. `--chain` sums a named call chain and fails if a link is not really an
-  edge; `--cut` drops the recursion edge on purpose and says so. Run it
-  standalone on any ELF, ARM or host.
+  DM42 ELF); follows tail calls and the handler edges every `fn*` dispatch wrapper
+  needs - a `.word` on Thumb, a rip-relative `lea` on x86-64 - without which
+  `fnSin` scores 0 B; reports a recursion cycle as unbounded rather than cutting
+  its back edge and printing a finite number. `--chain` sums a named call chain
+  and fails if a link is not really an edge; `--cut` drops the recursion edge on
+  purpose and says so; `--su-dir` calibrates every frame against
+  `gcc -fstack-usage`, which needs a **no-LTO** build because LTO suppresses
+  `.su` output entirely. Run it standalone on any ELF, firmware or host.
+- `tooling/platform-limits.py` - the compile-time limits matrix. Compiles a
+  generated probe against upstream's own `defines.h` under each platform's macros
+  and tabulates what came back, flagging every value that differs between
+  platforms. Integer constants only: every column is evaluated by the host
+  compiler, so a limit derived from `sizeof` of a target type is refused rather
+  than answered wrongly.
 - `tooling/dmcp-stackband.py` - reads the C-stack band out of a shipped DMCP
   firmware image: initial MSP from the vector table, floor from the highest
   address firmware code loads as fixed data. Manual, not a lane - it needs a
@@ -161,9 +175,11 @@ bash scripts/test/run-smoke.sh
   upstream `.clang-tidy`) are documented deferrals.
 - breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
   analysis, `-Werror` hardening warnings).
-- `run-stackprof.sh` + `test-stackprof.yml`: firmware C-stack profile over both
-  DMCP targets, self-checked against `gcc -fstack-usage`. Done. Open follow-up,
-  and the one that would settle the residual: a dynamic high-water measurement -
-  paint the band at boot, run the corpus, read back how far the stack got. That
-  is the only method that also catches GMP's `alloca` temporaries, which no
-  prologue sum can see.
+- `run-stackprof.sh` + `test-stackprof.yml`: per-platform memory limits and
+  C-stack profile over all four DM42 packages, the DM42n and the host simulator,
+  calibrated against `gcc -fstack-usage` once per instruction set. Done. Two open
+  follow-ups: a **dynamic high-water measurement** - paint the band at boot, run
+  the corpus, read back how far the stack got, the only method that also catches
+  GMP's `alloca` temporaries - and **macOS/Windows simulator frames**, which need
+  a runner of each and would answer whether the host divergence is a Linux
+  artifact or general.

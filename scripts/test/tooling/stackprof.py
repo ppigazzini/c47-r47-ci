@@ -21,18 +21,86 @@ import sys
 from pathlib import Path
 
 SYMBOL_RE = re.compile(r"^([0-9a-f]+) <(.+)>:$")
-# objdump expands core register lists (`push {r4, r5, lr}`) but prints VFP lists as ranges (`vpush {d8-d13}`); expand_reglist() takes both.
-PUSH_RE = re.compile(r"\t(?:push(?:\.w)?|stmdb\s+sp!,)\s+\{([^}]*)\}")
-VPUSH_RE = re.compile(r"\t(?:vpush(?:\.w)?|vstmdb\s+sp!,)\s+\{([^}]*)\}")
-SUB_SP_IMM_RE = re.compile(r"\tsub(?:\.w|w)?\s+sp,\s*(?:sp,\s*)?#(\d+)")
-SUB_SP_REG_RE = re.compile(r"\tsub(?:\.w|w)?\s+sp,\s*(?:sp,\s*)?(?:r\d+|ip|sl|fp|sb)\b")
-CALL_RE = re.compile(r"\tblx?\s+([0-9a-f]+) <")
-INDIRECT_RE = re.compile(r"\tblx?\s+(?:r\d+|ip|lr|sl|fp|sb)\b")
-BRANCH_RE = re.compile(r"\tb(?:\.w|\.n)?\s+([0-9a-f]+) <")
-LITERAL_RE = re.compile(r"\t\.word\t0x([0-9a-f]+)")
 REG_NUM_RE = re.compile(r"\d+")
 # GCC clone suffixes: the ELF symbol carries them, the .su line does not, so a clone has no comparable entry and the self-check skips it.
 CLONE_SUFFIX_RE = re.compile(r"\.(?:lto_priv|isra|constprop|part|cold|localalias)(?:\.\d+)*$")
+
+
+class Isa:
+    """One instruction set's stack and control-flow idioms, as GNU objdump prints them.
+
+    The same profile must be readable on hardware and on the simulator or a cross-platform comparison is guesswork, and the two differ in
+    more than syntax: Thumb keeps the return address in `lr` and pays for it only when a function pushes it, so the prologue already shows
+    the cost, while every x86-64 `call` spends 8 bytes before the callee's prologue runs. `return_address` is that difference, charged to
+    every frame so the total is comparable across platforms and so it matches what `gcc -fstack-usage` reports, which includes it.
+    """
+
+    def __init__(self, name: str, **rules: object) -> None:
+        self.name = name
+        self.__dict__.update(rules)
+
+
+THUMB = Isa(
+    "thumb",
+    # objdump expands core register lists (`push {r4, r5, lr}`) but prints VFP lists as ranges (`vpush {d8-d13}`); expand_reglist takes both.
+    push=re.compile(r"\t(?:push(?:\.w)?|stmdb\s+sp!,)\s+\{([^}]*)\}"),
+    push_width=4,
+    vpush=re.compile(r"\t(?:vpush(?:\.w)?|vstmdb\s+sp!,)\s+\{([^}]*)\}"),
+    vpush_width=8,
+    sp_adjust=re.compile(r"\t(sub|add)(?:\.w|w)?\s+sp,\s*(?:sp,\s*)?#(\d+)"),
+    sp_adjust_base=10,
+    sp_adjust_signed=False,
+    sub_reg=re.compile(r"\tsub(?:\.w|w)?\s+sp,\s*(?:sp,\s*)?(?:r\d+|ip|sl|fp|sb)\b"),
+    call=re.compile(r"\tblx?\s+([0-9a-f]+) <"),
+    indirect=re.compile(r"\tblx?\s+(?:r\d+|ip|lr|sl|fp|sb)\b"),
+    branch=re.compile(r"\tb(?:\.w|\.n)?\s+([0-9a-f]+) <"),
+    # A handler address reached through the function's own literal pool.
+    handler=re.compile(r"\t\.word\t0x([0-9a-f]+)"),
+    handler_base=16,
+    handler_thumb_tag=True,
+    probe_lea=None,
+    page=0,
+    return_address=0,
+)
+
+X86_64 = Isa(
+    "x86-64",
+    push=re.compile(r"\tpush(?:q)?\s+%[a-z0-9]+"),
+    push_width=8,
+    vpush=None,
+    vpush_width=0,
+    # GCC allocates with either sign: `sub $0x80,%rsp` and `add $0xffffffffffffff80,%rsp` are the same frame, and the matching release is
+    # spelled the other way round. Both mnemonics are read, the immediate is sign-extended, and only allocations are charged.
+    sp_adjust=re.compile(r"\t(sub|add)\s+\$0x([0-9a-f]+),%rsp"),
+    sp_adjust_base=16,
+    sp_adjust_signed=True,
+    sub_reg=re.compile(r"\tsub\s+%[a-z0-9]+,%rsp"),
+    call=re.compile(r"\tcall\s+([0-9a-f]+) <"),
+    indirect=re.compile(r"\tcall\s+\*"),
+    branch=re.compile(r"\tjmp\s+([0-9a-f]+) <"),
+    # `lea -0x2e(%rip),%rax  # 1ea93d <sinCplx>` is the x86-64 form of the literal-pool handler load, and `fnSin` uses exactly that.
+    handler=re.compile(r"\tlea\s+[^,]*\(%rip\),%[a-z0-9]+\s+#\s*([0-9a-f]+) <"),
+    handler_base=16,
+    handler_thumb_tag=False,
+    # A frame past one page is allocated by a stack-clash probe loop: `lea -0x7000(%rsp),%r11` names the whole allocation, then a loop
+    # subtracts and probes one page at a time. The lea carries the total; the per-iteration `sub $0x1000,%rsp` must not be added to it, and
+    # counting only the static sub instructions would read a 30 KB frame as 4 KB.
+    probe_lea=re.compile(r"\tlea\s+-0x([0-9a-f]+)\(%rsp\),%[a-z0-9]+"),
+    page=0x1000,
+    return_address=8,
+)
+
+ISAS = {isa.name: isa for isa in (THUMB, X86_64)}
+
+
+def detect_isa(text: str) -> Isa:
+    """Pick the ISA from the disassembly itself, so one command works on a firmware ELF and a simulator binary alike."""
+    head = text[:400000]
+    if "%rsp" in head or "endbr64" in head:
+        return X86_64
+    if re.search(r"\t(?:push|bl|ldr)\b", head):
+        return THUMB
+    raise SystemExit("could not tell the instruction set from the disassembly - pass --isa")
 
 
 def expand_reglist(spec: str) -> int:
@@ -81,8 +149,9 @@ class Function:
 class Program:
     """The address-keyed call graph read out of one disassembly."""
 
-    def __init__(self, functions: dict[int, Function]) -> None:
+    def __init__(self, functions: dict[int, Function], isa: Isa) -> None:
         self.functions = functions
+        self.isa = isa
         self.starts = sorted(functions)
         self.by_name: dict[str, list[int]] = {}
         for address in self.starts:
@@ -118,54 +187,74 @@ class Program:
         return addresses[0] if len(addresses) == 1 else None
 
 
-def load_disassembly(path: Path, follow_literals: bool = True) -> Program:
+def load_disassembly(path: Path, follow_literals: bool = True, isa: Isa | None = None) -> Program:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    isa = isa or detect_isa(text)
     functions: dict[int, Function] = {}
     raw_calls: dict[int, set[int]] = {}
     raw_branches: dict[int, set[int]] = {}
     raw_literals: dict[int, set[int]] = {}
     current: Function | None = None
 
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    probing = False
+    for line in text.splitlines():
         symbol = SYMBOL_RE.match(line)
         if symbol:
             address = int(symbol.group(1), 16)
             current = functions.setdefault(address, Function(address, symbol.group(2)))
+            current.frame += isa.return_address
+            probing = False
             for table in (raw_calls, raw_branches, raw_literals):
                 table.setdefault(address, set())
             continue
         if current is None:
             continue
-        push = PUSH_RE.search(line)
+        if isa.probe_lea:
+            probe = isa.probe_lea.search(line)
+            if probe:
+                current.frame += int(probe.group(1), 16)
+                probing = True
+                continue
+        push = isa.push.search(line)
         if push:
-            current.frame += 4 * expand_reglist(push.group(1))
+            # x86-64 pushes one register per instruction and names no list, so there is no group to expand.
+            current.frame += isa.push_width * (expand_reglist(push.group(1)) if push.groups() else 1)
             continue
-        vpush = VPUSH_RE.search(line)
-        if vpush:
-            current.frame += 8 * expand_reglist(vpush.group(1))
+        if isa.vpush:
+            vpush = isa.vpush.search(line)
+            if vpush:
+                current.frame += isa.vpush_width * expand_reglist(vpush.group(1))
+                continue
+        adjust = isa.sp_adjust.search(line)
+        if adjust:
+            value = int(adjust.group(2), isa.sp_adjust_base)
+            if isa.sp_adjust_signed and value >= 1 << 63:
+                value -= 1 << 64
+            allocated = value if adjust.group(1) == "sub" else -value
+            if probing and allocated == isa.page:  # One turn of the probe loop the lea already accounted for.
+                continue
+            if allocated > 0:  # A release is not a frame. Summing allocations over-approximates a function that allocates twice, which is
+                current.frame += allocated  # the safe direction for a bound.
             continue
-        sub_imm = SUB_SP_IMM_RE.search(line)
-        if sub_imm:
-            current.frame += int(sub_imm.group(1))
-            continue
-        if SUB_SP_REG_RE.search(line):
+        if isa.sub_reg.search(line):
             current.dynamic += 1
             continue
-        if INDIRECT_RE.search(line):
+        if isa.indirect.search(line):
             current.indirect += 1
             continue
-        call = CALL_RE.search(line)
+        call = isa.call.search(line)
         if call:
             raw_calls[current.address].add(int(call.group(1), 16))
             continue
-        branch = BRANCH_RE.search(line)
+        branch = isa.branch.search(line)
         if branch:
             raw_branches[current.address].add(int(branch.group(1), 16))
             continue
-        literal = LITERAL_RE.search(line)
-        if literal:
-            raw_literals[current.address].add(int(literal.group(1), 16))
+        handler = isa.handler.search(line)
+        if handler:
+            raw_literals[current.address].add(int(handler.group(1), isa.handler_base))
 
-    program = Program(functions)
+    program = Program(functions, isa)
     for address, function in functions.items():
         for target in raw_calls[address]:
             owner = program.containing(target)
@@ -182,12 +271,15 @@ def load_disassembly(path: Path, follow_literals: bool = True) -> Program:
                 function.tail_calls.add(owner)
         if not follow_literals:
             continue
-        # c47 dispatches per type by loading handler addresses from the caller's own literal pool (`fnSin` -> processRealComplexMonadic-
-        # Function with two `.word` handlers). Accept a literal only when it is Thumb-tagged AND lands exactly on a function start, which
-        # no plain datum does; the wider dispatch through the `addition[][]`-style tables in .rodata stays unresolved and is reported.
+        # c47 dispatches per type by loading handler addresses into the dispatcher's arguments: two `.word`s on Thumb, two rip-relative
+        # `lea`s on x86-64, both feeding processRealComplexMonadicFunction. Accept one only when it lands exactly on a function start -
+        # Thumb tags the address odd, so untag first. The wider dispatch through the `addition[][]` tables stays unresolved, and reported.
         for value in raw_literals[address]:
-            if value & 1 and (value - 1) in functions and (value - 1) != address:
-                function.literals.add(value - 1)
+            target = value - 1 if program.isa.handler_thumb_tag else value
+            if program.isa.handler_thumb_tag and not value & 1:
+                continue
+            if target in functions and target != address:
+                function.literals.add(target)
     return program
 
 
@@ -254,8 +346,9 @@ class Analysis:
         self.program = program
         self.components, self.component_of, self.successors = condense(program)
         self.recursive = [len(c) > 1 or any(a in program.functions[a].edges for a in c) for c in self.components]
-        # One pass through a component costs at most the sum of its frames. A component that is a cycle has no static bound at all and is
-        # reported as such; a walk that merely cuts the back edge would report a finite number for an unbounded recursion.
+        # One pass through a component costs at most the sum of its frames, the return address included by load_disassembly. A component
+        # that is a cycle has no static bound at all and is reported as such; a walk that merely cuts the back edge would report a finite
+        # number for an unbounded recursion.
         self.weight = [sum(program.functions[a].frame for a in c) for c in self.components]
         self.cost: list[int] = [0] * len(self.components)
         self.best: list[int | None] = [None] * len(self.components)
@@ -314,14 +407,19 @@ def load_stack_usage(build_dir: Path) -> tuple[dict[str, set[int]], set[str]]:
     return sizes, dynamic
 
 
-def self_check(program: Program, build_dir: Path) -> tuple[int, list[tuple[str, int, int]]]:
-    """Compare extracted frames against GCC's own numbers.
+def self_check(program: Program, build_dir: Path) -> tuple[int, list[tuple[str, int, int]], list[tuple[str, int, int]]]:
+    """Compare extracted frames against GCC's own numbers, splitting the two directions of disagreement.
 
     Compares only names that are unambiguous on both sides and static on GCC's: a name shared by two functions cannot be attributed, a
     clone's frame is not the original's, and a dynamic frame has no fixed size to compare against.
+
+    The directions are not equally bad and are not gated alike. **Under-reporting is a defect**: a bound below the true frame is a bound
+    that permits an overflow, so one instance fails the check. Over-reporting is the documented cost of summing every allocation a function
+    makes rather than tracing which can co-occur - conservative, still a bound, and reported so it cannot grow unnoticed.
     """
     sizes, dynamic = load_stack_usage(build_dir)
-    mismatches: list[tuple[str, int, int]] = []
+    under: list[tuple[str, int, int]] = []
+    over: list[tuple[str, int, int]] = []
     compared = 0
     for name, addresses in program.by_name.items():
         if len(addresses) != 1 or CLONE_SUFFIX_RE.search(name) or name in dynamic:
@@ -331,17 +429,24 @@ def self_check(program: Program, build_dir: Path) -> tuple[int, list[tuple[str, 
             continue
         compared += 1
         expected, frame = next(iter(candidates)), program.functions[addresses[0]].frame
-        if expected != frame:
-            mismatches.append((name, expected, frame))
-    return compared, sorted(mismatches, key=lambda row: -abs(row[1] - row[2]))
+        if frame < expected:
+            under.append((name, expected, frame))
+        elif frame > expected:
+            over.append((name, expected, frame))
+    key = lambda row: -abs(row[1] - row[2])
+    return compared, sorted(under, key=key), sorted(over, key=key)
 
 
 def read_chains(path: Path, target: str) -> list[tuple[str, int | None, str]]:
-    """Parse the chain baseline: `target label ceiling_bytes chain` rows, `#` comments; keep the rows for one target."""
+    """Parse the chain baseline: `target label ceiling_bytes chain` rows, `#` comments; keep the rows for one target.
+
+    A row keyed `DM42` also serves `DM42-pkg3`: the DMCP packages are feature subsets of one memory model and share their engine chain, so
+    one row covers all four. The `-` separator is required rather than a bare prefix, or `DM42` would silently claim `DM42n` as well.
+    """
     chains: list[tuple[str, int | None, str]] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
         fields = raw.split("#", 1)[0].split()
-        if len(fields) == 4 and fields[0] == target:
+        if len(fields) == 4 and (target == fields[0] or target.startswith(fields[0] + "-")):
             chains.append((fields[1], int(fields[2]), fields[3]))
     return chains
 
@@ -414,6 +519,7 @@ def main() -> int:
     parser.add_argument("--band", type=int, help="guaranteed stack band in bytes, flagged beside each root that exceeds it")
     parser.add_argument("--top", type=int, default=15, help="how many largest fixed frames to list")
     parser.add_argument("--depth", type=int, default=12, help="how many chain steps to print per root")
+    parser.add_argument("--isa", choices=sorted(ISAS), help="instruction set; detected from the disassembly when omitted")
     parser.add_argument("--no-follow-literals", action="store_true", help="drop the literal-pool handler edges every fn* wrapper needs")
     parser.add_argument("--cut", action="append", default=[], help="drop every edge into this symbol, turning a re-entrant engine into a "
                                                                    "per-level cost (repeatable; each cut is printed)")
@@ -428,10 +534,11 @@ def main() -> int:
                             encoding="utf-8")
     else:
         dis_path = args.dis
-    program = load_disassembly(dis_path, follow_literals=not args.no_follow_literals)
+    program = load_disassembly(dis_path, follow_literals=not args.no_follow_literals, isa=ISAS.get(args.isa))
 
     label = args.target or dis_path.name
     print(f"== stack profile: {label} ==")
+    print(f"isa {program.isa.name}  return-address cost per frame {program.isa.return_address} B")
     print(f"functions {len(program.functions)}  call edges {sum(len(f.calls) for f in program.functions.values())}  "
           f"tail-call edges {sum(len(f.tail_calls) for f in program.functions.values())}  "
           f"literal-pool edges {sum(len(f.literals) for f in program.functions.values())}  "
@@ -448,17 +555,21 @@ def main() -> int:
 
     status = 0
     if args.su_dir:
-        compared, mismatches = self_check(program, args.su_dir)
+        compared, under, over = self_check(program, args.su_dir)
         if compared == 0:
-            print("SELF-CHECK: no .su files found - build with -fstack-usage or drop --su-dir", file=sys.stderr)
+            print("SELF-CHECK: no .su files found - build with -fstack-usage and without LTO, or drop --su-dir", file=sys.stderr)
             status = 2
-        elif mismatches:
-            print(f"SELF-CHECK FAILED: {len(mismatches)} of {compared} frames disagree with gcc -fstack-usage", file=sys.stderr)
-            for name, expected, got in mismatches[:20]:
+        elif under:
+            print(f"SELF-CHECK FAILED: {len(under)} of {compared} frames are UNDER gcc -fstack-usage - the bound is unsafe", file=sys.stderr)
+            for name, expected, got in under[:20]:
                 print(f"    {name}: gcc {expected} B, extracted {got} B", file=sys.stderr)
             status = 2
         else:
-            print(f"self-check: {compared} frames match gcc -fstack-usage exactly")
+            exact = compared - len(over)
+            note = f", {len(over)} conservative (over by {sum(g - e for _, e, g in over)} B total)" if over else ""
+            print(f"self-check: {exact} of {compared} frames match gcc -fstack-usage exactly, 0 under{note}")
+            for name, expected, got in over[:5]:
+                print(f"    over: {name} gcc {expected} B, extracted {got} B")
 
     chains: list[tuple[str, int | None, str]] = [("call chain", None, spec) for spec in args.chain]
     if args.chains:

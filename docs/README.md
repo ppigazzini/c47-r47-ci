@@ -39,7 +39,7 @@ The repository holds three things:
 | [07-writing.md](07-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
 | [08-glossary.md](08-glossary.md) | Anyone reading any of the above | Two tiers of vocabulary: the calculator's own terms, which upstream owns, and the harness terms this repo invented |
 | [09-modules.md](09-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
-| [10-memory.md](10-memory.md) | Anyone allocating, recursing or sizing a firmware buffer | The machine under the pool: the SRAM map of each target, the C stack DMCP grants and does not document, what a nested engine level costs, and how to measure any of it |
+| [10-memory.md](10-memory.md) | Anyone allocating, recursing or sizing a buffer | The machine under the pool, per platform: the limits matrix for both hardware targets and the simulator, the SRAM map, the C stack DMCP grants and does not document, what a nested engine level costs - and why a simulator run cannot answer a DM42 question |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see
@@ -59,6 +59,7 @@ looking for. This one is keyed by what brought you here.
 | write a test, or drive the calculator headlessly | [03-testing.md](03-testing.md) |
 | chase a leak, a crash or an overrun | [04-debugging.md](04-debugging.md) |
 | work out whether something fits in the firmware's memory, or why it crashed on hardware and not the simulator | [10-memory.md](10-memory.md) |
+| find out what a platform's limits are, or whether the simulator can reproduce a hardware failure at all | [10-memory.md](10-memory.md) - Section 2 |
 | work out which lane catches the change you just made | [05-ci.md](05-ci.md) - "Which lane to run first" |
 | reproduce a CI failure locally | [05-ci.md](05-ci.md) - and note the coverage exception |
 | understand why CI is red when nothing here changed | [05-ci.md](05-ci.md) - pin `UPSTREAM_COMMIT` |

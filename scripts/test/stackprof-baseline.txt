@@ -1,30 +1,49 @@
-# Per-level C-stack ceilings for the firmware stack lane (run-stackprof.sh).
+# Per-level C-stack ceilings for every c47 platform (run-stackprof.sh).
 #
 # Columns, whitespace separated:  target  label  ceiling_bytes  call_chain
 #
 # A "level" is one nested engine evaluation: the frames a user program spends
-# between re-entering execProgram and reaching the engine kernel. Multiply by
-# MAX_SOLVER_NESTING_DEPTH (defines.h) for the peak the nesting budget permits,
-# and compare against the target's guaranteed stack band - 8,088 B on the DM42.
+# between re-entering execProgram and reaching the engine kernel. Multiply by the
+# runtime nesting cap and compare against the platform's stack band - 2,472 B on
+# the DM42, 148 KiB on the DM42n, the host thread's limit on the simulator.
 # That comparison is the whole point of the lane; see docs/10-memory.md.
+#
+# A row keyed `DM42` serves every DM42-pkgN target: the DMCP packages are feature
+# subsets of one memory model and share their engine chain.
+#
+# THE SIMULATOR NEEDS ITS OWN CHAINS, and that is the finding, not a nuisance.
+# The firmware is built with -flto and the simulator at -O0, so the two do not
+# have the same call graph: LTO inlines executeOneStep into runProgram and splits
+# _fnIntegrate into a .part.0 clone, neither of which happens on the host. A
+# per-level cost measured on the simulator is not the firmware's cost, and no
+# amount of care with the arithmetic fixes that.
 #
 # The chain is edge-checked on every run. A link that is neither a direct call
 # nor an indirect dispatch fails the lane rather than being summed: an upstream
 # refactor that reroutes the engine must update the chain, not silently produce
 # a total for a path that no longer exists. Compiler-generated members
 # (`.part.0`, `.constprop.0`) are part of the contract for the same reason -
-# when GCC stops splitting a function the link breaks and the lane says so.
+# when the compiler stops splitting a function the link breaks and the lane says
+# so.
 #
 # Ceilings sit ~8% above the measured value so an inlining change does not flap
 # the gate. Raise one only with the measurement and the reason; a rise is real
 # stack, and on the DM42 there is nowhere for it to come from.
 #
-# Measured at upstream 757d5c029, arm-none-eabi-gcc 13.2.1, DECNUMBER_FASTMUL:
+# Measured at upstream 5e628d1e0f8552360c56c12f44fb14b8fe2d0f37,
+# arm-none-eabi-gcc 13.2.1 and gcc 13.3.0, DECNUMBER_FASTMUL:
 #
-#   DM42   solve-level 2000   int-level 2120
-#   DM42n  solve-level 2392   int-level 2120
+#   DM42 (pkg4)  solve-level 2000   int-level 2120
+#   DM42n        solve-level 2392   int-level 2120
+#   sim (x86-64) solve-level 3272   int-level 2984
+#
+# The simulator's levels are the largest and its stack is the largest by three
+# orders of magnitude. It is the platform on which this class of bug cannot be
+# observed.
 #
 DM42   solve-level  2200  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnSolve,solver
 DM42   int-level    2300  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnIntegrate,_fnIntegrate,_fnIntegrate.part.0,integrate,dbl_exp_int_new
 DM42n  solve-level  2600  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnSolve,solver
 DM42n  int-level    2300  execProgram,fnExecute,runProgram,runFunction,reallyRunFunction,fnIntegrate,_fnIntegrate,_fnIntegrate.part.0,integrate,dbl_exp_int_new
+sim    solve-level  3600  execProgram,fnExecute,runProgram,executeOneStep,runFunction,reallyRunFunction,fnSolve,solver
+sim    int-level    3200  execProgram,fnExecute,runProgram,executeOneStep,runFunction,reallyRunFunction,fnIntegrate,_fnIntegrate,integrate,dbl_exp_int_new

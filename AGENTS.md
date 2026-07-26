@@ -170,13 +170,20 @@ catalogue. Read it before trusting any lane result.
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
   legitimately takes 2-3 hours; it is not hung.
   See [docs/05-ci.md](docs/05-ci.md).
-- **The simulator has a stack you will never exhaust; the DM42 has 2,472 bytes.**
-  DMCP grants a program the SRAM between the initial MSP and its own globals, and
-  documents the size nowhere - it is read out of the shipped firmware image. One
-  nested SOLVE level spends about all of it, so recursion depth and any
-  multi-kilobyte local are hardware questions a host build cannot answer.
-  `bash scripts/test/run-stackprof.sh`; see
-  [docs/10-memory.md](docs/10-memory.md).
+- **The simulator does not have the DM42's memory model, so it cannot reproduce
+  a DM42 memory failure.** It is compiled with the *new* hardware's pool - 256 KiB
+  against the DM42's 64 KiB, and 200 free regions against 50 - and its C stack is
+  the host thread's 8 MiB against a DM42 band of **2,472 bytes**, which one nested
+  SOLVE level fills. DMCP documents that band nowhere; it is read out of the
+  shipped firmware image. Recursion depth, pool exhaustion and any multi-kilobyte
+  local are hardware questions a host build answers wrongly, not slowly.
+  `bash scripts/test/run-stackprof.sh` profiles every platform with one
+  instrument; see [docs/10-memory.md](docs/10-memory.md).
+- **The DM42 ships as four feature packages and only one of them links today.**
+  `DMCP_PACKAGE` trades functions for flash, so each package has its own set of
+  built code; measured at the audit-basis commit with `arm-none-eabi-gcc` 13.2.1,
+  packages 1, 2 and 3 overflow internal FLASH and only package 4 - the Makefile
+  default - builds. Profile the package you mean, not "the DM42".
 - **A lane failing does not mean this repo changed.** Every lane resolves upstream
   `master` at runtime, so an upstream commit breaks CI here with no commit here.
   Pin with `UPSTREAM_COMMIT` to tell the two apart.
