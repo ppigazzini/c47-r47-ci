@@ -1,0 +1,50 @@
+# Python tooling config for the repo-owned scripts under scripts/test/tooling/.
+# There is no Python package to build -- this file exists so ruff/ty/pre-commit
+# share one config, the same shape the sibling mcfish repo uses.
+
+[project]
+name = "c47-r47-ci-internal-python-tools"
+version = "0.0.0"
+requires-python = ">=3.14"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.22",
+    "ty>=0.0.63",
+    # Not a lint tool: numeric-vectors.py needs mpmath to compute the reference
+    # values it emits, and it is here so ty can resolve the import rather than
+    # report the one real dependency the tooling has as unresolvable.
+    "mpmath>=1.3.0",
+]
+
+[tool.ruff]
+target-version = "py314"
+src = ["scripts/test/tooling"]
+# 170, not ruff's 88, because docs/07-writing.md sets the house comment wrap at
+# 160-170 on purpose: a short wrap costs the maintainer a reflow on every read.
+# A narrower setting here does not just warn, it makes `ruff format` break
+# correct code and trailing comments into worse shapes to obey a width this repo
+# rejected. The formatter and the style guide have to agree, so this follows it.
+line-length = 170
+
+[tool.ruff.lint]
+# Curated GATING set, deliberately not ALL: these are operator tools, so print
+# IS their output (T201), subprocess IS their job (S603/S607), and annotation/
+# docstring ceremony (ANN/D) buys nothing an operator reads. A rule family the
+# tools violate by design would force --exit-zero, and an advisory hook is a
+# laundered gate.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+# E501 (line too long) is the one exclusion inside a selected family. The
+# formatter already holds code to line-length; the remaining E501s are comment
+# and docstring prose, where 170 is a target and not a hard bound, and where a
+# forced break lands mid-sentence.
+ignore = ["E501"]
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+# Scope to the repo-owned scripts. Nothing else in the tree is Python, and a
+# whole-project walk would descend into the untracked __DEV/ notes tree.
+include = ["scripts/test/tooling"]

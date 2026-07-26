@@ -18,7 +18,10 @@ import os
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from re import Pattern
+from typing import TypedDict
 
 SYMBOL_RE = re.compile(r"^([0-9a-f]+) <(.+)>:$")
 REG_NUM_RE = re.compile(r"\d+")
@@ -26,6 +29,34 @@ REG_NUM_RE = re.compile(r"\d+")
 CLONE_SUFFIX_RE = re.compile(r"\.(?:lto_priv|isra|constprop|part|cold|localalias)(?:\.\d+)*$")
 
 
+class ChainStep(TypedDict):
+    """One component of a reported path: what it costs, whether it is a cycle, and the functions in it."""
+
+    bytes: int
+    recursive: bool
+    functions: list[str]
+
+
+class RootReport(TypedDict, total=False):
+    """One root's reported bound, and the JSON record of it.
+
+    Declared rather than a bare `dict[str, object]` so the numbers stay numbers: `report["bytes"] > band` on an untyped dict is a
+    comparison the checker cannot verify, and the fields are read both to print and to serialise.
+    """
+
+    root: str
+    label: str
+    bytes: int
+    unbounded: bool
+    indirect_sites: int
+    dynamic_frames: int
+    unresolved_targets: int
+    chain: list[ChainStep]
+    budget: int | None
+    state: str
+
+
+@dataclass(frozen=True)
 class Isa:
     """One instruction set's stack and control-flow idioms, as GNU objdump prints them.
 
@@ -33,15 +64,33 @@ class Isa:
     more than syntax: Thumb keeps the return address in `lr` and pays for it only when a function pushes it, so the prologue already shows
     the cost, while every x86-64 `call` spends 8 bytes before the callee's prologue runs. `return_address` is that difference, charged to
     every frame so the total is comparable across platforms and so it matches what `gcc -fstack-usage` reports, which includes it.
+
+    Every rule is a declared field rather than a keyword bag, so a misspelled rule name fails the type check instead of reading as a
+    silently absent pattern - which would make the extractor skip an idiom and under-report a frame.
     """
 
-    def __init__(self, name: str, **rules: object) -> None:
-        self.name = name
-        self.__dict__.update(rules)
+    name: str
+    push: Pattern[str]
+    push_width: int
+    sp_adjust: Pattern[str]
+    sp_adjust_base: int
+    sp_adjust_signed: bool
+    sub_reg: Pattern[str]
+    call: Pattern[str]
+    indirect: Pattern[str]
+    branch: Pattern[str]
+    handler: Pattern[str]
+    handler_base: int
+    handler_thumb_tag: bool
+    return_address: int
+    vpush: Pattern[str] | None = None
+    vpush_width: int = 0
+    probe_lea: Pattern[str] | None = None
+    page: int = 0
 
 
 THUMB = Isa(
-    "thumb",
+    name="thumb",
     # objdump expands core register lists (`push {r4, r5, lr}`) but prints VFP lists as ranges (`vpush {d8-d13}`); expand_reglist takes both.
     push=re.compile(r"\t(?:push(?:\.w)?|stmdb\s+sp!,)\s+\{([^}]*)\}"),
     push_width=4,
@@ -64,7 +113,7 @@ THUMB = Isa(
 )
 
 X86_64 = Isa(
-    "x86-64",
+    name="x86-64",
     push=re.compile(r"\tpush(?:q)?\s+%[a-z0-9]+"),
     push_width=8,
     vpush=None,
@@ -122,7 +171,7 @@ def expand_reglist(spec: str) -> int:
 class Function:
     """One function: its fixed frame, its resolved callees, and the reasons its bound may be incomplete."""
 
-    __slots__ = ("address", "name", "frame", "calls", "tail_calls", "literals", "indirect", "dynamic", "unresolved")
+    __slots__ = ("address", "calls", "dynamic", "frame", "indirect", "literals", "name", "tail_calls", "unresolved")
 
     def __init__(self, address: int, name: str) -> None:
         self.address = address
@@ -360,9 +409,9 @@ class Analysis:
             self.cost[i] = self.weight[i] + best_cost
             self.best[i] = best_next
 
-    def worst_path(self, root: int) -> dict[str, object]:
+    def worst_path(self, root: int) -> RootReport:
         component: int | None = self.component_of[root]
-        chain: list[dict[str, object]] = []
+        chain: list[ChainStep] = []
         unbounded = False
         indirect = dynamic = 0
         unresolved: set[int] = set()
@@ -374,11 +423,13 @@ class Analysis:
                 indirect += function.indirect
                 dynamic += function.dynamic
                 unresolved |= function.unresolved
-            chain.append({
-                "bytes": self.weight[component],
-                "recursive": self.recursive[component],
-                "functions": [self.program.functions[a].name for a in members],
-            })
+            chain.append(
+                {
+                    "bytes": self.weight[component],
+                    "recursive": self.recursive[component],
+                    "functions": [self.program.functions[a].name for a in members],
+                }
+            )
             component = self.best[component]
         return {
             "root": self.program.functions[root].name,
@@ -433,8 +484,11 @@ def self_check(program: Program, build_dir: Path) -> tuple[int, list[tuple[str, 
             under.append((name, expected, frame))
         elif frame > expected:
             over.append((name, expected, frame))
-    key = lambda row: -abs(row[1] - row[2])
-    return compared, sorted(under, key=key), sorted(over, key=key)
+
+    def by_size_of_disagreement(row: tuple[str, int, int]) -> int:
+        return -abs(row[1] - row[2])
+
+    return compared, sorted(under, key=by_size_of_disagreement), sorted(over, key=by_size_of_disagreement)
 
 
 def read_chains(path: Path, target: str) -> list[tuple[str, int | None, str]]:
@@ -521,8 +575,12 @@ def main() -> int:
     parser.add_argument("--depth", type=int, default=12, help="how many chain steps to print per root")
     parser.add_argument("--isa", choices=sorted(ISAS), help="instruction set; detected from the disassembly when omitted")
     parser.add_argument("--no-follow-literals", action="store_true", help="drop the literal-pool handler edges every fn* wrapper needs")
-    parser.add_argument("--cut", action="append", default=[], help="drop every edge into this symbol, turning a re-entrant engine into a "
-                                                                   "per-level cost (repeatable; each cut is printed)")
+    parser.add_argument(
+        "--cut",
+        action="append",
+        default=[],
+        help="drop every edge into this symbol, turning a re-entrant engine into a per-level cost (repeatable; each cut is printed)",
+    )
     parser.add_argument("--chain", action="append", default=[], help="comma-separated call chain to sum and edge-check (repeatable)")
     parser.add_argument("--chains", type=Path, help="chain baseline: `target label ceiling_bytes chain` rows, filtered by --target")
     parser.add_argument("--json", type=Path, help="write the full report here")
@@ -530,8 +588,10 @@ def main() -> int:
 
     if args.elf:
         dis_path = Path(str(args.elf) + ".dis")
-        dis_path.write_text(subprocess.run([args.objdump, "-d", str(args.elf)], check=True, capture_output=True, text=True).stdout,
-                            encoding="utf-8")
+        dis_path.write_text(
+            subprocess.run([args.objdump, "-d", str(args.elf)], check=True, capture_output=True, text=True).stdout,
+            encoding="utf-8",
+        )
     else:
         dis_path = args.dis
     program = load_disassembly(dis_path, follow_literals=not args.no_follow_literals, isa=ISAS.get(args.isa))
@@ -539,11 +599,13 @@ def main() -> int:
     label = args.target or dis_path.name
     print(f"== stack profile: {label} ==")
     print(f"isa {program.isa.name}  return-address cost per frame {program.isa.return_address} B")
-    print(f"functions {len(program.functions)}  call edges {sum(len(f.calls) for f in program.functions.values())}  "
-          f"tail-call edges {sum(len(f.tail_calls) for f in program.functions.values())}  "
-          f"literal-pool edges {sum(len(f.literals) for f in program.functions.values())}  "
-          f"indirect-call sites {sum(f.indirect for f in program.functions.values())}  "
-          f"dynamic-frame functions {sum(1 for f in program.functions.values() if f.dynamic)}")
+    print(
+        f"functions {len(program.functions)}  call edges {sum(len(f.calls) for f in program.functions.values())}  "
+        f"tail-call edges {sum(len(f.tail_calls) for f in program.functions.values())}  "
+        f"literal-pool edges {sum(len(f.literals) for f in program.functions.values())}  "
+        f"indirect-call sites {sum(f.indirect for f in program.functions.values())}  "
+        f"dynamic-frame functions {sum(1 for f in program.functions.values() if f.dynamic)}"
+    )
 
     if args.cut:
         applied = program.cut(args.cut)
@@ -557,10 +619,16 @@ def main() -> int:
     if args.su_dir:
         compared, under, over = self_check(program, args.su_dir)
         if compared == 0:
-            print("SELF-CHECK: no .su files found - build with -fstack-usage and without LTO, or drop --su-dir", file=sys.stderr)
+            print(
+                "SELF-CHECK: no .su files found - build with -fstack-usage and without LTO, or drop --su-dir",
+                file=sys.stderr,
+            )
             status = 2
         elif under:
-            print(f"SELF-CHECK FAILED: {len(under)} of {compared} frames are UNDER gcc -fstack-usage - the bound is unsafe", file=sys.stderr)
+            print(
+                f"SELF-CHECK FAILED: {len(under)} of {compared} frames are UNDER gcc -fstack-usage - the bound is unsafe",
+                file=sys.stderr,
+            )
             for name, expected, got in under[:20]:
                 print(f"    {name}: gcc {expected} B, extracted {got} B", file=sys.stderr)
             status = 2
@@ -585,12 +653,12 @@ def main() -> int:
     analysis = Analysis(program)
 
     print("\n-- largest fixed frames --")
-    for function in sorted(program.functions.values(), key=lambda f: -f.frame)[:args.top]:
+    for function in sorted(program.functions.values(), key=lambda f: -f.frame)[: args.top]:
         print(f"  {function.frame:8d} B  {function.name}")
 
     roots = read_roots(args.roots) if args.roots else []
     roots += [(name, name, None) for name in args.root]
-    reports: list[dict[str, object]] = []
+    reports: list[RootReport] = []
     if roots:
         print("\n-- worst-case static stack per root --")
     for symbol, label_text, budget in roots:
@@ -617,7 +685,7 @@ def main() -> int:
             notes.append(f"OVER BUDGET {budget} B")
             status = max(status, 1)
         print(f"  {report['bytes']:10d} B  {label_text}" + (f"   [{'; '.join(notes)}]" if notes else ""))
-        for step in report["chain"][:args.depth]:
+        for step in report["chain"][: args.depth]:
             extra = f" (+{len(step['functions']) - 1} more in cycle)" if step["recursive"] else ""
             print(f"       {step['bytes']:8d}  {step['functions'][0]}{extra}")
 

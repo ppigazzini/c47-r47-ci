@@ -30,6 +30,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      # pyproject.toml declares requires-python >=3.14 for the repo-owned Python
+      # under scripts/test/tooling/, and ruff's target-version matches it. The
+      # runner image ships an older python3, so pin the interpreter here or the
+      # declared floor is aspirational and a 3.14-only construct fails only in CI.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
       - name: Install build dependencies
         # The same list the UI lane uses to build the simulator, minus xvfb
         # (t47 runs headless). cmake/libminizip-dev/libexpat1-dev are for the

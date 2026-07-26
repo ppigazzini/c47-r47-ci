@@ -7,7 +7,6 @@ import re
 import sys
 from pathlib import Path
 
-
 ADDED_TEST_RE = re.compile(r"^diff --git a/src/testSuite/tests/([^\s]+\.txt) b/src/testSuite/tests/\1$")
 TEST_LIST_RE = re.compile(r"^diff --git a/src/testSuite/tests/testSuiteList\.txt b/src/testSuite/tests/testSuiteList\.txt$")
 

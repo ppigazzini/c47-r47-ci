@@ -68,16 +68,17 @@ def probe(defines_h: Path, include_dirs: list[Path], macros: tuple[str, ...], na
     """Compile and run a probe that prints each name's value, so the answer is the compiler's arithmetic and not a re-implementation."""
     body = "\n".join(f'#ifdef {n}\n  printf("{n}=%lld\\n", (long long)({n}));\n#endif' for n in names)
     # defines.h defines inline helpers over the fixed-width types, so stdint has to precede it; it includes nothing itself.
-    source = ("#include <stdio.h>\n#include <stdint.h>\n"
-              + "".join(f"#define {m} 1\n" for m in macros)
-              + f'#include "{defines_h}"\n'
-              + f"int main(void) {{\n{body}\n  return 0;\n}}\n")
+    source = (
+        "#include <stdio.h>\n#include <stdint.h>\n"
+        + "".join(f"#define {m} 1\n" for m in macros)
+        + f'#include "{defines_h}"\n'
+        + f"int main(void) {{\n{body}\n  return 0;\n}}\n"
+    )
     with tempfile.TemporaryDirectory() as work:
         src = Path(work) / "probe.c"
         exe = Path(work) / "probe"
         src.write_text(source, encoding="utf-8")
-        build = subprocess.run([cc, "-w", *(f"-I{d}" for d in include_dirs), str(src), "-o", str(exe)],
-                               capture_output=True, text=True)
+        build = subprocess.run([cc, "-w", *(f"-I{d}" for d in include_dirs), str(src), "-o", str(exe)], capture_output=True, text=True)
         if build.returncode != 0:
             print(f"probe failed to build for {','.join(macros)}:\n{build.stderr[-2000:]}", file=sys.stderr)
             return {}
@@ -144,12 +145,14 @@ def main() -> int:
         matrix[name] = {"values": row, "differs": len(present) > 1, "purpose": purpose}
 
     print("\nderived:")
+    pool_bytes: dict[str, int] = {}
     for platform in platforms:
         blocks, bpb = values[platform].get("RAM_SIZE_IN_BLOCKS"), values[platform].get("BPB")
         if blocks and bpb is not None:
             size = blocks * (1 << bpb)
             print(f"  {platform:>{width}}  pool {size:,} B ({size / 1024:.0f} KiB)")
-            matrix.setdefault("pool_bytes", {}).setdefault("values", {})[platform] = size
+            pool_bytes[platform] = size
+    matrix["pool_bytes"] = {"values": pool_bytes, "purpose": "RAM_SIZE_IN_BLOCKS times the block size"}
 
     limit, description = host_stack_limit()
     print(f"\n  the simulator's C stack is the host thread's: {description}")

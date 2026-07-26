@@ -126,6 +126,40 @@ to reproduce a CI coverage failure.
   (GMP-init `uninitvar`, the `verifySqrtMatrix` contract) filtered by the
   static-analysis lane so a real finding stands out.
 
+## Python in this directory
+
+The helpers under `tooling/` are the repo's only Python. `pyproject.toml` at the
+root configures ruff, ruff-format and ty for them; there is no package to build.
+`requires-python` is **>= 3.14**, and the three workflows that invoke a helper
+(`test-stackprof.yml`, `test-nestcheck.yml`, `test-coverage.yml`) pin the
+interpreter to match, because the runner image ships an older `python3` and a
+declared floor nothing enforces is a floor that breaks in CI only.
+
+```sh
+uv sync                      # .venv with ruff, ty, pre-commit and mpmath
+pre-commit install           # once
+pre-commit run --all-files   # hygiene, ruff, ruff-format, ty, run-docs-lint.sh
+```
+
+`uv.lock` is tracked so a lint result is reproducible; `.venv/` is not. `mpmath`
+is in the dev group because `numeric-vectors.py` genuinely needs it, not as lint
+scaffolding.
+
+Two rules the config encodes, both because the default fought this repo:
+
+- **`line-length = 170`, not ruff's 88.** [docs/07-writing.md](../../docs/07-writing.md)
+  sets the comment wrap at 160-170 on purpose. A narrower setting does not just
+  warn, it makes `ruff format` break correct code into worse shapes.
+- **`end-of-file-fixer` and `trailing-whitespace` skip every file whose bytes are
+  an input** - `.patch`, `.dict`, `.pgm`, `.cfg` and the fuzz seed corpora. A
+  hunk header counts lines, so a whitespace edit makes a patch fail to apply.
+
+`ruff format` is a formatter, so it cannot change behaviour - but two helpers
+generate byte-exact fixtures (`numeric-vectors.py` writes a corpus block,
+`p47asm.py` writes program bytes). Diff their output before and after touching
+them, and run `p47asm.py --selftest`; that is cheaper than discovering a
+reformatted f-string changed a fixture.
+
 ## Contract for new lanes
 
 A lane script:

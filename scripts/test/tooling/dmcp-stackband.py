@@ -46,8 +46,23 @@ class Image:
         options = [f"--start-address=0x{start:x}"] if start is not None else []
         options += [f"--stop-address=0x{stop:x}"] if stop is not None else []
         return subprocess.run(
-            [self.objdump, "-D", "-b", "binary", "-m", "arm", "-M", "force-thumb", f"--adjust-vma=0x{self.base:x}",
-             *options, str(self.path)], check=True, capture_output=True, text=True).stdout
+            [
+                self.objdump,
+                "-D",
+                "-b",
+                "binary",
+                "-m",
+                "arm",
+                "-M",
+                "force-thumb",
+                f"--adjust-vma=0x{self.base:x}",
+                *options,
+                str(self.path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
 
     def sram_literals(self, text: str, low: int, high: int) -> Counter:
         """Every value in [low, high) that `text` loads from a literal pool, counted by how many sites load it."""
@@ -64,15 +79,21 @@ def report_allocator(image: Image, sram_low: int, sram_high: int, window: int) -
     text = image.disassemble(LIBRARY_FN_BASE, LIBRARY_FN_BASE + 4 * len(SLOTS))
     veneers = [BRANCH_RE.search(line) for line in text.splitlines()]
     targets = [int(m.group(1), 16) for m in veneers if m]
-    if len(targets) < len(SLOTS):
-        print("  jump table is not a run of b.w veneers - skipping the arena cross-check")
+    # Exactly one veneer per slot, or the table is not what lft_ifc.h describes and no pairing of names to targets is meaningful. The
+    # window is four bytes per slot and a b.w is four bytes, so a count either side of that is the signal to stop rather than to guess.
+    if len(targets) != len(SLOTS):
+        print(f"  jump table is not a run of {len(SLOTS)} b.w veneers ({len(targets)} found) - skipping the arena cross-check")
         return
-    for name, target in zip(SLOTS, targets):
+    for name, target in zip(SLOTS, targets, strict=True):
         print(f"  {name:>8} -> 0x{target:08X}")
-    body = "".join(image.disassemble(entry, min(entry + window, image.top))
-                   for entry in {targets[0], *(int(t, 16) for t in re.findall(r"\tbl\s+0x([0-9a-f]+)",
-                                                                             image.disassemble(targets[0], targets[0] + window)))}
-                   if image.base <= entry < image.top)
+    body = "".join(
+        image.disassemble(entry, min(entry + window, image.top))
+        for entry in {
+            targets[0],
+            *(int(t, 16) for t in re.findall(r"\tbl\s+0x([0-9a-f]+)", image.disassemble(targets[0], targets[0] + window))),
+        }
+        if image.base <= entry < image.top
+    )
     literals = sorted(image.sram_literals(body, sram_low, sram_high))
     sizes = sorted({int(v) for v in ADD_IMM_RE.findall(body) if 0x1000 <= int(v) <= 0x100000})
     # Labelled as candidates on purpose: the window spans neighbouring functions, and nothing here distinguishes the arena base from an
@@ -112,7 +133,7 @@ def main() -> int:
         print("no SRAM literals anywhere in the image - wrong --sram window?", file=sys.stderr)
         return 2
     print(f"\nfixed SRAM data addressed by firmware code: {len(globals_found)} distinct, highest {args.top}:")
-    for value in sorted(globals_found)[-args.top:]:
+    for value in sorted(globals_found)[-args.top :]:
         print(f"  0x{value:08X}  loaded at {globals_found[value]} site(s)")
 
     derived = max(globals_found) + 4
@@ -121,9 +142,11 @@ def main() -> int:
     print(f"\nstack floor  0x{floor:08X}   ({source})")
     print(f"initial MSP  0x{msp:08X}")
     print(f"GUARANTEED C STACK BAND: {msp - floor:,} B")
-    print("\nRead: the MSP and every address above. Inferred: that the highest addressed global is the last one, which holds only if the\n"
-          "firmware reaches all of its state through literal pools. Deeper use than the band is not an error - it is a bet that the\n"
-          "memory below the floor is still free, and on the DM42 that memory is the top of the heap the allocator hands out.")
+    print(
+        "\nRead: the MSP and every address above. Inferred: that the highest addressed global is the last one, which holds only if the\n"
+        "firmware reaches all of its state through literal pools. Deeper use than the band is not an error - it is a bet that the\n"
+        "memory below the floor is still free, and on the DM42 that memory is the top of the heap the allocator hands out."
+    )
     return 0
 
 

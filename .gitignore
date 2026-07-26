@@ -12,6 +12,10 @@ __DEV
 /backup.cfg
 /c47.sav
 
-# Python bytecode from running the tooling helpers in place
+# Python bytecode from running the tooling helpers in place, and the dev
+# environment `uv sync` builds for ruff/ty/pre-commit. uv.lock IS tracked:
+# it pins the versions the hooks run, so a lint result is reproducible.
 __pycache__/
 *.pyc
+.venv/
+.ruff_cache/

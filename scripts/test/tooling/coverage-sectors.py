@@ -8,7 +8,6 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-
 # Sectors partition the c47 sources: each file is assigned to the FIRST sector
 # whose needles match (see main()), so the order is specific-before-general.
 # `matrix` precedes `core math` because mathematics/matrix.c matches both
@@ -16,8 +15,16 @@ from pathlib import Path
 # would be double-counted across two gated sectors and skew both.
 SECTORS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrix", ("/matrix.c", "/matrix/")),
-    ("core math", ("/mathematics/", "/conversionUnits.c", "/conversionAngles.c",
-                   "/registerValueConversions.c", "/distributions/")),
+    (
+        "core math",
+        (
+            "/mathematics/",
+            "/conversionUnits.c",
+            "/conversionAngles.c",
+            "/registerValueConversions.c",
+            "/distributions/",
+        ),
+    ),
     ("solver / graph", ("/solver/", "/graph/")),
     ("programming / cli", ("/programming/", "/registers.c", "/items.c")),
     ("serializers", ("saveRestore", "save_restore", "/io/")),
@@ -32,13 +39,23 @@ def normalized_name(filename: str) -> str:
     return "/" + filename.replace("\\", "/").lstrip("/")
 
 
+def as_number(value: object, default: float = 0) -> float:
+    """Coerce one gcovr JSON field to a number, or fall back.
+
+    gcovr has renamed these fields across releases, which is why the reads below probe two names each; a value of an unexpected type is
+    the same kind of surprise and must not raise from inside a report. Returning the default keeps the sector line readable and wrong
+    rather than absent, and the caller's own totals make a bad field obvious.
+    """
+    return float(value) if isinstance(value, (int, float, str)) else default
+
+
 def line_totals(file_entry: dict[str, object]) -> tuple[int, int]:
-    total = int(file_entry.get("line_total", file_entry.get("lines", 0)) or 0)
+    total = int(as_number(file_entry.get("line_total", file_entry.get("lines", 0))))
     covered_value = file_entry.get("line_covered", file_entry.get("lines_covered"))
     if covered_value is not None:
-        covered = int(covered_value)
+        covered = int(as_number(covered_value))
     else:
-        percent = float(file_entry.get("line_percent", 0) or 0)
+        percent = as_number(file_entry.get("line_percent", 0))
         covered = round(total * percent / 100)
     return covered, total
 

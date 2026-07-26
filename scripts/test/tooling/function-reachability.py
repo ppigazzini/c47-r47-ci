@@ -7,7 +7,6 @@ import re
 import sys
 from pathlib import Path
 
-
 FUNC_TABLE_RE = re.compile(
     r"const\s+funcTest_t\s+funcTestNoParam\s*\[\s*\]\s*=\s*\{(?P<body>.*?)\n\};",
     re.DOTALL,

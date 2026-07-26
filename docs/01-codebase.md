@@ -1105,4 +1105,3 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
 - Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
   first-party spec for the `.d47` record layout. Not read for this page; read it
   before documenting that format.
-

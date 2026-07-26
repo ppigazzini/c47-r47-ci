@@ -28,11 +28,22 @@ import sys
 
 # Friendly aliases -> items.h names. Anything not listed here must be written as its ITM_* name.
 ALIASES = {
-    "LBL": "ITM_LBL", "RTN": "ITM_RTN", "ENTER": "ITM_ENTER", "END": "ITM_END",
-    "STO": "ITM_STO", "RCL": "ITM_RCL", "ADD": "ITM_ADD", "SUB": "ITM_SUB",
-    "PGMSLV": "ITM_PGMSLV", "PGMINT": "ITM_PGMINT", "PGMPLT": "ITM_PGMPLT",
-    "SOLVE": "ITM_SOLVE", "INTYX": "ITM_INTEGRAL_YX", "PLTF": "ITM_PLTf",
-    "SUMN": "ITM_SIGMAn", "MEM": "ITM_MEM",
+    "LBL": "ITM_LBL",
+    "RTN": "ITM_RTN",
+    "ENTER": "ITM_ENTER",
+    "END": "ITM_END",
+    "STO": "ITM_STO",
+    "RCL": "ITM_RCL",
+    "ADD": "ITM_ADD",
+    "SUB": "ITM_SUB",
+    "PGMSLV": "ITM_PGMSLV",
+    "PGMINT": "ITM_PGMINT",
+    "PGMPLT": "ITM_PGMPLT",
+    "SOLVE": "ITM_SOLVE",
+    "INTYX": "ITM_INTEGRAL_YX",
+    "PLTF": "ITM_PLTf",
+    "SUMN": "ITM_SIGMAn",
+    "MEM": "ITM_MEM",
 }
 STRING_LABEL_VARIABLE = 253
 ITM_LITERAL = 114
@@ -80,7 +91,7 @@ def assemble(listing, items):
             n = int(arg)
             if n > 99:
                 sys.exit(f"p47asm: line {lineno}: register operand out of range: {n}")
-            body += body_op + [n]
+            body += [*body_op, n]
         else:
             sys.exit(f"p47asm: line {lineno}: unsupported operand '{arg}' for {name}")
     return body
@@ -112,24 +123,70 @@ def assemble_program(listing, items):
 
 def write_p47(body, path):
     with open(path, "w", encoding="ascii") as fh:
-        fh.write("PROGRAM_FILE_FORMAT\n0\nC47_program_file_version\n1\nPROGRAM\n%d\n" % len(body))
+        fh.write(f"PROGRAM_FILE_FORMAT\n0\nC47_program_file_version\n1\nPROGRAM\n{len(body)}\n")
         for b in body:
-            fh.write("%d\n" % b)
+            fh.write(f"{b}\n")
         fh.write("255\n255\n")
 
 
 SELFTEST = [
     # (name, listing, expected byte stream - each executed against upstream c43 in MR !1610 work)
-    ("selfslv", "LBL 'A'\nPGMSLV 'A'\nLIT 2\nENTER\nLIT 3\nSOLVE 'x'\nRTN\nEND",
-     [1, 253, 1, 65, 134, 11, 253, 1, 65, 114, 8, 1, 50, 35, 114, 8, 1, 51, 134, 72, 253, 1, 120, 4, 133, 178]),
-    ("selfint", "LBL 'A'\nPGMINT 'A'\nLIT 0\nENTER\nLIT 1\nINTYX 'x'\nRTN\nEND",
-     [1, 253, 1, 65, 134, 10, 253, 1, 65, 114, 8, 1, 48, 35, 114, 8, 1, 49, 134, 154, 253, 1, 120, 4, 133, 178]),
-    ("selfsum", "LBL 'A'\nLIT 1\nENTER\nLIT 2\nENTER\nLIT 1\nSUMN 'A'\nRTN\nEND",
-     [1, 253, 1, 65, 114, 8, 1, 49, 35, 114, 8, 1, 50, 35, 114, 8, 1, 49, 134, 136, 253, 1, 65, 4, 133, 178]),
-    ("selfplt", "LBL 'P'\nPGMPLT 'P'\nLIT 1\nENTER\nLIT 5\nPLTF 'x'\nRTN\nEND",
-     [1, 253, 1, 80, 138, 172, 253, 1, 80, 114, 8, 1, 49, 35, 114, 8, 1, 53, 138, 174, 253, 1, 120, 4, 133, 178]),
-    ("spdeep", "LBL 'A'\nPGMSLV 'A'\nMEM\nSTO 99\nLIT 2\nENTER\nLIT 3\nSOLVE 'x'\nRTN\nEND",
-     [1, 253, 1, 65, 134, 11, 253, 1, 65, 133, 239, 44, 99, 114, 8, 1, 50, 35, 114, 8, 1, 51, 134, 72, 253, 1, 120, 4, 133, 178]),
+    (
+        "selfslv",
+        "LBL 'A'\nPGMSLV 'A'\nLIT 2\nENTER\nLIT 3\nSOLVE 'x'\nRTN\nEND",
+        [1, 253, 1, 65, 134, 11, 253, 1, 65, 114, 8, 1, 50, 35, 114, 8, 1, 51, 134, 72, 253, 1, 120, 4, 133, 178],
+    ),
+    (
+        "selfint",
+        "LBL 'A'\nPGMINT 'A'\nLIT 0\nENTER\nLIT 1\nINTYX 'x'\nRTN\nEND",
+        [1, 253, 1, 65, 134, 10, 253, 1, 65, 114, 8, 1, 48, 35, 114, 8, 1, 49, 134, 154, 253, 1, 120, 4, 133, 178],
+    ),
+    (
+        "selfsum",
+        "LBL 'A'\nLIT 1\nENTER\nLIT 2\nENTER\nLIT 1\nSUMN 'A'\nRTN\nEND",
+        [1, 253, 1, 65, 114, 8, 1, 49, 35, 114, 8, 1, 50, 35, 114, 8, 1, 49, 134, 136, 253, 1, 65, 4, 133, 178],
+    ),
+    (
+        "selfplt",
+        "LBL 'P'\nPGMPLT 'P'\nLIT 1\nENTER\nLIT 5\nPLTF 'x'\nRTN\nEND",
+        [1, 253, 1, 80, 138, 172, 253, 1, 80, 114, 8, 1, 49, 35, 114, 8, 1, 53, 138, 174, 253, 1, 120, 4, 133, 178],
+    ),
+    (
+        "spdeep",
+        "LBL 'A'\nPGMSLV 'A'\nMEM\nSTO 99\nLIT 2\nENTER\nLIT 3\nSOLVE 'x'\nRTN\nEND",
+        [
+            1,
+            253,
+            1,
+            65,
+            134,
+            11,
+            253,
+            1,
+            65,
+            133,
+            239,
+            44,
+            99,
+            114,
+            8,
+            1,
+            50,
+            35,
+            114,
+            8,
+            1,
+            51,
+            134,
+            72,
+            253,
+            1,
+            120,
+            4,
+            133,
+            178,
+        ],
+    ),
 ]
 
 
@@ -157,7 +214,8 @@ def main():
         sys.exit(1 if selftest(items) else 0)
     if not args.listing or not args.output:
         ap.error("listing and output are required unless --selftest")
-    body = assemble_program(open(args.listing, encoding="ascii").read(), items)
+    with open(args.listing, encoding="ascii") as fh:
+        body = assemble_program(fh.read(), items)
     write_p47(body, args.output)
     print(f"p47asm: wrote {args.output} ({len(body)} program bytes + .END.)")
 

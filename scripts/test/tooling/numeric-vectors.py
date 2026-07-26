@@ -16,6 +16,7 @@ must reproduce the committed file exactly.
 
 Usage: numeric-vectors.py [output.txt]   (default: stdout)
 """
+
 import sys
 
 import mpmath
@@ -56,57 +57,60 @@ def real_cbrt(x):
 
 SPECS = [
     # --- roots / powers ---
-    ("fnSquareRoot", None, "", mpmath.sqrt,
-     ["0", "1", "2", "0.5", "100", "1e10", "1e-10", "123456.789", "2.7182818284590452"]),
-    ("fnCubeRoot", None, "", real_cbrt,
-     ["0", "1", "8", "27", "-8", "2", "0.125", "1e12", "-1e-9"]),
-    ("fnExp", None, "", mpmath.exp,
-     ["0", "1", "-1", "2.5", "-2.5", "0.001", "10", "-10", "100"]),
-    ("fn10Pow", None, "", lambda x: mpmath.mpf(10) ** x,
-     ["0", "1", "-1", "2.5", "-3.25", "0.5", "7"]),
-    ("fn2Pow", None, "", lambda x: mpmath.mpf(2) ** x,
-     ["0", "1", "-1", "10", "0.5", "-8.5", "16"]),
+    (
+        "fnSquareRoot",
+        None,
+        "",
+        mpmath.sqrt,
+        ["0", "1", "2", "0.5", "100", "1e10", "1e-10", "123456.789", "2.7182818284590452"],
+    ),
+    ("fnCubeRoot", None, "", real_cbrt, ["0", "1", "8", "27", "-8", "2", "0.125", "1e12", "-1e-9"]),
+    ("fnExp", None, "", mpmath.exp, ["0", "1", "-1", "2.5", "-2.5", "0.001", "10", "-10", "100"]),
+    ("fn10Pow", None, "", lambda x: mpmath.mpf(10) ** x, ["0", "1", "-1", "2.5", "-3.25", "0.5", "7"]),
+    ("fn2Pow", None, "", lambda x: mpmath.mpf(2) ** x, ["0", "1", "-1", "10", "0.5", "-8.5", "16"]),
     # --- logs (x > 0) ---
-    ("fnLn", None, "", mpmath.ln,
-     ["1", "2", "2.718281828459045", "0.5", "10", "1e10", "1e-10", "123.456"]),
-    ("fnLog10", None, "", lambda x: mpmath.log(x, 10),
-     ["1", "10", "100", "0.1", "2", "1e15", "3.16227766"]),
-    ("fnLog2", None, "", lambda x: mpmath.log(x, 2),
-     ["1", "2", "8", "0.5", "1024", "3", "0.1"]),
+    ("fnLn", None, "", mpmath.ln, ["1", "2", "2.718281828459045", "0.5", "10", "1e10", "1e-10", "123.456"]),
+    ("fnLog10", None, "", lambda x: mpmath.log(x, 10), ["1", "10", "100", "0.1", "2", "1e15", "3.16227766"]),
+    ("fnLog2", None, "", lambda x: mpmath.log(x, 2), ["1", "2", "8", "0.5", "1024", "3", "0.1"]),
     # --- trig: angle in, plain ratio out (AM sets input units) ---
-    ("fnSin", "RAD", "", mpmath.sin,
-     ["0", "0.5", "1", "-1", "3.141592653589793", "1.5707963267948966", "2", "-2.5", "100"]),
-    ("fnCos", "RAD", "", mpmath.cos,
-     ["0", "0.5", "1", "-1", "3.141592653589793", "1.5707963267948966", "2", "-2.5", "100"]),
-    ("fnTan", "RAD", "", mpmath.tan,
-     ["0", "0.5", "1", "-1", "0.7853981633974483", "2", "-2.5", "10"]),
+    (
+        "fnSin",
+        "RAD",
+        "",
+        mpmath.sin,
+        ["0", "0.5", "1", "-1", "3.141592653589793", "1.5707963267948966", "2", "-2.5", "100"],
+    ),
+    (
+        "fnCos",
+        "RAD",
+        "",
+        mpmath.cos,
+        ["0", "0.5", "1", "-1", "3.141592653589793", "1.5707963267948966", "2", "-2.5", "100"],
+    ),
+    ("fnTan", "RAD", "", mpmath.tan, ["0", "0.5", "1", "-1", "0.7853981633974483", "2", "-2.5", "10"]),
     # --- inverse trig: ratio in, angle out (result carries the RAD tag) ---
-    ("fnArctan", "RAD", ":RAD", mpmath.atan,
-     ["0", "1", "-1", "0.5", "100", "-0.001", "1e6"]),
-    ("fnArcsin", "RAD", ":RAD", mpmath.asin,
-     ["0", "1", "-1", "0.5", "-0.5", "0.7071067811865476"]),
-    ("fnArccos", "RAD", ":RAD", mpmath.acos,
-     ["0", "1", "-1", "0.5", "-0.5", "0.7071067811865476"]),
+    ("fnArctan", "RAD", ":RAD", mpmath.atan, ["0", "1", "-1", "0.5", "100", "-0.001", "1e6"]),
+    ("fnArcsin", "RAD", ":RAD", mpmath.asin, ["0", "1", "-1", "0.5", "-0.5", "0.7071067811865476"]),
+    ("fnArccos", "RAD", ":RAD", mpmath.acos, ["0", "1", "-1", "0.5", "-0.5", "0.7071067811865476"]),
     # --- hyperbolic ---
     ("fnSinh", None, "", mpmath.sinh, ["0", "1", "-1", "2.5", "-2.5", "5"]),
     ("fnCosh", None, "", mpmath.cosh, ["0", "1", "-1", "2.5", "-2.5", "5"]),
     ("fnTanh", None, "", mpmath.tanh, ["0", "1", "-1", "2.5", "-2.5", "10"]),
     # --- gamma (avoid poles at 0, -1, -2, ...) ---
-    ("fnGamma", None, "", mpmath.gamma,
-     ["1", "2", "5", "0.5", "1.5", "10", "-0.5", "-1.5", "2.5"]),
+    ("fnGamma", None, "", mpmath.gamma, ["1", "2", "5", "0.5", "1.5", "10", "-0.5", "-1.5", "2.5"]),
 ]
 
 
 def emit(out):
     out.write(HEADER)
     for fn, angular, out_tag, func, inputs in SPECS:
-        out.write("\n; --- %s ---\n" % fn)
-        out.write("Func: %s\n" % fn)
-        am = ("AM=%s " % angular) if angular else ""
+        out.write(f"\n; --- {fn} ---\n")
+        out.write(f"Func: {fn}\n")
+        am = f"AM={angular} " if angular else ""
         for xs in inputs:
             expected = ref(func(mpf(xs)))
-            out.write('In:  %sFL_SPCRES=0 FL_CPXRES=0 RX=Real:"%s"\n' % (am, xs))
-            out.write('Out: EC=0 RX=Real:"%s"%s\n' % (expected, out_tag))
+            out.write(f'In:  {am}FL_SPCRES=0 FL_CPXRES=0 RX=Real:"{xs}"\n')
+            out.write(f'Out: EC=0 RX=Real:"{expected}"{out_tag}\n')
 
 
 def main():

@@ -1,0 +1,48 @@
+# Pre-commit hooks: file hygiene, Python lint/format/type-check, and this repo's
+# own docs gate. Install once with `pre-commit install`; run everything with
+# `pre-commit run --all-files`. CI does not run these -- the lanes stay the
+# authority; this catches the same classes before the commit exists.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+        # Never touch a file whose bytes are an input. A `.patch` hunk header
+        # counts lines, so a whitespace edit makes it fail to apply; the fuzz
+        # seeds and their `.dict` files are corpus bytes libFuzzer mutates; a
+        # `.pgm` listing is assembled to a byte-exact program; the `.cfg` is a
+        # minimized crash reproducer. `git diff` back is the way to edit these,
+        # never an editor and never a hook - see scripts/test/README.md.
+        exclude: &byte_exact '(\.(patch|dict|pgm|cfg)$|/fuzz-[a-z]+-seeds/)'
+      - id: trailing-whitespace
+        exclude: *byte_exact
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.63
+    hooks:
+      # The hook's own entry checks the whole project (ty's cross-file
+      # diagnostics make per-filename invocation wrong); scripts/test/tooling is
+      # the only Python in the tree, and [tool.ty] in pyproject.toml pins it.
+      - id: ty
+  - repo: local
+    hooks:
+      # Docs are part of the change (AGENTS.md): a doc edit that breaks a link,
+      # names a dead path, quotes a stale baseline count or drops an audit basis
+      # should fail here, not in CI. It needs no upstream clone and no toolchain,
+      # so it runs in seconds. Whole-tree like the lane, because its checks are
+      # cross-file: a link resolves against every other page, so scoping to the
+      # staged files would miss the page a rename just broke.
+      - id: docs-lint
+        name: run-docs-lint.sh
+        entry: bash scripts/test/run-docs-lint.sh
+        language: system
+        files: '(\.md$|^scripts/test/.*-baseline\.txt$|^(AGENTS|CLAUDE)\.md$)'
+        pass_filenames: false
