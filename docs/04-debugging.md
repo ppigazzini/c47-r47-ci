@@ -691,6 +691,26 @@ Every one of these has silently passed a broken thing at least once.
     Sibling of 18: after any control that touches tracked files, diff the
     touched paths against what you believe the tree contains before building
     anything on top.
+22. **A lane can pass on every desktop and fail on every runner, and the reason
+    is `gtk_init`.** `c47`, `r47` and `t47` are one GTK binary, and it calls
+    `gtk_init` at `src/c47-gtk/c47-gtk.c:428` *before* it parses its arguments -
+    so with no display it exits **1** with "cannot open display", whatever
+    front end argv[0] selects and whether or not `--headless` is passed. A
+    desktop hides it completely: `DISPLAY`, or just `XDG_RUNTIME_DIR` under a
+    Wayland session, is enough for GTK to find a backend, so unsetting `DISPLAY`
+    alone does **not** reproduce it - use `env -i`. Real case: the nestcheck
+    lane ran `./t47` without `xvfb-run` on the reasoning that only `press` needs
+    GTK; its control failed on every CI run it ever had while passing locally.
+    Any lane that executes the simulator needs `xvfb-run` and the `xvfb`
+    package. The exit code is the trap - **1 is indistinguishable from a product
+    error**, so the failure reads as a real finding.
+23. **A lane that writes its evidence to `$LOG_DIR` and uploads nothing cannot
+    be diagnosed at all.** The same nestcheck failure printed one line -
+    `control nested2 did not survive (rc=1)` - and sent the probe output, and
+    the build log, to files the workflow never collected. Three failures, no
+    evidence. Every `harness_die` that follows a redirected command should
+    inline the tail of what it captured, and every lane whose deliverable is a
+    log needs an upload step.
 
 ## 13. Current gaps
 

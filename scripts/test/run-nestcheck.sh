@@ -8,7 +8,12 @@
 # C stack dies (the class of c43 MR !1610). This lane assembles the five
 # self-referential probes plus one legal depth-2 nest with tooling/p47asm.py
 # (byte-encodings proven against executed streams by its --selftest), runs each
-# headless under timeout, and classifies: SURVIVED (clean halt), CRASHED, HANG.
+# headless under timeout and xvfb-run, and classifies: SURVIVED (clean halt),
+# CRASHED, HANG.
+#
+# xvfb-run is not optional and not about the keyboard: t47 is the same binary as
+# c47 and calls gtk_init before parsing its arguments, so with no display it exits
+# 1 and every probe reads as a product failure. See the call site for the detail.
 #
 # The legal nest (nested2, root exactly 2) must ALWAYS survive: it is the lane's
 # own control - if it fails, the runner or the build is broken, and the lane
@@ -31,6 +36,17 @@ NESTCHECK_GATE="${NESTCHECK_GATE:-0}"
 # or crash in seconds. One generous ceiling keeps a hang detectable.
 TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 PGM_DIR="$SCRIPT_DIR/tooling/nestcheck"
+
+# Append a probe's captured output to a fatal message. Every diagnostic this lane
+# produces goes to a file under $LOG_DIR, so a bare "control did not survive" left
+# three CI failures with nothing to read: the console log carried the verdict and
+# none of the evidence. Inline the tail on the paths that die.
+probe_evidence() {
+    local out="$1"
+    [[ -s "$out" ]] || { printf '\n  (no output captured in %s)' "$out"; return 0; }
+    printf '\n  --- last 20 lines of %s ---\n' "$out"
+    tail -20 "$out" | sed -e 's/^/  | /'
+}
 
 # name:label pairs; nested2 is the control and runs first.
 PROBES=(nested2:N selfslv:A selfint:A selfsum:A selfplt:P mixnest:G)
@@ -64,23 +80,40 @@ main() {
         harness_log "building simulator (make simc47 t47)"
         make -C "$UPSTREAM_DIR" simc47 t47 "-j$(harness_jobs)" \
             > "$LOG_DIR/nestcheck-build.log" 2>&1 \
-            || harness_die "simulator build failed; see $LOG_DIR/nestcheck-build.log"
+            || harness_die "simulator build failed$(probe_evidence "$LOG_DIR/nestcheck-build.log")"
         [[ -x "$UPSTREAM_DIR/t47" ]] || harness_die "t47 not built"
 
         # t47 reads res/ relative to cwd on Linux, so run from the upstream root.
-        local entry name label rc marker crashed=0 survived=0 hung=0
+        #
+        # Under xvfb-run even though nothing here touches the keyboard: t47 is the
+        # same GTK binary as c47 and calls gtk_init unconditionally
+        # (src/c47-gtk/c47-gtk.c:428), before it has even parsed its arguments. On
+        # a machine with no display that call fails and the process exits 1 with
+        # "cannot open display", which the classifier below cannot tell from a
+        # product failure - it is what made this lane's control fail on every CI
+        # run while passing on any desktop. `--headless` does NOT avoid it: the
+        # flag is read after gtk_init has already run.
+        #
+        # -a picks a free server number so a second lane on the same runner cannot
+        # collide. timeout wraps xvfb-run, which propagates the child's status, so
+        # the 139/124 classification is unchanged - both verified.
+        command -v xvfb-run > /dev/null \
+            || harness_die "xvfb-run not found - t47 calls gtk_init unconditionally, so the probes need a display (apt install xvfb)"
+
+        local entry name label rc marker out crashed=0 survived=0 hung=0
         for entry in "${PROBES[@]}"; do
             name="${entry%%:*}"
             label="${entry##*:}"
             marker="NESTCHECK-DONE-$name"
+            out="$LOG_DIR/nestcheck-$name.out"
             rc=0
-            (cd "$UPSTREAM_DIR" && timeout "$TEST_TIMEOUT" ./t47 --reset \
+            (cd "$UPSTREAM_DIR" && timeout "$TEST_TIMEOUT" xvfb-run -a ./t47 --reset \
                 --exec "readp $LOG_DIR/$name.p47; xeq $label; puts \"$marker X=[reg X]\"" \
-                > "$LOG_DIR/nestcheck-$name.out" 2>&1) || rc=$?
-            if grep -q "$marker" "$LOG_DIR/nestcheck-$name.out"; then
+                > "$out" 2>&1) || rc=$?
+            if grep -q "$marker" "$out"; then
                 if [[ "$name" == nested2 ]]; then
-                    grep -q "$marker X=2\$" "$LOG_DIR/nestcheck-$name.out" \
-                        || harness_die "control nested2 survived but root != 2 - runner or build broken"
+                    grep -q "$marker X=2\$" "$out" \
+                        || harness_die "control nested2 survived but root != 2 - runner or build broken$(probe_evidence "$out")"
                     harness_log "CONTROL  nested2: survived, root exact - runner sound"
                 else
                     harness_log "SURVIVED $name: clean halt (guarded tree)"
@@ -91,7 +124,7 @@ main() {
                 hung=$((hung + 1))
             else
                 if [[ "$name" == nested2 ]]; then
-                    harness_die "control nested2 did not survive (rc=$rc) - runner or build broken"
+                    harness_die "control nested2 did not survive (rc=$rc) - runner or build broken$(probe_evidence "$out")"
                 fi
                 harness_log "CRASHED  $name: rc=$rc (unbounded recursion class)"
                 crashed=$((crashed + 1))

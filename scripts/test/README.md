@@ -55,12 +55,22 @@ to reproduce a CI coverage failure.
   `I` and `J` alone.
 - `run-nestcheck.sh` - probes self-referential engine nesting. Assembles the six
   `tooling/nestcheck/*.pgm` listings with `p47asm.py`, builds `simc47 t47`, and
-  runs each headless under `timeout`, classifying survived / crashed / hung. The
-  legal depth-2 nest (`nested2`, root exactly 2) is the lane's control and must
-  always survive. Report-only by default (`NESTCHECK_GATE=0`): upstream master
-  still crashes on the SOLVE/SUM/PLOT probes, so the standing log count is the
-  deliverable; `NESTCHECK_GATE=1` makes any non-survival a hard failure once the
-  nesting budget merges.
+  runs each headless under `timeout` **and `xvfb-run`**, classifying
+  survived / crashed / hung. The legal depth-2 nest (`nested2`, root exactly 2) is
+  the lane's control and must always survive. Report-only by default
+  (`NESTCHECK_GATE=0`): upstream master still crashes on the SOLVE/SUM/PLOT
+  probes, so the standing log count is the deliverable; `NESTCHECK_GATE=1` makes
+  any non-survival a hard failure once the nesting budget merges.
+
+  **`t47` needs a display even with no keyboard involved.** It is the same GTK
+  binary as `c47` and calls `gtk_init` at `src/c47-gtk/c47-gtk.c:428`, before it
+  parses its arguments, so on a machine with no display server it exits 1 with
+  "cannot open display" - and `--headless` does not help, because the flag is read
+  after `gtk_init` has already run. A desktop hides this: `DISPLAY`, or merely
+  `XDG_RUNTIME_DIR` with a Wayland session, is enough for GTK to find a backend.
+  A runner has neither, so the control failed on every CI run of this lane while
+  passing everywhere else. Any lane that executes `c47`, `r47` or `t47` needs
+  `xvfb-run` and the `xvfb` package, not just the ones that press keys.
 - `run-stackprof.sh` - the only lane that builds firmware, and the only one that
   compares platforms. Profiles every DM42 feature package, the DM42n and the host
   simulator with one instrument, reporting how much C stack one nested engine
