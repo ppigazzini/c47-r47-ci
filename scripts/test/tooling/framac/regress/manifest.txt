@@ -21,3 +21,4 @@ glyphrank.c     | 200 | unfixed   | standardFont.glyphs[] read at index -1, find
 wordsize.c      | 200 | unfixed   | 1<<wordSize and 1<<(wordSize-1) undefined outside 1..64 (config.c:706,709) - UBSan-visible, ASan-blind
 backupregion.c  | 4000 | unfixed   | freeMemoryRegions[] write sized by the file's own region count (saveRestoreBackup.c:696) - ASan-visible; slevel must exceed sizeof(table)
 backupdumpline.c | 200 | unfixed   | hexDump line read at the fixed offset 7+3*b of a line the file may cut short (saveRestoreBackup.c:692) - ASan-visible
+backuppoolptr.c |  200 | unfixed   | c47Ptr block index + byte offset from the file become a pointer via TO_PCMEMPTR with no range (saveRestoreBackup.c:884-939) - ASan-blind at large offsets
