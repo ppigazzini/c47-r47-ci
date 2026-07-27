@@ -44,7 +44,7 @@ The current consensus for memory-correctness testing of a C codebase is a
 reasons about unexecuted paths but reports false positives; sanitizers and
 Valgrind observe real executions with concrete stacks but only on paths actually
 run; fuzzing generates the inputs that drive those paths. Leaks specifically need
-both a detector and input that reaches the leaking path. The memory model in [04-debugging.md](04-debugging.md) is the c43-
+both a detector and input that reaches the leaking path. The memory model in [05-debugging.md](05-debugging.md) is the c43-
 specific reason this pipeline needs a fourth layer (application-level accounting
 and a canary).
 
@@ -76,7 +76,7 @@ contain SOLVE; an integrand can contain INT), so unbounded recursion on the C
 stack is a reachable user input, not a coding accident - and on the DM42 that
 stack is a scheduler task stack sharing one firmware arena with the C47 pool and
 with GMP, which the tree does not state anywhere
-([10-memory.md](10-memory.md) Section 3 owns the derivation). Upstream caps integrator
+([06-memory.md](06-memory.md) Section 3 owns the derivation). Upstream caps integrator
 self-nesting with a depth counter (`MAX_INTEGRATOR_NESTING_DEPTH` in
 `defines.h`, merged from !1598). The mature-interpreter consensus, for when
 this class comes up again:
@@ -175,7 +175,7 @@ Fuzzing:
   https://arxiv.org/pdf/2606.14164
 
 Embedded-world patterns for the high-level modules (the module-to-domain map is
-[09-modules.md](09-modules.md); every link verified 2026-07-22):
+[02-modules.md](02-modules.md); every link verified 2026-07-22):
 
 - Cross-cutting embedded C discipline - the standards the field measures
   against:
@@ -217,7 +217,7 @@ Embedded-world patterns for the high-level modules (the module-to-domain map is
   - http://www.gii.upv.es/tlsf/
 
 Interpreters, virtual machines and embedded scripting (the language surfaces
-mapped in [09-modules.md](09-modules.md)):
+mapped in [02-modules.md](02-modules.md)):
 
 - Crafting Interpreters (Nystrom) - bytecode VMs, dispatch, Pratt expression
   parsing; the single best on-ramp - https://craftinginterpreters.com/

@@ -23,7 +23,7 @@ measured figures with the method for re-deriving them.
 subsystems. For what the item table costs, see
 [00-architecture.md](00-architecture.md); for where a symbol lives, see
 [01-codebase.md](01-codebase.md); for what a detector does, see
-[04-debugging.md](04-debugging.md).
+[05-debugging.md](05-debugging.md).
 
 ## 1. The calculator's terms
 
@@ -49,7 +49,7 @@ do; grep the symbol if a citation misses.
 | **HAL** | hardware abstraction layer: the adapters between the calculator core and a platform. [00-architecture.md](00-architecture.md) Section 5 owns what it does and does not cover |
 | **DMCP, DMCP5** | SwissMicros' firmware platforms - DMCP for the DM42, DMCP5 for the newer board, selected by the `DMCPVERSION` Meson option (`meson.build:120` in the clone) |
 | **QSPI, `TO_QSPI`** | the DM42's external flash, and the attribute that places a const table there rather than in scarce internal memory (`src/c47/items.c:1775`) |
-| **the arena** | the firmware allocator's own heap, which every C47 `malloc` comes out of - including the one that creates the pool. A DMCP term by behaviour, not by name: nothing in c43 calls it this. [10-memory.md](10-memory.md) has its bounds per target |
+| **the arena** | the firmware allocator's own heap, which every C47 `malloc` comes out of - including the one that creates the pool. A DMCP term by behaviour, not by name: nothing in c43 calls it this. [06-memory.md](06-memory.md) has its bounds per target |
 | **`DMCP_PACKAGE`, a package** | one of four DM42 builds that trade functions for internal flash, selected by the Meson option of that name (`src/c47/defines.h:143`, tabulated at `:154`). Same memory model, different code built - so "the DM42's largest frame" is a per-package answer |
 | **`OLD_HW` / `NEW_HW`** | the macros that pick the hardware memory model (`src/c47-dmcp/meson.build`, `src/c47-dmcp5/meson.build`). A **host build defines neither**, and takes the `NEW_HW` values for the pool - which is why a simulator run cannot reproduce a DM42 memory limit |
 | **`.p47`, `.s47`, `.d47`** | the keystroke-program, saved-state and data file extensions (`src/c47/hal/io.h:20`, `:12`, `:15`) |
@@ -68,7 +68,7 @@ The set names them in one breath, and the source does not treat them alike:
   (`src/t47/dsl.c`).
 
 That asymmetry is why `make t47` alone gives you the R47-based binary - the
-target picks a *model* you did not ask for. [02-build.md](02-build.md) owns the
+target picks a *model* you did not ask for. [03-build.md](03-build.md) owns the
 fix (`make simc47 t47`).
 
 ## 2. This repository's terms
@@ -78,19 +78,19 @@ script wins.
 
 | term | what it is |
 |---|---|
-| **lane** | one CI job: a `scripts/test/run-*.sh` script that runs unchanged locally, with the workflow as a thin caller. [05-ci.md](05-ci.md) owns the catalogue |
+| **lane** | one CI job: a `scripts/test/run-*.sh` script that runs unchanged locally, with the workflow as a thin caller. [07-ci.md](07-ci.md) owns the catalogue |
 | **the corpus** | the regression `.txt` files the testSuite replays, plus the `*_cov.txt` extensions. **The fuzz lanes reuse the word** for a libFuzzer seed corpus, which is a different thing |
-| **driver** | one of the three ways to express a test - a testSuite `.txt` file, a `t47` DSL script, or an in-C `*Cov` function. [03-testing.md](03-testing.md) owns the ranking |
+| **driver** | one of the three ways to express a test - a testSuite `.txt` file, a `t47` DSL script, or an in-C `*Cov` function. [04-testing.md](04-testing.md) owns the ranking |
 | **baseline** | a checked-in file of accepted findings a lane diffs against: a new finding fails, a vanished one is reported as a likely fix (`scripts/test/run-leakscan.sh`) |
 | **ratchet** | a floor that may only rise. The coverage floors are one (`scripts/test/coverage-floors.txt`); the leak scanner's high-water bound is an unrelated second |
-| **high-water bound** | the leak scanner's running extreme - the least free memory and the most GMP ever seen - so only growth past the previous extreme is reported (`scripts/test/tooling/leakscan.patch`). Assigning it unconditionally is what invented the `toReal` finding; [07-writing.md](07-writing.md) tells that story |
-| **gate vs report-only** | whether a lane fails CI on a finding or merely publishes it. [05-ci.md](05-ci.md) owns which lanes are which, and says plainly that the reason for the report-only five is not recorded |
+| **high-water bound** | the leak scanner's running extreme - the least free memory and the most GMP ever seen - so only growth past the previous extreme is reported (`scripts/test/tooling/leakscan.patch`). Assigning it unconditionally is what invented the `toReal` finding; [10-writing.md](10-writing.md) tells that story |
+| **gate vs report-only** | whether a lane fails CI on a finding or merely publishes it. [07-ci.md](07-ci.md) owns which lanes are which, and says plainly that the reason for the report-only five is not recorded |
 | **sector** | a named group of source files coverage is aggregated over, so a floor can be set per subsystem (`scripts/test/coverage-floors.txt`). Sector percentages and the global floor use **different denominators** |
-| **false pass** | a run that produced *fewer* findings because it died early, so the baseline diff passes. Guarded by completion sentinels in the lane scripts. [04-debugging.md](04-debugging.md) owns the catalogue |
+| **false pass** | a run that produced *fewer* findings because it died early, so the baseline diff passes. Guarded by completion sentinels in the lane scripts. [05-debugging.md](05-debugging.md) owns the catalogue |
 | **negative control** | a run against the **unfixed** tree that must show the bug, proving the check can fail at all. A gate that has never fired is not a gate. **No script enforces this** - it is a discipline, stated in [AGENTS.md](../AGENTS.md) |
 | **the pool** | this set's name for the calculator's own heap. **It is not a c43 term**: the source calls it the free list and free memory regions, and allocates from it with `allocC47Blocks` (`src/c47/memory.c:76`). Do not grep the product for "pool" and conclude it is absent |
-| **the canary, `POOL_GUARD`** | a by-hand patch that writes a position-dependent value around each allocated block to catch an overrun *inside* the pool - the class ASan and Valgrind are structurally blind to. Not a lane. [04-debugging.md](04-debugging.md) Section 5 owns it |
-| **the MSP band** | this set's name for the gap between a DMCP target's initial MSP and the top of the firmware data below it. It is the **handler and boot** stack, not a program's: SVCall and PendSV write PSP, so thread mode runs on a task stack. Naming it "the C stack" is the mistake [10-memory.md](10-memory.md) Section 3 exists to prevent |
+| **the canary, `POOL_GUARD`** | a by-hand patch that writes a position-dependent value around each allocated block to catch an overrun *inside* the pool - the class ASan and Valgrind are structurally blind to. Not a lane. [05-debugging.md](05-debugging.md) Section 5 owns it |
+| **the MSP band** | this set's name for the gap between a DMCP target's initial MSP and the top of the firmware data below it. It is the **handler and boot** stack, not a program's: SVCall and PendSV write PSP, so thread mode runs on a task stack. Naming it "the C stack" is the mistake [06-memory.md](06-memory.md) Section 3 exists to prevent |
 | **task stack** | the stack a program actually runs on: `malloc`'d by the scheduler out of the firmware arena, so it competes with C47's pool and with every GMP long integer. Its size is not in the firmware image and is **not measured** - only its ceiling is |
 | **level** | one nested engine evaluation, and the unit stack cost is quoted in: the frames between re-entering `execProgram` and reaching the kernel. Multiply by the runtime nesting cap (`MAX_INTEGRATOR_NESTING_DEPTH` on master, `src/c47/defines.h:565`, which bounds the integrator only), compare against the task-stack ceiling (`scripts/test/stackprof-baseline.txt`) |
 | **tail-call aware** | of a chain sum: a member whose only edge onward is a branch has run its epilogue first, so its frame is gone before the callee's exists and must not be charged. Charging it reads 24-32 B high per level on an optimised build, and nothing at all on the `-O0` simulator |

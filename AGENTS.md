@@ -6,10 +6,10 @@ newcomer gets wrong *before* reading [docs/](docs/README.md), which is where the
 detail lives.
 
 **Docs are part of the change, not after it.** Each page in `docs/` is a live
-claim about the thing it describes - and four of them describe **upstream**, a
-tree that moves without a commit here. Change something a page claims, fix the
+claim about the thing it describes - and the ones marked hot in that page's own
+table describe **upstream**, a tree that moves without a commit here. Change something a page claims, fix the
 page in the SAME commit; sync upstream, re-read the pages that track it.
-[docs/07-writing.md](docs/07-writing.md) carries the rules for everything this
+[docs/10-writing.md](docs/10-writing.md) carries the rules for everything this
 repo writes for a reader - pages, comments and commit messages alike - and maps
 every page to what it owns and which run hot. `bash scripts/test/run-docs-lint.sh`
 catches a dead link, a dead path, a stale pinned count, a non-ASCII byte, a
@@ -49,7 +49,7 @@ debugs a product whose source lives somewhere else.
    never assume a reader can see it. Tracked documentation lives in `docs/`.
 3. **ASCII by default** in tracked docs.
 4. **Conventional commits**, carrying the evidence rather than "should work".
-   [docs/07-writing.md](docs/07-writing.md) owns the format; do not restate it
+   [docs/10-writing.md](docs/10-writing.md) owns the format; do not restate it
    here.
 5. **Never add a `Co-Authored-By` trailer** to a commit in this repo.
 6. **Do not run destructive git commands** unless asked. In particular
@@ -61,15 +61,15 @@ debugs a product whose source lives somewhere else.
 |---|---|
 | understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-8 only; 9-11 are an unadopted proposal |
 | find your way around the c43 source tree | [docs/01-codebase.md](docs/01-codebase.md) |
-| build the simulator or the firmware | [docs/02-build.md](docs/02-build.md) |
-| write or run a test | [docs/03-testing.md](docs/03-testing.md) |
-| hunt a memory bug, a leak or a crash | [docs/04-debugging.md](docs/04-debugging.md) |
-| understand or add a CI lane | [docs/05-ci.md](docs/05-ci.md) |
-| find an authoritative external reference | [docs/06-references.md](docs/06-references.md) |
-| write a doc, a code comment or a commit message | [docs/07-writing.md](docs/07-writing.md) |
-| look up a term, or check which tier of vocabulary it belongs to | [docs/08-glossary.md](docs/08-glossary.md) |
-| identify the high-level module you are touching, and the literature to search for it | [docs/09-modules.md](docs/09-modules.md) |
-| work out whether something fits in the firmware's memory | [docs/10-memory.md](docs/10-memory.md) |
+| identify the high-level module you are touching, and the literature to search for it | [docs/02-modules.md](docs/02-modules.md) |
+| build the simulator or the firmware | [docs/03-build.md](docs/03-build.md) |
+| write or run a test | [docs/04-testing.md](docs/04-testing.md) |
+| hunt a memory bug, a leak or a crash | [docs/05-debugging.md](docs/05-debugging.md) |
+| work out whether something fits in the firmware's memory | [docs/06-memory.md](docs/06-memory.md) |
+| understand or add a CI lane | [docs/07-ci.md](docs/07-ci.md) |
+| find an authoritative external reference | [docs/08-references.md](docs/08-references.md) |
+| look up a term, or check which tier of vocabulary it belongs to | [docs/09-glossary.md](docs/09-glossary.md) |
+| write a doc, a code comment or a commit message | [docs/10-writing.md](docs/10-writing.md) |
 
 ## This file, and CLAUDE.md
 
@@ -138,9 +138,9 @@ rules below are not style; each one exists because it failed.
 7. **Hostile-audit every candidate fix before you commit it** - attack the root
    cause, the repro (must fire without the fix), the blast radius, and the same
    class elsewhere. A patch you wrote is a suspect, not a solution. Full rule in
-   [docs/03-testing.md](docs/03-testing.md) section 7.2.
+   [docs/04-testing.md](docs/04-testing.md) section 7.2.
 
-[docs/04-debugging.md](docs/04-debugging.md) carries the full false-pass
+[docs/05-debugging.md](docs/05-debugging.md) carries the full false-pass
 catalogue. Read it before trusting any lane result.
 
 ## Facts that surprise people
@@ -169,7 +169,7 @@ catalogue. Read it before trusting any lane result.
   it on entry, so two run at once will corrupt each other and the failure surfaces
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
   legitimately takes 2-3 hours; it is not hung.
-  See [docs/05-ci.md](docs/05-ci.md).
+  See [docs/07-ci.md](docs/07-ci.md).
 - **The simulator does not have the DM42's memory model, so it cannot reproduce
   a DM42 memory failure.** It is compiled with the *new* hardware's pool - 256 KiB
   against the DM42's 64 KiB, and 200 free regions against 50 - and its C stack is
@@ -181,7 +181,7 @@ catalogue. Read it before trusting any lane result.
   Recursion depth, pool exhaustion and any multi-kilobyte local are hardware
   questions a host build answers wrongly, not slowly.
   `bash scripts/test/run-stackprof.sh` profiles every platform with one
-  instrument; see [docs/10-memory.md](docs/10-memory.md).
+  instrument; see [docs/06-memory.md](docs/06-memory.md).
 - **A gap below the initial MSP is not "the stack a program gets".** On both DMCP
   targets it is the handler and boot stack: SVCall and PendSV write PSP, so thread
   mode runs on a `malloc`'d task stack. Ask which stack thread mode uses before

@@ -12,10 +12,10 @@ bug in this codebase.
 
 This page owns the **detectors** and the false-pass catalogue. The neighbouring
 subjects are not restated here: how to drive the calculator and write a test is
-[03-testing.md](03-testing.md); the lane scripts that run these detectors in CI,
-and what each one gates on, are [05-ci.md](05-ci.md); where in the source tree a
+[04-testing.md](04-testing.md); the lane scripts that run these detectors in CI,
+and what each one gates on, are [07-ci.md](07-ci.md); where in the source tree a
 symbol lives is [01-codebase.md](01-codebase.md); and a term you do not
-recognise is in [08-glossary.md](08-glossary.md).
+recognise is in [09-glossary.md](09-glossary.md).
 
 
 ## 1. Why the standard tools are not enough
@@ -104,7 +104,7 @@ Accounting facts worth knowing before you measure anything:
 | **Intra-pool OOB write** | **POOL_GUARD canary only** (Section 5) | ASan, Valgrind, leakscan, keyscan, testmem |
 | Parser/decoder OOB | libFuzzer + ASan | corpus |
 | Logic bug (wrong value) | corpus with value assertions | every sanitizer |
-| Register/state collision | t47 sentinel battery ([03-testing.md](03-testing.md) Section 2); the UI lane for the keyboard path | every memory tool |
+| Register/state collision | t47 sentinel battery ([04-testing.md](04-testing.md) Section 2); the UI lane for the keyboard path | every memory tool |
 | **Keyboard/menu-only regression** | UI lane (`run-ui.sh`, real GTK under `xvfb-run`) | the corpus, t47, every memory tool |
 | **Unbounded C-stack recursion** (a program re-entering its own engine) | nestcheck lane (`run-nestcheck.sh`); Frama-C Nonterm on the guard shape | ASan/Valgrind see the crash, not the cause; the corpus never nests a program in itself |
 
@@ -175,7 +175,7 @@ crash. That single line is the only reason the interactive subsystems -
 `differentiate.c`, `solve.c`, `tvm.c`, `ui/tam.c`, `ui/matrixEditor.c` - are
 reachable from a *headless* driver; `run-coverage.sh` reports what they reach
 today. The UI lane reaches them by a second, independent route: real key presses
-against the GTK binary under `xvfb-run` ([05-ci.md](05-ci.md)).
+against the GTK binary under `xvfb-run` ([07-ci.md](07-ci.md)).
 
 `executeFunction` is **not** the right entry: its state-machine block is gated
 on `data[0] != 0`, a real key-label string, so it is skipped for the item-code
@@ -417,7 +417,7 @@ Registration rules, learned the hard way:
 - pass the function parameter with `FARG=` or `Func: name(n)`. A bare `Func:`
   line passes `NOPARAM` (9876), not the catalog value, so a newly registered
   function whose parameter selects behaviour is only half covered until the
-  parameter is set - see [03-testing.md](03-testing.md) Section 1.
+  parameter is set - see [04-testing.md](04-testing.md) Section 1.
 
 
 Two unlocks worth reusing:
@@ -620,7 +620,7 @@ Every one of these has silently passed a broken thing at least once.
    the corpus.
 5. **`grep` with no match under `set -Eeuo pipefail` aborts the lane.** A
    comments-only baseline made the diff step exit 1. Wrap: `{ grep ... || true; }`.
-6. **A stale build is not evidence** (Section 7 method discipline in [03-testing.md](03-testing.md)).
+6. **A stale build is not evidence** (Section 7 method discipline in [04-testing.md](04-testing.md)).
 7. **Stale `src/generated/` shadows the build dir.** `src/c47/meson.build` sets
    `c47_inc = include_directories('.', '../generated')`, so the gitignored,
    hand-populated `src/generated/*` is on the include path and **shadows** the
@@ -635,9 +635,9 @@ Every one of these has silently passed a broken thing at least once.
    testSuite-only build races.
 9. **Run the testSuite from a scratch CWD** - it writes `REGS.TSV`, `.bmp`,
    `backup.cfg`, `c47.sav` into the current directory - **but stage
-   `testPgms.bin`** ([03-testing.md](03-testing.md) Section 5) or you manufacture six false failures and a
+   `testPgms.bin`** ([04-testing.md](04-testing.md) Section 5) or you manufacture six false failures and a
    dead-looking program engine.
-10. **Test order leaks state** ([03-testing.md](03-testing.md) rule 6.6).
+10. **Test order leaks state** ([04-testing.md](04-testing.md) rule 6.6).
 11. **`fnRefreshState` is a no-op** (`{ doRefreshSoftMenu = true; }`). Two
     separate investigations attributed a leak to it. Instrument the actual call
     before believing an attribution.
@@ -658,17 +658,17 @@ Every one of these has silently passed a broken thing at least once.
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
-    (Section 9). Prove it fires ([03-testing.md](03-testing.md) rule 7.7).
+    (Section 9). Prove it fires ([04-testing.md](04-testing.md) rule 7.7).
 16. **A "clean" sentinel result may mean the fix is applied**, not that the bug
-    is absent. Check the branch ([03-testing.md](03-testing.md) Section 2.1).
+    is absent. Check the branch ([04-testing.md](04-testing.md) Section 2.1).
 17. **A convenient sentinel hides the interesting failures.** I=7 J=9 round-trips
     through the `int16_t` matrix-index backup unharmed, so it reports the
     off-by-one and nothing else; the same path silently flattens I=0.35 to -1,
-    I=99999 to -31074 and a complex to a long integer ([03-testing.md](03-testing.md) Section 2.1). Pick sentinel values
+    I=99999 to -31074 and a complex to a long integer ([04-testing.md](04-testing.md) Section 2.1). Pick sentinel values
     that exercise the width, the fraction and the type, not just the arithmetic.
 18. **`git stash` does not revert a commit.** Stashing to "get back to master"
     leaves a committed fix in the tree, and the A/B then compares the branch with
-    itself and agrees. Check out the ref, force a rebuild (Section 7 method discipline in [03-testing.md](03-testing.md)), and print the
+    itself and agrees. Check out the ref, force a rebuild (Section 7 method discipline in [04-testing.md](04-testing.md)), and print the
     resolved HEAD in the same command that prints the reading (16, 6).
 19. **A conditional breakpoint on a stale line number never fires, and silence
     reads as a pass.** A refactor shifted `solve.c` and a key-injection probe at
@@ -714,7 +714,7 @@ Every one of these has silently passed a broken thing at least once.
     The number that bounds a program is what is left of the arena after the pool.
     Before quoting any embedded stack figure, ask which stack thread mode uses -
     `tooling/dmcp-stackband.py` prints the verdict, and
-    [10-memory.md](10-memory.md) Section 3 carries the derivation. Two lessons
+    [06-memory.md](06-memory.md) Section 3 carries the derivation. Two lessons
     generalise: a plausible number invites a plausible label, and an arithmetic
     check on a region says nothing about who owns it.
 24. **A lane that writes its evidence to `$LOG_DIR` and uploads nothing cannot

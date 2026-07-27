@@ -7,7 +7,7 @@ program actually contains. This page is the inventory of the **high-level
 modules** - each named by its canonical domain term, with the structure a
 maintainer needs before opening the files - so that when a module needs work,
 the right references and patterns can be found instead of reinvented. The
-curated links live in [06-references.md](06-references.md); the layering and
+curated links live in [08-references.md](08-references.md); the layering and
 dependency evidence in [00-architecture.md](00-architecture.md) Section 2; the
 file-by-file map and the key-to-screen control flow in
 [01-codebase.md](01-codebase.md). This page does not restate those - where a
@@ -107,7 +107,7 @@ commands in one table (`dsl.c:1300`): state (`reg`, `var`, `flag`,
 `nim`, `item`), capture (`snap`). Everything a script can do funnels into the
 same dispatch and key paths as the keyboard - the DSL adds no second
 semantics. Upstream's `res/SCRIPTS/cli_automation_examples.txt` is the usage
-reference ([06-references.md](06-references.md)). One trap this repo has hit:
+reference ([08-references.md](08-references.md)). One trap this repo has hit:
 `var x` resolves single letters as *register* names before named variables,
 so `[var x]` reads stack register X - do not use it as evidence about a named
 variable `x`.
@@ -168,7 +168,7 @@ entry and exit (`integrate.c:1578`, `solve.c`), progress display runs only at
 depth 1 (`solve.c:404`), and the integrator carries the depth cap that stops
 a self-referential nest from overflowing the C stack (`defines.h`,
 `MAX_INTEGRATOR_NESTING_DEPTH`; the escape analysis and the stack-budget
-question live in [06-references.md](06-references.md), "Recursion guards on
+question live in [08-references.md](08-references.md), "Recursion guards on
 an embedded C stack"). The grapher evaluates per pixel through
 `_executeSolverReal` (`graph.c:102`) - **outside any depth cap** at the audit
 basis: a gap, not a design.
@@ -240,7 +240,7 @@ opened each level. The catalogs are generated at build time into
 that ordering on startup.
 
 The only screen content CI asserts is the grapher's SNAP bitmaps
-([03-testing.md](03-testing.md)); everything else on this surface is
+([04-testing.md](04-testing.md)); everything else on this surface is
 untested - a gap, not a design.
 
 ## 5. The persistence machine
@@ -259,11 +259,11 @@ payload (one byte per line for programs). The program loader is the model
 citizen: it **screens the whole file before reserving a single block**
 (`_programFileRefused`, `saveRestorePrograms.c:168`, applied at `:688`), so a
 refusal needs no rollback - the LangSec recognize-before-process shape
-([06-references.md](06-references.md)). The full-state restore path is not:
+([08-references.md](08-references.md)). The full-state restore path is not:
 `restoreCalc` reads the RAM image back essentially unscreened
 (`saveRestoreBackup.c:826`), trusting the file to be well-formed - a gap, not
 a design, and the reason the harness fuzzes that path
-([05-ci.md](05-ci.md)).
+([07-ci.md](07-ci.md)).
 
 ## 6. How to use this page
 
@@ -271,7 +271,7 @@ When a module needs a fix, a redesign, or a review, search its **literature
 term** first - each of these is a decades-deep domain with settled embedded
 patterns (dispatch techniques for the VM, screened two-pass loading for the
 serializers, single-stack recursion budgets for the re-entrant engines,
-damage-tracking for the compositor). [06-references.md](06-references.md)
+damage-tracking for the compositor). [08-references.md](08-references.md)
 carries the vetted starting points: the embedded-world pattern references
 (coding standards, MCU-budget language VMs, LangSec input screening,
 event-driven state machines, GUI draw pipelines, key debouncing, real-time

@@ -23,7 +23,7 @@
 #      the DM42n; the host thread's 8 MiB on the simulator, which is why the
 #      simulator can never show you this bug.
 #
-# docs/10-memory.md owns the map, the derivation and the platform matrix.
+# docs/06-memory.md owns the map, the derivation and the platform matrix.
 #
 # LTO is why there are two builds per instruction set and not one. The shipped
 # firmware and simulator are both built with -flto, which defers code generation
@@ -51,7 +51,7 @@ HOST_OBJDUMP="${HOST_OBJDUMP:-objdump}"
 
 # What a nested evaluation's stack has to fit inside, per hardware target, read out
 # of the shipped firmware images by tooling/dmcp-stackband.py and derived in
-# docs/10-memory.md s3.
+# docs/06-memory.md s3.
 #
 # DM42: NOT the MSP band. DMCP's SVCall/PendSV are a context switch that writes
 # PSP, so a program runs in thread mode on a task stack allocated from the

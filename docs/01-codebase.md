@@ -24,9 +24,9 @@ restating them, so each fact has one source.
 | subject | owner |
 |---|---|
 | Physical architecture, the link graph, dependency metrics | [00-architecture.md](00-architecture.md) |
-| The build targets, Meson graph, packaging | [02-build.md](02-build.md) |
-| Writing and running tests | [03-testing.md](03-testing.md) |
-| Detectors and the false-pass catalogue | [04-debugging.md](04-debugging.md) |
+| The build targets, Meson graph, packaging | [03-build.md](03-build.md) |
+| Writing and running tests | [04-testing.md](04-testing.md) |
+| Detectors and the false-pass catalogue | [05-debugging.md](05-debugging.md) |
 
 Use [00-architecture.md](00-architecture.md) for anything about the dependency
 graph, cycles, ACD/NCCD, the item table's structural cost, or the god header.
@@ -94,11 +94,11 @@ Three consequences worth knowing before choosing a harness:
   place, `defines.h:419`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
   `press` is registered in every build but refuses when headless, so keyboard tests need
-  the GTK binary under xvfb ([03-testing.md](03-testing.md) s3).
+  the GTK binary under xvfb ([04-testing.md](04-testing.md) s3).
 
 Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
 179885 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count
-is [03-testing.md](03-testing.md) s1.
+is [04-testing.md](04-testing.md) s1.
 
 ## 3. Repository map
 
@@ -243,7 +243,7 @@ check that code and spreadsheet still agree.
 
 ## 4. How a build is produced
 
-[02-build.md](02-build.md) owns the build and CI audit. This section
+[03-build.md](03-build.md) owns the build and CI audit. This section
 records only the mechanics needed to navigate the tree.
 
 The `Makefile` is the user-visible contract; meson and ninja are the machinery.
@@ -322,7 +322,7 @@ other files appear locally because `make sim` copies them out of the build dir
 `src/c47/meson.build:245` sets
 `c47_inc = include_directories('.', '../generated')`, so the source
 `src/generated/` is on the include path alongside the build-dir copies. A stale
-copy shadows a freshly generated header. [04-debugging.md](04-debugging.md) Section 12 records the
+copy shadows a freshly generated header. [05-debugging.md](05-debugging.md) Section 12 records the
 failure mode and the remedy.
 
 ## 5. The spine: one library, one header, one table
@@ -543,7 +543,7 @@ The RPN stack is the first four or eight lettered registers:
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
 I, J and K are the matrix index registers as well as user registers. That dual
-role is a real source of defects; [04-debugging.md](04-debugging.md) s3 records two bugs
+role is a real source of defects; [05-debugging.md](05-debugging.md) s3 records two bugs
 found there and the sentinel battery that finds them.
 
 **There are two register numberings, and they are not the same.** A program step
@@ -622,7 +622,7 @@ know:
   dimensions in its own header (`registers.c:1154-1192`). Corrupt one and the
   next free passes a wrong size to the allocator.
 - An over-long write inside the pool is invisible to ASan and valgrind, because
-  the pool is one `malloc`. That is why [04-debugging.md](04-debugging.md) s5 exists.
+  the pool is one `malloc`. That is why [05-debugging.md](05-debugging.md) s5 exists.
 
 **GMP does not use the pool.** `allocGmp` rounds to block size for accounting
 and then calls libc `malloc`; the `freeListAlloc` call is commented out
@@ -990,7 +990,7 @@ The corpus bypasses the top of this: it calls `runFunction` directly with a
 declared input state, which is why it tests computation and not presentation.
 `t47` enters at the same point through a Jim/Tcl DSL. Only the GTK simulator
 under xvfb exercises the keyboard and menu layer, which is why
-[03-testing.md](03-testing.md) s3 exists.
+[04-testing.md](04-testing.md) s3 exists.
 
 A user program enters at the same place. Programs are a raw byte array at the
 top of `ram` (Section 6), encoded as item numbers: one byte below 128, otherwise
@@ -1044,11 +1044,11 @@ time, not decoration:
 - `res/PROGRAMS/` - `.p47` keystroke programs plus `.rtf` human-readable exports.
 - `res/STATE/`, `res/DATA/` - saved state and data files.
 - `res/testPgms/testPgms.bin` - a fixture the corpus needs; its absence fakes a
-  dead program engine ([03-testing.md](03-testing.md) s5).
+  dead program engine ([04-testing.md](04-testing.md) s5).
 - `res/keymaps/`, `res/fonts/`, `res/offimg/`, `res/tone/`, `res/dmcp/`,
   `res/dmcp5/`, `res/combo/`.
 - `res/SCRIPTS/` - the t47 DSL's own reference, `cli_automation_examples.txt`.
-  Read it before writing a script ([03-testing.md](03-testing.md) Section 2).
+  Read it before writing a script ([04-testing.md](04-testing.md) Section 2).
 
 File formats and paths are declared in one place, `src/c47/hal/io.h`: `.s47`
 state in `STATE/` (`io.h:11-12`), `.d47` data in `DATA/` (`io.h:14-15`), `.p47`
@@ -1077,7 +1077,7 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
 - **Presentation is untested except for the grapher.** Only `graphs_cov.txt`
   asserts the screen, by hashing a rendered bitmap; everything else reached
   through `screen.c`, `display.c`, `statusBar.c` and `softmenus.c` is verified by
-  human inspection. [03-testing.md](03-testing.md) s1 owns this.
+  human inspection. [04-testing.md](04-testing.md) s1 owns this.
 - **Not verified here.** This page was written from static reads of the tree at
   `33328e4cc`; no build was executed for it. The subsystem responsibilities in
   Section 9 are from directory contents and call sites, not from an exhaustive
@@ -1101,7 +1101,7 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
   `src/t47/meson.build`, `dep/meson.build`, `subprojects/gmp-6.2.1.wrap`.
 - [00-architecture.md](00-architecture.md), for the physical architecture. It
   analysed `d969ec75db`; its headline figures were reproduced at `33328e4cc`.
-- [02-build.md](02-build.md), [04-debugging.md](04-debugging.md).
+- [03-build.md](03-build.md), [05-debugging.md](05-debugging.md).
 - Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
   first-party spec for the `.d47` record layout. Not read for this page; read it
   before documenting that format.

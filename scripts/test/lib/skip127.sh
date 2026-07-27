@@ -6,7 +6,7 @@
 #   bash scripts/test/lib/skip127.sh scripts/test/run-framac-wp.sh
 #
 # The frama-c lanes exit 127 to mean "the optional toolchain is not here, so this
-# gate did not run" - documented in docs/05-ci.md as SKIP, deliberately distinct
+# gate did not run" - documented in docs/07-ci.md as SKIP, deliberately distinct
 # from passing. Nothing implemented that: the workflow called the scripts plainly,
 # so a skip surfaced as a red lane, and the frama-c lane failed on every CI run it
 # ever had because one prover was unregistered.
@@ -14,7 +14,7 @@
 # 127 is the exit code the shell also uses for "command not found", which is the
 # same condition by another route, so the overload is harmless here.
 #
-# This lives in a script rather than inline YAML for the reason docs/05-ci.md
+# This lives in a script rather than inline YAML for the reason docs/07-ci.md
 # gives: a workflow must contain no logic that cannot be run locally. Run it
 # locally and a skip prints the same line CI shows, and returns 0.
 #
@@ -41,7 +41,7 @@ case "$rc" in
     127)
         printf 'SKIPPED: %s exited 127 - its optional toolchain is absent, so the gate did not run.\n' "$lane"
         # ::warning:: puts it in the run summary; outside Actions it is just a line.
-        printf '::warning title=%s skipped::exit 127, the gate did not run - see docs/05-ci.md\n' "${lane##*/}"
+        printf '::warning title=%s skipped::exit 127, the gate did not run - see docs/07-ci.md\n' "${lane##*/}"
         rc=0
         ;;
 esac

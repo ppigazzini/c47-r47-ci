@@ -18,7 +18,7 @@ The repository holds three things:
 - **The lane scripts** - `scripts/test/` is the single source of truth for every
   test lane. A script runs unchanged on a maintainer's machine, so a CI failure
   is reproducible locally. One exception: the coverage lane's gates are set in
-  its workflow, not its script - see [05-ci.md](05-ci.md).
+  its workflow, not its script - see [07-ci.md](07-ci.md).
 - **The workflows** - `.github/workflows/` are thin callers that install a
   toolchain and invoke a script. Build and package lanes for Linux, macOS and
   Windows; analysis lanes for leaks, memory attribution, coverage, fuzzing,
@@ -31,15 +31,15 @@ The repository holds three things:
 |---|---|---|
 | [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
 | [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
-| [02-build.md](02-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
-| [03-testing.md](03-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
-| [04-debugging.md](04-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
-| [05-ci.md](05-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
-| [06-references.md](06-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
-| [07-writing.md](07-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
-| [08-glossary.md](08-glossary.md) | Anyone reading any of the above | Two tiers of vocabulary: the calculator's own terms, which upstream owns, and the harness terms this repo invented |
-| [09-modules.md](09-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
-| [10-memory.md](10-memory.md) | Anyone allocating, recursing or sizing a buffer | The machine under the pool, per platform: the limits matrix for both hardware targets and the simulator, the SRAM map, which stack a program actually runs on and what bounds it, what a nested engine level costs - and why a simulator run cannot answer a DM42 question |
+| [02-modules.md](02-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
+| [03-build.md](03-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
+| [04-testing.md](04-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
+| [05-debugging.md](05-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
+| [06-memory.md](06-memory.md) | Anyone allocating, recursing or sizing a buffer | The machine under the pool, per platform: the limits matrix for both hardware targets and the simulator, the SRAM map, which stack a program actually runs on and what bounds it, what a nested engine level costs - and why a simulator run cannot answer a DM42 question |
+| [07-ci.md](07-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
+| [08-references.md](08-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
+| [09-glossary.md](09-glossary.md) | Anyone reading any of the above | Two tiers of vocabulary: the calculator's own terms, which upstream owns, and the harness terms this repo invented |
+| [10-writing.md](10-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see
@@ -52,21 +52,21 @@ looking for. This one is keyed by what brought you here.
 
 | you want to | read |
 |---|---|
-| look up a term you do not recognise | [08-glossary.md](08-glossary.md) |
+| look up a term you do not recognise | [09-glossary.md](09-glossary.md) |
 | find where something lives in the c43 tree | [01-codebase.md](01-codebase.md) |
 | understand why the code is shaped the way it is, or argue it should change | [00-architecture.md](00-architecture.md) |
-| build the simulator, or work out why a build is stale | [02-build.md](02-build.md) |
-| write a test, or drive the calculator headlessly | [03-testing.md](03-testing.md) |
-| chase a leak, a crash or an overrun | [04-debugging.md](04-debugging.md) |
-| work out whether something fits in the firmware's memory, or why it crashed on hardware and not the simulator | [10-memory.md](10-memory.md) |
-| find out what a platform's limits are, or whether the simulator can reproduce a hardware failure at all | [10-memory.md](10-memory.md) - Section 2 |
-| work out which lane catches the change you just made | [05-ci.md](05-ci.md) - "Which lane to run first" |
-| reproduce a CI failure locally | [05-ci.md](05-ci.md) - and note the coverage exception |
-| understand why CI is red when nothing here changed | [05-ci.md](05-ci.md) - pin `UPSTREAM_COMMIT` |
-| add a lane, or change one | [05-ci.md](05-ci.md), then [scripts/test/README.md](../scripts/test/README.md) |
-| identify which high-level module you are in, and what to search for it | [09-modules.md](09-modules.md) |
-| find an authoritative external reference | [06-references.md](06-references.md) |
-| write a doc, a comment or a commit message | [07-writing.md](07-writing.md) |
+| build the simulator, or work out why a build is stale | [03-build.md](03-build.md) |
+| write a test, or drive the calculator headlessly | [04-testing.md](04-testing.md) |
+| chase a leak, a crash or an overrun | [05-debugging.md](05-debugging.md) |
+| work out whether something fits in the firmware's memory, or why it crashed on hardware and not the simulator | [06-memory.md](06-memory.md) |
+| find out what a platform's limits are, or whether the simulator can reproduce a hardware failure at all | [06-memory.md](06-memory.md) - Section 2 |
+| work out which lane catches the change you just made | [07-ci.md](07-ci.md) - "Which lane to run first" |
+| reproduce a CI failure locally | [07-ci.md](07-ci.md) - and note the coverage exception |
+| understand why CI is red when nothing here changed | [07-ci.md](07-ci.md) - pin `UPSTREAM_COMMIT` |
+| add a lane, or change one | [07-ci.md](07-ci.md), then [scripts/test/README.md](../scripts/test/README.md) |
+| identify which high-level module you are in, and what to search for it | [02-modules.md](02-modules.md) |
+| find an authoritative external reference | [08-references.md](08-references.md) |
+| write a doc, a comment or a commit message | [10-writing.md](10-writing.md) |
 
 ## Quick start
 
@@ -93,7 +93,7 @@ bash scripts/test/run-smoke.sh
 `make test` passes clean, so any failure is a regression rather than a baseline
 to compare against. Read the summary the run prints; the count moves with
 upstream, so do not trust one written down here.
-[03-testing.md](03-testing.md) owns this.
+[04-testing.md](04-testing.md) owns this.
 
 ## Technology
 

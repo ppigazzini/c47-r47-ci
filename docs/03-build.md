@@ -60,7 +60,7 @@ From upstream `Makefile` / `BUILD.md`:
 
 | Target | What it does |
 |---|---|
-| `make sim` | builds `c47` (GTK, `-DCALCMODEL=USER_C47`), copies to repo root, then `install -C`s 5 generated files into `src/generated/` (see 04-debugging Section 12) |
+| `make sim` | builds `c47` (GTK, `-DCALCMODEL=USER_C47`), copies to repo root, then `install -C`s 5 generated files into `src/generated/` (see 05-debugging Section 12) |
 | `make simc47` | pure alias for `sim` |
 | `make simr47` | builds `r47` (`-DCALCMODEL=USER_R47`) |
 | `make both` | `sim simr47` |
@@ -69,7 +69,7 @@ From upstream `Makefile` / `BUILD.md`:
 | `make repeattest` | re-run without the clean (timing/stability); stamp-driven |
 | `make test_asan` | the suite with `-Db_sanitize=address` |
 | `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** - `otool -L` then `ldd`, so it holds on macOS and Linux alike (`Makefile:63`, `Makefile:71`) |
-| `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [03-testing.md](03-testing.md) Section 5) |
+| `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [04-testing.md](04-testing.md) Section 5) |
 | `make docs` | needs `sphinx-build`, `doxygen`, `breathe-apidoc`; silently produces no target if any is missing |
 | `make XVFB=xvfb-run dist_linux` | packaging; `XVFB` is an override variable, empty by default |
 
@@ -103,4 +103,4 @@ analysis lanes) with `-Dc_args` for extra flags. The analysis lanes add
 comdat sections then errors on references to them, and `--no-undefined` is
 incompatible with the Clang sanitizer runtime).
 
-For the CI lanes that run these targets, see [05-ci.md](05-ci.md).
+For the CI lanes that run these targets, see [07-ci.md](07-ci.md).

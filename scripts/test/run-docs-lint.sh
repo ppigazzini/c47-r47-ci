@@ -16,7 +16,7 @@
 #   * Docs name their owner constantly ("run-leakscan.sh", "test-valgrind.yml").
 #     A rename leaves the prose reading perfectly and pointing at nothing.
 #     -> check 2
-#   * docs/05-ci.md pinned the leakscan baseline at "(39)". A rebaseline against
+#   * docs/07-ci.md pinned the leakscan baseline at "(39)". A rebaseline against
 #     a moved upstream made it 30 in the same session, and the doc was not
 #     touched: the commit that changed the number is exactly the commit that
 #     should have changed the doc.  -> check 3
@@ -55,7 +55,7 @@ log "docs rot gate over ${#DOCS[@]} markdown files (tracked and new)"
 
 # --- 1. every internal link resolves ------------------------------------------
 # Resolve relative to the LINKING FILE's directory, not the cwd: docs/README.md
-# links to "05-ci.md", which only exists as docs/05-ci.md. Checking these from
+# links to "07-ci.md", which only exists as docs/07-ci.md. Checking these from
 # the repo root reports every one of them as broken.
 n=0
 for f in "${DOCS[@]}"; do
@@ -166,7 +166,7 @@ fi
 log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 
 # --- 7. the upstream-tracking pages declare an audit basis --------------------
-# Five pages describe a tree this repo does not control, so they rot when
+# The pages listed below describe a tree this repo does not control, so they rot when
 # upstream moves and nothing here changes: that is how a361b6797 -> 87c70c77a
 # broke three lanes with no commit here. Before this check, 00 and 01 named the
 # commit they were measured at and 02 and 03 named nothing, so a reader could
@@ -178,7 +178,7 @@ log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 # The second is not a loophole - it is the honest value, and it is visible in
 # the rendered page, which "no line at all" is not.
 #
-# 10-memory tracks a second uncontrolled tree, the shipped DMCP firmware image,
+# 06-memory tracks a second uncontrolled tree, the shipped DMCP firmware image,
 # and names the image and its hash inline for the same reason this stamp exists.
 #
 # The SHA must be all 40 characters, matching what common.sh already demands of
@@ -192,7 +192,7 @@ log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 # with the same shelf life as the prose under it. It dates the claim; it does
 # not verify it.
 n=0
-for page in 00-architecture 01-codebase 02-build 03-testing 10-memory; do
+for page in 00-architecture 01-codebase 02-modules 03-build 04-testing 06-memory; do
     f="docs/$page.md"
     [[ -e "$f" ]] || { note "MISSING PAGE  $f (named in the audit-basis list)"; n=$((n + 1)); continue; }
     basis="$(grep -m1 '^Audit basis:' "$f" || true)"

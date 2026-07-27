@@ -294,7 +294,7 @@ The lane profiles each DM42 package, the DM42n and the host simulator with one
 instrument, so the platform comparison is measured rather than assumed. It reads
 frame sizes out of the disassembly for two instruction sets - Thumb and x86-64 -
 and the ISA is detected from the disassembly, so the same command serves a
-firmware ELF and a simulator binary. [05-ci.md](05-ci.md) has the lane contract;
+firmware ELF and a simulator binary. [07-ci.md](07-ci.md) has the lane contract;
 [scripts/test/README.md](../scripts/test/README.md) has what each script does.
 
 **The profiler is calibrated against the compiler on every run, once per

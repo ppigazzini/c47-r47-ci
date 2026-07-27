@@ -122,7 +122,7 @@ to reproduce a CI coverage failure.
   tool exists to stop; two successive readings of the same image made it.
   Manual, not a lane - it needs a
   vendor image CI should not fetch. Re-run it when SwissMicros ships firmware;
-  the constants in `run-stackprof.sh` and `docs/10-memory.md` are its output.
+  the constants in `run-stackprof.sh` and `docs/06-memory.md` are its output.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
   `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
@@ -173,7 +173,7 @@ scaffolding.
 
 Two rules the config encodes, both because the default fought this repo:
 
-- **`line-length = 170`, not ruff's 88.** [docs/07-writing.md](../../docs/07-writing.md)
+- **`line-length = 170`, not ruff's 88.** [docs/10-writing.md](../../docs/10-writing.md)
   sets the comment wrap at 160-170 on purpose. A narrower setting does not just
   warn, it makes `ruff format` break correct code into worse shapes.
 - **`end-of-file-fixer` and `trailing-whitespace` skip every file whose bytes are

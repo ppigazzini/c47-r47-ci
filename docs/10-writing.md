@@ -29,14 +29,14 @@ upstream commit that fixed them (`3bd0f13ea`, confirmed by pinning
 commit that exposed them. Regenerating without that is laundering.
 
 **Never copy a fact a file already states. Cite the file, or gate the copy.**
-`docs/05-ci.md` copied the leakscan baseline's entry count into a table. A
+`docs/07-ci.md` copied the leakscan baseline's entry count into a table. A
 rebaseline changed the file and not the copy, in the same session. A copy of
 machine-readable state is a claim with a shelf life measured in commits: quote
 the file, or make a gate own the number. Check 3 of `run-docs-lint.sh` owns that
 one now.
 
 **Never pin a number the repo computes.** Baseline counts, pass counts, coverage
-percentages, warning counts. `04-debugging.md` pinned five coverage percentages
+percentages, warning counts. `05-debugging.md` pinned five coverage percentages
 to prove a driver fix worked; `run-coverage.sh` computes them and upstream moves
 them. Quote the command and let the reader run it.
 
@@ -106,7 +106,7 @@ with its contract: the shortest accurate statement of what it covers. A page
 describes **what is true here** - what C47 does, or what this harness does. It is
 not a calculator tutorial and not an RPN primer. Anything a reader could get from
 upstream's wiki or a vendor manual belongs in
-[06-references.md](06-references.md) as a link.
+[08-references.md](08-references.md) as a link.
 
 Two repositories are in scope and they are not the same thing. Upstream c43 on
 GitLab is the product; this repo is the harness that builds it. Say which one a
@@ -134,15 +134,15 @@ exactly that way, in the session that changed it.
 |---|---|---|
 | [00-architecture.md](00-architecture.md) | what C47 is: the god header, the item table, the HAL, the dependency graph | hot - tracks upstream |
 | [01-codebase.md](01-codebase.md) | the c43 source tree, the register file, the memory model, control flow | hot - tracks upstream |
-| [02-build.md](02-build.md) | upstream's `make` targets, the Meson graph, the generators, packaging | hot - tracks upstream |
-| [03-testing.md](03-testing.md) | the corpus, the three drivers, how to write a test | hot - tracks upstream |
-| [04-debugging.md](04-debugging.md) | the detectors and the false-pass catalogue | hot - tracks this repo |
-| [05-ci.md](05-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
-| [06-references.md](06-references.md) | external links | cold |
+| [02-modules.md](02-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
+| [03-build.md](03-build.md) | upstream's `make` targets, the Meson graph, the generators, packaging | hot - tracks upstream |
+| [04-testing.md](04-testing.md) | the corpus, the three drivers, how to write a test | hot - tracks upstream |
+| [05-debugging.md](05-debugging.md) | the detectors and the false-pass catalogue | hot - tracks this repo |
+| [06-memory.md](06-memory.md) | the per-target memory map, which stack is which, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
+| [07-ci.md](07-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
+| [08-references.md](08-references.md) | external links | cold |
+| [09-glossary.md](09-glossary.md) | what the words mean, product and harness | mixed - see below |
 | this page | the rules | cold |
-| [08-glossary.md](08-glossary.md) | what the words mean, product and harness | mixed - see below |
-| [09-modules.md](09-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
-| [10-memory.md](10-memory.md) | the per-target memory map, which stack is which, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3
 describe a tree **this repo does not control**, so they rot when upstream moves
@@ -151,7 +151,7 @@ and nothing here changed. That is the failure the leak gate hit - upstream moved
 that track upstream need re-reading on an upstream sync, not only on a local
 change.
 
-`10-memory.md` tracks a **second** tree nobody here controls: the DMCP firmware
+`06-memory.md` tracks a **second** tree nobody here controls: the DMCP firmware
 image. Its map moves when SwissMicros ships an OS, on no schedule this repo can
 see and with no lane that would go red. Re-derive it with
 `scripts/test/tooling/dmcp-stackband.py` against the new image, which is why
@@ -182,7 +182,7 @@ When a page has never been checked, the line reads `Audit basis: none
 recorded.` and the page says so in prose. **That is the honest value, not a
 loophole.** An unchecked page with no line looks exactly like a checked one; an
 unchecked page that says "none recorded" tells a reader how much to trust it and
-tells a maintainer what to do next. `03-testing.md` carries it today.
+tells a maintainer what to do next. `04-testing.md` carries it today.
 
 **State the limit, because this one is easily overread.** Check 7 verifies that
 a stamp exists and parses. It cannot verify that anyone read the page at that

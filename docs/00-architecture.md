@@ -19,11 +19,11 @@ they live. Anything below is someone else's, and is not re-derived here.
 | subject | owner |
 |---|---|
 | where a thing lives, the register file, the memory model, control flow | [01-codebase.md](01-codebase.md) |
-| the `make` targets, the Meson graph, the generators, packaging | [02-build.md](02-build.md) |
-| the corpus, the drivers, how to write a test | [03-testing.md](03-testing.md) |
-| the detectors and the false-pass catalogue | [04-debugging.md](04-debugging.md) |
-| the lanes, the baselines, what CI gates | [05-ci.md](05-ci.md) |
-| what a term means | [08-glossary.md](08-glossary.md) |
+| the `make` targets, the Meson graph, the generators, packaging | [03-build.md](03-build.md) |
+| the corpus, the drivers, how to write a test | [04-testing.md](04-testing.md) |
+| the detectors and the false-pass catalogue | [05-debugging.md](05-debugging.md) |
+| the lanes, the baselines, what CI gates | [07-ci.md](07-ci.md) |
+| what a term means | [09-glossary.md](09-glossary.md) |
 
 Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the
 older `c43` name; the application it builds is C47). The audit basis above is
@@ -244,8 +244,8 @@ number-entry lexer; an embedded Tcl automation DSL; and text serialization
 formats - alongside a portfolio of numeric engines**, all sharing a 96 KiB-RAM
 embedded target. The full module inventory, with each engine named by its
 canonical domain term and mapped to the literature that studies it, is
-[09-modules.md](09-modules.md); the curated references themselves live in
-[06-references.md](06-references.md).
+[02-modules.md](02-modules.md); the curated references themselves live in
+[08-references.md](08-references.md).
 
 Two consequences belong here, with the dependency evidence:
 
@@ -253,13 +253,13 @@ Two consequences belong here, with the dependency evidence:
   itself contain SOLVE; an integrand may contain INT (upstream enables
   SOLVE(SOLVE) and PLOT(SOLVE) deliberately). Recursion through the engines is
   therefore *user input*, and the C-stack discipline in
-  [06-references.md](06-references.md) ("Recursion guards on an embedded C
+  [08-references.md](08-references.md) ("Recursion guards on an embedded C
   stack") is load-bearing, not theoretical.
 - **Every engine shares one arena.** Programs, registers, matrices, subroutine
   frames and menus all live in the single `ram` pool of Section 3's global
   state, which is why an overrun in any one engine can surface as corruption
   in another (the pool-overrun blindness catalogued in
-  [04-debugging.md](04-debugging.md)).
+  [05-debugging.md](05-debugging.md)).
 
 ## 3. The god header and the global state
 
@@ -960,7 +960,7 @@ Target structure, once the graph permits it -- `#include` points DOWN only:
       testsuite/    main + port adapters + the corpus runner
     tools/          generateConstants generateCatalogs generateTestPgms
                     ttf2RasterFonts        (unchanged: already correct)
-  tests/            the .txt corpus (data, not source; 03-testing owns the count)
+  tests/            the .txt corpus (data, not source; 04-testing owns the count)
   design/           the spreadsheets, converted to CSV/TSV so provenance is
                     diffable and CI stops building xlsxio
 ```
