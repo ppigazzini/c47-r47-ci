@@ -38,24 +38,19 @@ int main(void) {
   if(blockAddress == C47_NULL && byteOffset == 0) {
     return 0;                                       /* the file's own null */
   }
-  /* The shipped guard, verbatim: each of the two numbers bounded against a
-     constant before they are added, so the sum cannot overflow and neither the
-     reader nor Eva has to carry a relation between two file-supplied values.
-     Tests stay on the integers - comparing a one-past-the-end pointer is
-     defined in C but Eva's RTE will not take it. */
-  const uint32_t poolBytes = TO_BYTES(RAM_SIZE_IN_BLOCKS);
-  if(blockAddress >= RAM_SIZE_IN_BLOCKS || byteOffset > poolBytes) {
+  /* The shipped guard, verbatim. saveCalc() splits a pointer with TO_C47MEMPTR(),
+     which divides by the block size and stores the remainder as the offset, so an
+     offset is never TO_BYTES(1) or more; bounding it by the pool instead would
+     admit 65534 times the offsets the writer can emit. The result is required to
+     be strictly inside the pool: the one-past-the-end position is a pointer C
+     defines, but every consumer here dereferences what it is given, and letting
+     one through was measured to walk isAtEndOfPrograms() off the end.
+     Each number is bounded against a constant, so there is no relation for Eva to
+     carry and the sum cannot overflow. */
+  if(blockAddress >= RAM_SIZE_IN_BLOCKS || byteOffset >= TO_BYTES(1)) {
     return 0;                                       /* file refused */
   }
-  const uint32_t byteAddress = TO_BYTES(blockAddress) + byteOffset;   /* no overflow: both sides <= poolBytes */
-  if(byteAddress > poolBytes) {
-    return 0;                                       /* file refused */
-  }
-  if(byteAddress == poolBytes) {
-    return 0;    /* one past the end: the guard admits it, being a pointer C defines and one
-                    firstFreeProgramByte can hold, but the consumer must not dereference it */
-  }
-  beginOfProgramMemory = (uint8_t *)ram + byteAddress;
+  beginOfProgramMemory = (uint8_t *)ram + TO_BYTES(blockAddress) + byteOffset;
 #else
   beginOfProgramMemory = (uint8_t *)ram + TO_BYTES(blockAddress);   /* TO_PCMEMPTR, defines.h:2231 */
   beginOfProgramMemory += byteOffset;                               /* saveRestoreBackup.c:921 */
