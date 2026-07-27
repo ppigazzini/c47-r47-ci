@@ -166,7 +166,8 @@ fi
 log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 
 # --- 7. the upstream-tracking pages declare an audit basis --------------------
-# The pages listed below describe a tree this repo does not control, so they rot when
+writing_page="docs/10-writing.md"
+# The pages marked hot in docs/10-writing.md describe a tree this repo does not control, so they rot when
 # upstream moves and nothing here changes: that is how a361b6797 -> 87c70c77a
 # broke three lanes with no commit here. Before this check, 00 and 01 named the
 # commit they were measured at and 02 and 03 named nothing, so a reader could
@@ -191,10 +192,26 @@ log "check 6: the AGENTS.md/CLAUDE.md contract is loadable ($n problems)"
 # runtime - so there is no file to diff a stamp against, and a stamp is a claim
 # with the same shelf life as the prose under it. It dates the claim; it does
 # not verify it.
+# The list is not kept here. docs/10-writing.md's page table already says which
+# pages track upstream, in its temperature column, so this reads that column
+# rather than carrying a second copy to fall out of step with it: mark a page
+# hot there and the gate starts holding it, cool it and the gate lets go.
 n=0
-for page in 00-architecture 01-codebase 02-modules 03-build 04-testing 06-memory; do
+tracking=()
+while IFS= read -r page; do
+    tracking+=("$page")
+done < <(sed -n 's/^| \[\([0-9][0-9]-[a-z]*\)\.md\].*tracks upstream.*/\1/p' "$writing_page")
+
+# An empty list means the table moved or its wording changed, and a check that
+# silently holds nothing reads exactly like a check that passed.
+if [[ "${#tracking[@]}" -eq 0 ]]; then
+    note "NO TRACKING   $writing_page lists no page as 'tracks upstream'; check 7 would hold nothing"
+    n=1
+fi
+
+for page in "${tracking[@]}"; do
     f="docs/$page.md"
-    [[ -e "$f" ]] || { note "MISSING PAGE  $f (named in the audit-basis list)"; n=$((n + 1)); continue; }
+    [[ -e "$f" ]] || { note "MISSING PAGE  $f (marked 'tracks upstream' in $writing_page)"; n=$((n + 1)); continue; }
     basis="$(grep -m1 '^Audit basis:' "$f" || true)"
     if [[ -z "$basis" ]]; then
         note "NO BASIS      $f has no 'Audit basis:' line (use 'none recorded' if it has never been checked)"
