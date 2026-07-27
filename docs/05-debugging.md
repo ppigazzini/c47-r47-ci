@@ -486,12 +486,25 @@ Lessons that generalise:
   buffer but never set `beginOfProgramMemory`/`firstFreeProgramByte` to it, so
   bounded decoders were tested against an unrelated pool - false ASan crashes
   depending on stack-vs-pool address ordering.
+- **Check the harness writes the name the code under test opens.**
+  `fuzz_restore.c` wrote each input to `backup.cfg`, but the testSuite HAL
+  renames every writable path, so `restoreCalc()` opens `backupTest.cfg`. Every
+  iteration therefore parsed no file at all, and a green campaign meant nothing.
+  It now asks the HAL for the name (`_ioFileNameFromFilePath(ioPathBackup)`)
+  instead of hard-coding one. **A fuzz lane that finds nothing is a claim to
+  verify, not a result** - feed it a known-bad input and watch it fail first.
 
 The equation lane has a clean baseline (120 s = 4,937,252 execs, no finding).
-The restore lane found a real one in ~1 s: a hexDump NULL-deref/overflow where
-the byte count and the number of hex lines both come from the file on trust, so
-**a corrupt `backup.cfg` crashes the calculator on boot**. Reproducer kept at
-`scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg`.
+
+The restore lane's hexDump finding - the byte count and the dump lines both come
+from the file on trust - is **real and confirmed**: replacing one dump line of a
+valid `backup.cfg` with two characters gives a heap over-read at
+`saveRestoreBackup.c:692`, and a region count of 100000 gives an out-of-bounds
+write at `:696`, both under ASan on `3c84890a1`. The archived minimal file
+`scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg` does **not**
+reproduce standalone on master through the current harness (measured clean on
+both an unfixed and a fixed tree); it is kept as a seed, not as a repro. Fixed
+upstream on branch `fix/restore-bound-backup-param-fields`.
 
 ## 9. Valgrind
 
