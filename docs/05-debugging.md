@@ -486,6 +486,13 @@ Lessons that generalise:
   buffer but never set `beginOfProgramMemory`/`firstFreeProgramByte` to it, so
   bounded decoders were tested against an unrelated pool - false ASan crashes
   depending on stack-vs-pool address ordering.
+- **A precondition an Eva harness gives itself is a claim about a caller.**
+  `eva/freelist_insert.c` is PROVED, but it opens with the region count already
+  in `0..MAX-1` and calls that "the caller's guard". Nobody had checked who
+  upholds it. `restoreCalc()` was a caller and did not - it took the count from
+  `backup.cfg` unchecked. **Grep for every writer of a variable a harness
+  constrains**; the assumption is where the bug hides, not the code around it.
+  The two `backup*.c` kernels on the regression wall discharge that one.
 - **Check the harness writes the name the code under test opens.**
   `fuzz_restore.c` wrote each input to `backup.cfg`, but the testSuite HAL
   renames every writable path, so `restoreCalc()` opens `backupTest.cfg`. Every
