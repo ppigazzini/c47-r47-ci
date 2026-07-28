@@ -278,7 +278,10 @@ ninja -C build.guard src/testSuite/testSuite
 ./build.guard/src/testSuite/testSuite --keyscan                               # subsystems
 ```
 
-`-rdynamic` is what makes the free-time `backtrace()` attribution readable.
+`-rdynamic` is what makes the free-time `backtrace()` attribution readable. The
+instrumentation itself is written out at
+`scripts/test/tooling/poolguard/pool-guard.patch`, so it need not be rebuilt from
+this prose each time.
 
 The item sweep carries scalar operands only, so matrix overruns never trigger
 through it - see 4.1 for why matrix operands were reverted rather than kept.

@@ -1,0 +1,180 @@
+diff --git a/src/c47/config.c b/src/c47/config.c
+index 98e179a1a..16afe85b3 100644
+--- a/src/c47/config.c
++++ b/src/c47/config.c
+@@ -1546,6 +1546,10 @@ void doFnReset(uint16_t confirmation, bool_t autoSav) {
+ 
+     numberOfFreeMemoryRegions = 1;
+ 
++    #if defined(POOL_GUARD)
++      poolGuardResetRegistry();   // the pool was just wiped: every registered guard is stale
++    #endif
++
+     #if !defined(DMCP_BUILD)
+       numberOfAllocatedMemoryRegions = 0;
+     #endif // !DMCP_BUILD
+diff --git a/src/c47/memory.c b/src/c47/memory.c
+index 4de5b560b..9344f055a 100644
+--- a/src/c47/memory.c
++++ b/src/c47/memory.c
+@@ -73,15 +73,96 @@ bool_t isMemoryBlockAvailable(size_t sizeInBlocks, uint16_t numBlocks, float ext
+ 
+ 
+ 
++
++#if defined(POOL_GUARD)
++// POOL_GUARD: the pool canary of docs/05-debugging.md Section 5. Every pool block is over-allocated by
++// POOL_GUARD_BLOCKS blocks whose bytes are a hash of their own ADDRESS (never a constant: a copy overrun whose
++// source is an adjacent guard would otherwise carry a matching canary into the target and mask itself).
++// All four wrappers inflate identically - the allocator stores no sizes, so an un-inflated free corrupts the free list.
++#include <execinfo.h>
++#define POOL_GUARD_BLOCKS 4                                   // 16 bytes, counted in BLOCKS of BYTES_PER_BLOCK
++static uint32_t poolGuardViolations = 0;
++
++static uint8_t poolGuardByte(const uint8_t *at) {
++  uintptr_t a = (uintptr_t)at;
++  return (uint8_t)(0xA5u ^ (uint8_t)(a) ^ (uint8_t)(a >> 8) ^ (uint8_t)(a >> 16));
++}
++
++static void poolGuardWrite(void *p, size_t sizeInBlocks) {
++  uint8_t *g = (uint8_t *)p + TO_BYTES(sizeInBlocks);
++  for(size_t i = 0; i < TO_BYTES((size_t)POOL_GUARD_BLOCKS); i++) {
++    g[i] = poolGuardByte(g + i);
++  }
++}
++
++static void poolGuardCheck(void *p, size_t sizeInBlocks, const char *where) {
++  uint8_t *g = (uint8_t *)p + TO_BYTES(sizeInBlocks);
++  for(size_t i = 0; i < TO_BYTES((size_t)POOL_GUARD_BLOCKS); i++) {
++    if(g[i] != poolGuardByte(g + i)) {
++      poolGuardViolations++;
++      fprintf(stderr, "\nPOOL_GUARD: overrun of a %zu-block region at %p, guard byte %zu = 0x%02x (expected 0x%02x), seen at %s\n",
++              sizeInBlocks, p, i, g[i], poolGuardByte(g + i), where);
++      void *bt[24];
++      int n = backtrace(bt, 24);
++      backtrace_symbols_fd(bt, n, 2);
++      return;
++    }
++  }
++}
++
++#define POOL_GUARD_MAX_LIVE 4096
++static struct { void *p; size_t blocks; } poolGuardLive[POOL_GUARD_MAX_LIVE];
++static size_t poolGuardLiveCount = 0;
++static bool_t poolGuardSweepRegistered = false;
++
++static void poolGuardSweep(void) {
++  size_t checked = 0;
++  for(size_t i = 0; i < poolGuardLiveCount; i++) {
++    if(poolGuardLive[i].p) { poolGuardCheck(poolGuardLive[i].p, poolGuardLive[i].blocks, "checkPoolGuards sweep"); checked++; }
++  }
++  fprintf(stderr, "POOL_GUARD: swept %zu live regions, %u violation(s) in total\n", checked, poolGuardViolations);
++}
++
++static void poolGuardForget(void *p) {
++  for(size_t i = 0; i < poolGuardLiveCount; i++) { if(poolGuardLive[i].p == p) { poolGuardLive[i].p = NULL; return; } }
++}
++
++static void poolGuardRemember(void *p, size_t blocks) {
++  if(!poolGuardSweepRegistered) { poolGuardSweepRegistered = true; atexit(poolGuardSweep); }
++  poolGuardForget(p);
++  for(size_t i = 0; i < poolGuardLiveCount; i++) {
++    if(poolGuardLive[i].p == NULL) { poolGuardLive[i].p = p; poolGuardLive[i].blocks = blocks; return; }
++  }
++  if(poolGuardLiveCount < POOL_GUARD_MAX_LIVE) {
++    poolGuardLive[poolGuardLiveCount].p = p; poolGuardLive[poolGuardLiveCount].blocks = blocks; poolGuardLiveCount++;
++  }
++}
++
++// doFnReset() memsets the whole pool and re-forms the free list with no free() call (config.c:1535-1547): every
++// registered region is stale from there, and without this the sweep reports the reset itself as 30 overruns.
++void poolGuardResetRegistry(void) { poolGuardLiveCount = 0; }
++
++uint32_t poolGuardViolationCount(void) { return poolGuardViolations; }
++#endif // POOL_GUARD
++
+ void *allocC47Blocks(size_t sizeInBlocks) {
+   //c47MemInBlocks += sizeInBlocks;
+ 
+   //return freeListAlloc(sizeInBlocks);
+ 
++#if defined(POOL_GUARD)
++  void *allocated = freeListAlloc(sizeInBlocks + POOL_GUARD_BLOCKS);
++  if(allocated) {
++    poolGuardWrite(allocated, sizeInBlocks);
++    poolGuardRemember(allocated, sizeInBlocks);
++    c47MemInBlocks += sizeInBlocks;
++    return allocated;
++#else
+   void *allocated = freeListAlloc(sizeInBlocks);
+   if(allocated) {
+     c47MemInBlocks += sizeInBlocks;
+     return allocated;
++#endif
+   }
+   else {
+     return NULL;
+@@ -93,10 +174,21 @@ void *reallocC47Blocks(void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInB
+ 
+   //return freeListRealloc(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
+ 
++#if defined(POOL_GUARD)
++  if(pcMemPtr) { poolGuardCheck(pcMemPtr, oldSizeInBlocks, "reallocC47Blocks"); }
++  void *allocated = freeListRealloc(pcMemPtr, oldSizeInBlocks + POOL_GUARD_BLOCKS, newSizeInBlocks + POOL_GUARD_BLOCKS);
++  if(allocated) {
++    poolGuardWrite(allocated, newSizeInBlocks);
++    poolGuardForget(pcMemPtr);
++    poolGuardRemember(allocated, newSizeInBlocks);
++    c47MemInBlocks += newSizeInBlocks - oldSizeInBlocks;
++    return allocated;
++#else
+   void *allocated = freeListRealloc(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
+   if(allocated) {
+     c47MemInBlocks += newSizeInBlocks - oldSizeInBlocks;
+     return allocated;
++#endif
+   }
+   else {
+     return NULL;
+@@ -109,7 +201,13 @@ void reduceC47Blocks(void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInBlo
+     return;
+   }
+ 
++#if defined(POOL_GUARD)
++  if(pcMemPtr) { poolGuardCheck(pcMemPtr, oldSizeInBlocks, "reduceC47Blocks"); }
++  freeListReduce(pcMemPtr, oldSizeInBlocks + POOL_GUARD_BLOCKS, newSizeInBlocks + POOL_GUARD_BLOCKS);
++  if(pcMemPtr) { poolGuardWrite(pcMemPtr, newSizeInBlocks); poolGuardRemember(pcMemPtr, newSizeInBlocks); }
++#else
+   freeListReduce(pcMemPtr, oldSizeInBlocks, newSizeInBlocks);
++#endif
+   c47MemInBlocks += newSizeInBlocks - oldSizeInBlocks;
+ }
+ 
+@@ -120,7 +218,13 @@ void freeC47Blocks(void *pcMemPtr, size_t sizeInBlocks) {
+ 
+   c47MemInBlocks -= sizeInBlocks;
+ 
++#if defined(POOL_GUARD)
++  poolGuardCheck(pcMemPtr, sizeInBlocks, "freeC47Blocks");
++  poolGuardForget(pcMemPtr);
++  freeListFree(pcMemPtr, sizeInBlocks + POOL_GUARD_BLOCKS);
++#else
+   freeListFree(pcMemPtr, sizeInBlocks);
++#endif
+ }
+ 
+ 
+diff --git a/src/c47/memory.h b/src/c47/memory.h
+index ec6e48496..60e20a104 100644
+--- a/src/c47/memory.h
++++ b/src/c47/memory.h
+@@ -39,6 +39,9 @@
+   void    *allocC47Blocks        (size_t sizeInBlocks);
+   void    *reallocC47Blocks      (void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInBlocks);
+   void     reduceC47Blocks       (void *pcMemPtr, size_t oldSizeInBlocks, size_t newSizeInBlocks);
++  #if defined(POOL_GUARD)
++    void   poolGuardResetRegistry(void);
++  #endif
+   void     freeC47Blocks         (void *pcMemPtr, size_t sizeInBlocks);
+ 
+   void    *allocGmp              (size_t sizeInBytes);
