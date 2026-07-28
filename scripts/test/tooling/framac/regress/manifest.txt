@@ -29,3 +29,4 @@ funcparamglyph.c |  2000 | unfixed   | stringGlyphLength() steps 2 over the lead
 restoremenu.c   |  200 | unfixed   | userMenuItems[18] / userAlphaItems[18] / userMenus[].menuItem[18] written at the file's own entry count (saveRestoreCalcState.c:1848,:1873,:1920) - the first two ASan-visible, the third pool-OOB
 restoresums.c   |  200 | unfixed   | statisticalSumsPointer[i] written at the file's own count against a 28-real pool block (saveRestoreCalcState.c:1710) - pool-OOB, ASan/Valgrind-blind, POOL_GUARD-visible
 restoretoken.c  | 3000 | unfixed   | readToken()/readComplexToken() walk a .d47 element into tmpString with no end (saveRestoreCalcState.c:1117-1160) - ASan-visible; slevel must exceed TMP_STR_LENGTH
+eqnullsave.c    |  500 | unfixed   | doSave() hands TO_PCMEMPTR(C47_NULL) to stringToUtf8 for a formula with no text yet (saveRestoreCalcState.c:853) - a two keystroke SIGSEGV, ASan-visible
