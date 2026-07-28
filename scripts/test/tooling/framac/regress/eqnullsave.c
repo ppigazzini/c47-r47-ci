@@ -14,7 +14,10 @@
  * stringToUtf8's own conversion is irrelevant here and is reduced to the read.
  * -DFIXED is the guard commit: a formula with no text has no representation in
  * the state file - a blank line would make the reader take the next section
- * header for its text - so it is skipped, and the count follows.
+ * header for its text - so it is skipped, and the count follows. "No text" is
+ * both ways a formula can hold none: the C47_NULL sentinel, and the empty string
+ * a restore leaves when its count outran the file. The kernel models the guard
+ * as the branch writes it, formulaHasText().
  * Buggy: NULL dereference. Fixed: proved.
  */
 #include <stdint.h>
@@ -45,21 +48,38 @@ static int32_t stringGlyphLength(const char *str) {
 /* stringToUtf8(str, utf8) reads str through stringGlyphLength before writing anything */
 static void stringToUtf8_modelled(const char *str) { (void)stringGlyphLength(str); }
 
+/* saveRestoreCalcState.c, the predicate the guard commit adds - verbatim */
+static int formulaHasText(uint16_t id) {
+  const char *text;
+
+  if(allFormulae[id].pointerToFormulaData == C47_NULL) {
+    return 0;
+  }
+  text = (const char *)TO_PCMEMPTR(allFormulae[id].pointerToFormulaData);
+  return text[0] != 0;
+}
+
 int main(void) {
   for(size_t b = 0; b < RAM_BYTES - 1; b++) { ram[b] = (uint8_t)Frama_C_interval(1, 127); }
   ram[RAM_BYTES - 1] = 0;                          /* every modelled formula is NUL-terminated */
 
   numberOfFormulae = (uint16_t)Frama_C_interval(0, MAX_FORMULAE);
   for(uint16_t i = 0; i < MAX_FORMULAE; i++) {     /* each slot: text, or the C47_NULL a new equation carries */
-    allFormulae[i].pointerToFormulaData =
-      Frama_C_interval(0, 1) ? (uint16_t)C47_NULL : (uint16_t)Frama_C_interval(0, RAM_BYTES - 1);
+    if(Frama_C_interval(0, 1)) {                   /* if/else, not a ternary: the ternary merges the sentinel into
+                                                    * the offset interval before the store and the model then claims
+                                                    * ram + 65534 is reachable, which is the harness lying, not c43 */
+      allFormulae[i].pointerToFormulaData = (uint16_t)C47_NULL;
+    }
+    else {
+      allFormulae[i].pointerToFormulaData = (uint16_t)Frama_C_interval(0, RAM_BYTES - 1);
+    }
     allFormulae[i].sizeInBlocks = 0;
   }
 
   uint16_t counted = 0;
   for(uint16_t i = 0; i < numberOfFormulae; i++) {
 #ifdef FIXED
-    if(allFormulae[i].pointerToFormulaData != C47_NULL) { counted++; }
+    if(formulaHasText(i)) { counted++; }
 #else
     counted++;
 #endif
@@ -67,7 +87,7 @@ int main(void) {
 
   for(uint16_t i = 0; i < numberOfFormulae; i++) {
 #ifdef FIXED
-    if(allFormulae[i].pointerToFormulaData == C47_NULL) { continue; }
+    if(!formulaHasText(i)) { continue; }
 #endif
     stringToUtf8_modelled(TO_PCMEMPTR(allFormulae[i].pointerToFormulaData));
   }
