@@ -10,8 +10,11 @@
 # `unfixed` where the defect is still on upstream master and -DFIXED models a
 # proposed guard: that row gates the detector, not a merged fix.
 # Audit basis: upstream master ccafdfe51 for the first four rows, 5e628d1e0 for
-# glyphrank.c, 3c84890a1 for the two backup rows. Frama-C 32.1, machdep
-# gcc_x86_64.
+# glyphrank.c, 3c84890a1 for the two backup rows, 199477075 (MR !1631) for the
+# four restore rows. Frama-C 32.1, machdep gcc_x86_64.
+# The four restore rows read `unfixed` because the guards they model are the ones
+# proposed on !1631 and not yet on upstream master; they gate the detector, and
+# the -DFIXED side is the guard as that branch writes it.
 #
 findkey.c       | 200 | 886d26ce3 | indexOfItems[op] read, op>LAST_ITEM (nextStep.c:307)
 inscol.c        | 200 | fb1f7f483 | newMat[] write 1 past rows*(cols+1) (matrix.c:2552) - pool-OOB, ASan/Valgrind-blind
@@ -22,3 +25,7 @@ wordsize.c      | 200 | unfixed   | 1<<wordSize and 1<<(wordSize-1) undefined ou
 backupregion.c  | 4000 | unfixed   | freeMemoryRegions[] write sized by the file's own region count (saveRestoreBackup.c:696) - ASan-visible; slevel must exceed sizeof(table)
 backupdumpline.c | 200 | unfixed   | hexDump line read at the fixed offset 7+3*b of a line the file may cut short (saveRestoreBackup.c:692) - ASan-visible
 backuppoolptr.c |  200 | unfixed   | c47Ptr block index + byte offset from the file become a pointer via TO_PCMEMPTR with no range (saveRestoreBackup.c:884-939) - ASan-blind at large offsets
+funcparamglyph.c |  2000 | unfixed   | stringGlyphLength() steps 2 over the lead byte a fixed-offset cut left last in Norm_Key_00.funcParam (recall.c:282) - ASan-blind, the read stays inside the struct
+restoremenu.c   |  200 | unfixed   | userMenuItems[18] / userAlphaItems[18] / userMenus[].menuItem[18] written at the file's own entry count (saveRestoreCalcState.c:1848,:1873,:1920) - the first two ASan-visible, the third pool-OOB
+restoresums.c   |  200 | unfixed   | statisticalSumsPointer[i] written at the file's own count against a 28-real pool block (saveRestoreCalcState.c:1710) - pool-OOB, ASan/Valgrind-blind, POOL_GUARD-visible
+restoretoken.c  | 3000 | unfixed   | readToken()/readComplexToken() walk a .d47 element into tmpString with no end (saveRestoreCalcState.c:1117-1160) - ASan-visible; slevel must exceed TMP_STR_LENGTH

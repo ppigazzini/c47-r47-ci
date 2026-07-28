@@ -287,6 +287,27 @@ editor key context, so the headless sweep cannot reach the editor path either.
 (The empty `fnInsCol`/`fnInsRow` at `items.c:1307-1309` are catalog-generator
 stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
 
+**A live-region sweep needs a reset hook, or it reports the reset.** A block that
+is never freed is never checked at free time, so the sweep has to walk a registry
+the wrappers keep. `doFnReset` (`config.c:1535-1547`) `memset`s the whole pool and
+re-forms the free list to one region **without a single `free`**, so from that
+point every registered pointer is stale and its guard bytes read as zero. Without
+a `poolGuardResetRegistry()` call there, a corpus run reports the reset itself as
+30 overruns of tiny regions, all `guard byte 0 = 0x00`, all at sweep time and
+none at free time - the instrument's own false positive, and the shape to
+recognise. **Free-time attribution is the trustworthy half**: it fires on the
+region the culprit actually holds and carries a backtrace.
+
+**A baseline the sweep still reports.** Even with the reset hooked, a full corpus
+run ends on **30 sweep-time violations**, 25 of them 4-block regions with a zeroed
+guard. That count was **identical with and without** the restore fixes of
+!1631, so it is a property of the tree, not of any one change - use it as a
+baseline and compare counts, never "clean vs not clean". It is unexplained; one
+candidate is `resizeProgramMemory` (`memory.c:272`), which grows program memory
+downwards by adjusting `freeMemoryRegions[last]` and `xcopy`ing over the result,
+entirely outside the four wrappers the canary instruments. That is a hypothesis,
+not a finding: nobody has confirmed it.
+
 ### 5.4 The bug class it catches
 
 POOL_GUARD is the only detector for the **intra-pool OOB write**: a store just
