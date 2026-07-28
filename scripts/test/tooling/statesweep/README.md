@@ -24,8 +24,28 @@ is a defect if it fails - none is a matter of taste:
 
 Mutations: every counted section's count line set to each of fifteen adversarial
 values (0, 1, 3, 17, 18, 19, 28, 37, 45, 200, 500, 32767, -1, 65535, `abc`), and
-truncation at four offsets into every section. 210 mutants against a reset
-calculator's state file, about six minutes under ASan.
+truncation at four offsets into every section. 210 mutants, about six minutes
+under ASan.
+
+**The seed decides how much of this is real.** A reset calculator's state file
+has no registers, no programs, no stats and no assignments, so most mutants
+mutate a count over nothing. Build a fat one and sweep that too:
+
+```bash
+./t47 --reset --exec 'nim 0.35; xeq STO 00; nim 99999; xeq STO 01;
+  nim 2.5; nim 7; xeq COMPLEX; xeq STO 02;
+  nim 3; nim 11; item 433; nim 0.35; nim 99999; item 433; savest fat.sav'
+```
+
+which gives 137 global registers, 4 named variables, 28 statistical sums, 37 key
+assignments and 2 user menus; graft MYMENU/MYALPHA entries and equations by
+editing the file. Both seeds are worth a run; they have found the same defects so
+far, which is itself worth knowing.
+
+`d47sweep.py` is the same idea for the `.d47` import path, which is a different
+reader - `readToken()` rather than `readLine()`, `standardiseComplex()` on every
+complex element, matrix dimensions rather than section counts. 85 mutants. Its
+FIX property is weak and its docstring says why.
 
 **FIX is the property that earns its keep.** It caught a state file the
 calculator wrote itself: a restore whose EQUATIONS count outran the file left
@@ -39,3 +59,14 @@ See `baseline.txt`. Two entries at the time of writing, both reproducing
 identically on upstream `199477075` and on the c43 !1631 branch, so neither is
 that branch's doing. Read a new name in the output as a regression; read a
 missing one as a fix, and tighten the file.
+
+The differential these tools exist to produce, measured on the fat seed:
+
+| | upstream `199477075` | c43 !1631 branch |
+|---|---|---|
+| `statesweep.py` | **106** of 210 mutants fail | **2** (both baselined above) |
+| `d47sweep.py` | **3** of 85 fail | **0** |
+
+On the base most of the 106 are hangs (`rc=124`): a count larger than the
+entries that follow ran the section loop past end of file and `doLoad()` never
+looked at `ioEof()`.
