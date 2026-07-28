@@ -27,9 +27,10 @@
 static char tmpString[TMP_STR_LENGTH];
 
 static int ioEof(void)               { return Frama_C_interval(0, 1); }
-static void restore(void *p, uint32_t size) {
+static uint32_t restore(void *p, uint32_t size) {
   (void)size;
   *(char *)p = (char)Frama_C_interval(-128, 127);
+  return (uint32_t)Frama_C_interval(0, 1);          /* a read returns 1 byte, or 0 on an I/O error */
 }
 
 static char *readToken(char *tok, size_t maxLen) {
@@ -50,7 +51,7 @@ static char *readToken(char *tok, size_t maxLen) {
       restore(++p, 1);
     }
     while(*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r' && !ioEof()) {
-      restore(p, 1);                    /* drain to the separator: the next read resyncs */
+      if(restore(p, 1) == 0) { break; } /* drain to the separator; a read with no progress ends it */
     }
 #else
     while(*p != ' ' && *p != '\t' && *p != '\n' && *p != '\r' && !ioEof()) {
