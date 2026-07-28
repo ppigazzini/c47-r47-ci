@@ -340,8 +340,8 @@ every counted section's count line set to fifteen adversarial values, truncation
 at four offsets into every section - and holds each mutant to three properties:
 it must not crash or hang, `save(load(x))` must be a **fixed point**, and the
 sections the calculator wrote must still be the sections a reader finds. Not a
-lane; it needs a built clone. Its README carries the invocation and
-`baseline.txt` the mutants it still flags.
+lane; it needs a built clone. Its README carries the invocation, and
+`baseline.txt` the mutants it still flags - which should be none, and is none.
 
 **Why it exists.** The restore guards of !1631 were reviewed four times, and each
 round found a defect in whichever guard had been written last - a bound whose

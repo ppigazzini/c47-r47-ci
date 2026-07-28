@@ -3,11 +3,17 @@
 #   <mutant> | <property> | <where it lands> | <attribution>
 # A name here is a known defect, not a passing test. A name NOT here appearing in
 # the output is a regression; a name here that stops appearing is a fix, and this
-# file should lose the line in the same commit.
+# file should lose the line in the same commit - which is what happened to both
+# entries this file opened with.
 #
-# Measured with the ASan simulator (meson -Db_sanitize=address), seed st.sav from
-# a reset calculator, 210 mutants. Both rows reproduce identically on upstream
-# 199477075 and on the c43 !1631 branch, so neither belongs to that branch.
+# Measured with the ASan simulator (meson -Db_sanitize=address), both seeds, 210
+# mutants each, and 85 for d47sweep.py.
 #
-EQUATIONS count 32767 | RC | global-buffer-overflow in freeListAlloc (core/freeList.c:61) via setEquation (solver/equation.c:220) | the count is small enough to allocate and large enough that the setEquation() calls fragment the pool past MAX_FREE_REGIONS, so the allocator overruns its own region table. An allocator bug, not a restore index bug.
-truncated 1 line into PROGRAMS | RC | heap-buffer-overflow in isAtEndOfPrograms (programming/manage.c:67) via scanLabelsAndPrograms (:134) from restoreOneSection | the PROGRAMS header with nothing after it leaves program memory in a shape the label scanner walks past the end of.
+# EMPTY, and that is the point of the file. It opened with two rows - a state
+# file with EQUATIONS count 32767 (freeListAlloc wrote to allocatedMemoryRegions[]
+# before checking it had room) and one truncated a line into PROGRAMS
+# (resizeProgramMemory(0) put beginOfProgramMemory one past the pool, where
+# scanLabelsAndPrograms reads it). Both reproduced on upstream 199477075 and both
+# are fixed on the c43 !1631 branch, so both rows went. A sweep that ends on
+# "0 failure(s)" is the only baseline worth having; anything else is a defect
+# someone decided to live with, and it should say whose decision it was.

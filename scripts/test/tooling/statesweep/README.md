@@ -55,18 +55,19 @@ Nothing crashed. Only the round trip showed it.
 
 ## Baseline
 
-See `baseline.txt`. Two entries at the time of writing, both reproducing
-identically on upstream `199477075` and on the c43 !1631 branch, so neither is
-that branch's doing. Read a new name in the output as a regression; read a
-missing one as a fix, and tighten the file.
+`baseline.txt` is **empty**, and that is the only state worth keeping it in. It
+opened with two entries; both were fixed rather than lived with. Read any name in
+the output as a regression.
 
 The differential these tools exist to produce, measured on the fat seed:
 
 | | upstream `199477075` | c43 !1631 branch |
 |---|---|---|
-| `statesweep.py` | **106** of 210 mutants fail | **2** (both baselined above) |
+| `statesweep.py` | **106** of 210 mutants fail | **0** |
 | `d47sweep.py` | **3** of 85 fail | **0** |
 
 On the base most of the 106 are hangs (`rc=124`): a count larger than the
 entries that follow ran the section loop past end of file and `doLoad()` never
-looked at `ioEof()`.
+looked at `ioEof()`. The two that survived the first eight commits were an
+allocator table written before its bound was checked, and a program area a file
+could resize to nothing; both are fixed on that branch too.
