@@ -1,0 +1,13 @@
+# scripts/test/tooling/statesweep/baseline.txt
+# The mutants statesweep.py still flags, one per line:
+#   <mutant> | <property> | <where it lands> | <attribution>
+# A name here is a known defect, not a passing test. A name NOT here appearing in
+# the output is a regression; a name here that stops appearing is a fix, and this
+# file should lose the line in the same commit.
+#
+# Measured with the ASan simulator (meson -Db_sanitize=address), seed st.sav from
+# a reset calculator, 210 mutants. Both rows reproduce identically on upstream
+# 199477075 and on the c43 !1631 branch, so neither belongs to that branch.
+#
+EQUATIONS count 32767 | RC | global-buffer-overflow in freeListAlloc (core/freeList.c:61) via setEquation (solver/equation.c:220) | the count is small enough to allocate and large enough that the setEquation() calls fragment the pool past MAX_FREE_REGIONS, so the allocator overruns its own region table. An allocator bug, not a restore index bug.
+truncated 1 line into PROGRAMS | RC | heap-buffer-overflow in isAtEndOfPrograms (programming/manage.c:67) via scanLabelsAndPrograms (:134) from restoreOneSection | the PROGRAMS header with nothing after it leaves program memory in a shape the label scanner walks past the end of.

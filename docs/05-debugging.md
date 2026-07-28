@@ -333,6 +333,31 @@ in unlucky layouts - intermittent by nature, which is why this class survives
 every other lane. The SIGSEGV item-sweep crashers are the known
 headless-invocation crashers (Section 4.1), not this class.
 
+## 5.5 The state-file mutation sweep - the round trip is the property
+
+`scripts/test/tooling/statesweep/statesweep.py` mutates an ordinary saved state -
+every counted section's count line set to fifteen adversarial values, truncation
+at four offsets into every section - and holds each mutant to three properties:
+it must not crash or hang, `save(load(x))` must be a **fixed point**, and the
+sections the calculator wrote must still be the sections a reader finds. Not a
+lane; it needs a built clone. Its README carries the invocation and
+`baseline.txt` the mutants it still flags.
+
+**Why it exists.** The restore guards of !1631 were reviewed four times, and each
+round found a defect in whichever guard had been written last - a bound whose
+comment cited a reason a later commit had removed, a fix that traded a crash for
+a hang, a guard that closed one of the two ways a value can be empty. Reading
+found them one at a time. The sweep found three in its first run, one of which no
+amount of reading had: **the calculator wrote a state file it could not read
+back**. A restore whose EQUATIONS count outran the file left empty-string
+formulae, the save wrote them as blank lines, and `readLine()` skips blank lines,
+so the reload took the next section header for an equation. Nothing crashed;
+only the fixed-point check showed it.
+
+The lesson generalises past this MR: **for anything that serialises, assert the
+round trip, not the absence of a crash.** A crash test passes on a file that has
+quietly eaten a section.
+
 ## 6. GMP leak hunting - count `mpz_init`, do not trust `gmpMemInBytes`
 
 **The most important false-negative on this page.**
