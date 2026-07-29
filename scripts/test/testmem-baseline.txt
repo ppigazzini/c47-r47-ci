@@ -47,21 +47,45 @@
 # second pass adds only the by-design program appends and +12/-0 engine residue,
 # no repeated growth of the same magnitude - one-shot retention, not a
 # per-iteration leak.
-
+#
+# Reconciled against upstream master 4697e526a3ff. Both directions moved, and the
+# lane had been red since upstream ed113c23c with no commit here - every lane
+# resolves master at runtime, so UPSTREAM_COMMIT either side is what separates an
+# upstream change from a local one.
+#
+# Added, 5 cases: mvarmenu_cov.txt and deriv_mvar_cov.txt are new corpus files
+# upstream, added by 8abaf2b58 and eb690b10a; bisecting the lane over
+# 5e497f2ab6..ed113c23c puts the first failing commit at 8abaf2b58 (indices 9,
+# 13, 15, 16, 17 green, 18 red). Nothing started leaking: these are new tests
+# driving the formula/MVAR paths that the drivers above already leave residue on.
+# All five are gmp=+0 and the whole-run Pool/GMP leak gate is green on the same
+# commit, which is what distinguishes retained state from a per-iteration leak.
+#
+# Removed, 3 cases that no longer grow, each bisected to a window rather than
+# assumed: readp_cov FARG=0 stopped at or before c677738db (the
+# fix/mvar-menu-integrator-softkeys merge); graphs_cov FARG=0 between c677738db
+# and 0a5207860 (the derivative-engine work); graphs_cov FARG=1 after 0a5207860,
+# the window that carries ed113c23c "Fixup program name clash in the testSuite
+# coverage". The corpus files themselves are unchanged across the range, so the
+# growth stopped in the engine, not in the tests. Which single commit retired
+# graphs_cov FARG=0 and FARG=1 is a window here, not a point - stated rather than
+# rounded to a guess.
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
+deriv_mvar_cov.txt|IN: FARG=0
+deriv_mvar_cov.txt|IN: FARG=5 RX=REAL:"2"
+deriv_mvar_cov.txt|IN: FARG=8 RX=REAL:"3"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
 eq_cov.txt|IN: FARG=2 RX=REAL:"0"
-graphs_cov.txt|IN: FARG=0
-graphs_cov.txt|IN: FARG=1
 graphs_cov.txt|IN: FL_ASLIFT=1 R00=STRI:"S" RY=REAL:"-5" RX=REAL:"5" PGM="G2"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"SIN(X)" PGM="G1"
 graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
+mvarmenu_cov.txt|IN: FARG=1 RX=REAL:"0"
+mvarmenu_cov.txt|IN: FARG=11 RX=REAL:"0"
 nested_cov.txt|IN: FARG=0
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="DBLINT"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="PLTINT3"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="SLVSLV"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
-readp_cov.txt|IN: FARG=0
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
