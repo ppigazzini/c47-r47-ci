@@ -11,7 +11,8 @@
 # proposed guard: that row gates the detector, not a merged fix.
 # Audit basis: upstream master ccafdfe51 for the first four rows, 5e628d1e0 for
 # glyphrank.c, 3c84890a1 for the two backup rows, 199477075 (MR !1631) for the
-# four restore rows. Frama-C 32.1, machdep gcc_x86_64.
+# four restore rows, 4697e526a for keymenuparam.c. Frama-C 32.1, machdep
+# gcc_x86_64.
 # The four restore rows read `unfixed` because the guards they model are the ones
 # proposed on !1631 and not yet on upstream master; they gate the detector, and
 # the -DFIXED side is the guard as that branch writes it.
@@ -29,4 +30,5 @@ funcparamglyph.c |  2000 | unfixed   | stringGlyphLength() steps 2 over the lead
 restoremenu.c   |  200 | unfixed   | userMenuItems[18] / userAlphaItems[18] / userMenus[].menuItem[18] written at the file's own entry count (saveRestoreCalcState.c:1848,:1873,:1920) - the first two ASan-visible, the third pool-OOB
 restoresums.c   |  200 | unfixed   | statisticalSumsPointer[i] written at the file's own count against a 28-real pool block (saveRestoreCalcState.c:1710) - pool-OOB, ASan/Valgrind-blind, POOL_GUARD-visible
 restoretoken.c  | 3000 | unfixed   | readToken()/readComplexToken() walk a .d47 element into tmpString with no end (saveRestoreCalcState.c:1117-1160) - ASan-visible; slevel must exceed TMP_STR_LENGTH
+keymenuparam.c  |  200 | unfixed   | programmableMenu.itemParam[keyNum-1] written at a key number the direct program path never bounds below (programmableMenu.c:225,:232 via lblGtoXeq.c:427) - ASan-blind, the write stays inside the struct
 eqnullsave.c    | 5000 | unfixed   | doSave() hands TO_PCMEMPTR(C47_NULL) to stringToUtf8 for a formula with no text yet (saveRestoreCalcState.c:853) - a two keystroke SIGSEGV, ASan-visible; slevel must keep the C47_NULL states apart from the offsets
