@@ -57,7 +57,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2048-2055`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2080-2087`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -300,7 +300,7 @@ The item sweep carries scalar operands only, so matrix overruns never trigger
 through it - see 4.1 for why matrix operands were reverted rather than kept.
 `fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:272`/`:244`) but need an
 editor key context, so the headless sweep cannot reach the editor path either.
-(The empty `fnInsCol`/`fnInsRow` at `items.c:1307-1309` are catalog-generator
+(The empty `fnInsCol`/`fnInsRow` at `items.c:1316-1318` are catalog-generator
 stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
 
 **A live-region sweep needs a reset hook, or it reports the reset.** A block that
@@ -736,7 +736,7 @@ Every one of these has silently passed a broken thing at least once.
     orphaned). A **gdb hardware watchpoint** on
     `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
     a field nulled without freeing writes nothing textually greppable. (In
-    `runPgm`, `testSuite.c:709`, the buffer is freed before the pointer is
+    `runPgm`, `testSuite.c:736`, the buffer is freed before the pointer is
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
@@ -827,9 +827,10 @@ Every one of these has silently passed a broken thing at least once.
     fails.** Upstream inserts lines above it and a page that read `error.c:333`
     `displayBugScreen` points at a blank line; `run-docs-lint.sh` cannot see it,
     having no clone. `bash scripts/test/run-docs-citations.sh` resolves every
-    citation against a live clone and owns those counts; write the symbol
-    immediately after the citation (`` `stack.c:21` `liftStack` ``) so the gate
-    can anchor it, or it is reported unanchored and stays unchecked. **Resolve a
+    citation against a live clone and owns those counts; write the symbol beside
+    it - `` `liftStack` (`stack.c:21`) `` or `` `stack.c:21` `liftStack` `` - so
+    the gate can anchor the line to a name, or the citation is reported
+    unanchored and its number stays unchecked. **Resolve a
     citation by path suffix, never by basename** - the GMP subproject ships its
     own `memory.c` and `config.c`, and a basename match reports drift in a file
     the page never cited.

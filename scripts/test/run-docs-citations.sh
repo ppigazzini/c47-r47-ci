@@ -15,8 +15,11 @@
 #   2. where the page also names a symbol, that symbol still appears on the
 #      cited line. A citation with no symbol is reported as UNANCHORED, not
 #      failed - it cannot be checked, and that is worth knowing. Only a symbol
-#      written immediately after the citation counts as an anchor; prose that
-#      merely happens to be backticked next is not a claim about that line.
+#      written next to the citation counts as an anchor - `sym` (`file.c:N`) or
+#      `file.c:N` `sym`, the two shapes the pages use. A backticked word further
+#      away - the next column of a table, say - is not a claim about that line
+#      and is not treated as one. A range `file.c:N-M` passes when the symbol
+#      lands anywhere inside it.
 #
 # Resolution is by full path suffix, never by basename alone: the GMP subproject
 # ships its own memory.c and config.c, and matching on the basename resolves a
@@ -60,7 +63,10 @@ for p in paths:
     by_base[os.path.basename(p)].append(p)
 
 # `file.c:123` optionally followed by `symbol`
-cite = re.compile(r'`(?:\.\./c43/)?([A-Za-z0-9_./-]+\.[ch]):(\d+)(?:-\d+)?`(?:\s+`([A-Za-z_][A-Za-z0-9_]*)`)?')
+# `sym` (`file.c:N`)  |  `file.c:N` `sym`  |  | `sym` | ... | `file.c:N` |
+cite = re.compile(r'(?:`([A-Za-z_][A-Za-z0-9_]*)`\s*\()?'
+                  r'`(?:\.\./c43/)?([A-Za-z0-9_./-]+\.[ch]):(\d+)(?:-(\d+))?`'
+                  r'(?:\s+`([A-Za-z_][A-Za-z0-9_]*)`)?')
 
 total = ambiguous = unanchored = moved = broken = 0
 findings = []
@@ -69,7 +75,9 @@ for page in sorted(glob.glob(os.path.join(repo, "docs", "*.md"))):
     rel = os.path.relpath(page, repo)
     for ln, line in enumerate(open(page, errors="replace"), 1):
         for m in cite.finditer(line):
-            f, n, sym = m.group(1), int(m.group(2)), m.group(3)
+            before, f, n = m.group(1), m.group(2), int(m.group(3))
+            end = int(m.group(4)) if m.group(4) else n
+            sym = m.group(5) or before
             total += 1
             cands = [p for p in by_base.get(os.path.basename(f), []) if p.endswith(f)]
             # prefer the product tree when a basename is shared with a subproject
@@ -86,20 +94,32 @@ for page in sorted(glob.glob(os.path.join(repo, "docs", "*.md"))):
                 broken += 1
                 findings.append(f" PAST-EOF   {rel}:{ln}  {f}:{n} - {cands[0]} has {len(src)} lines")
                 continue
+            if before and not m.group(5) and line[m.end():m.end() + 1] == ",":
+                sym = None           # `A` / `B` (`f:x`, `f:y`) - which symbol is which is not stated
             if not sym:
                 unanchored += 1
                 continue
-            if sym in src[n - 1]:
+            if any(sym in l for l in src[n - 1:min(end, len(src))]):
                 continue
             word = re.compile(r'(^|[^A-Za-z0-9_])' + re.escape(sym) + r'($|[^A-Za-z0-9_])')
             hits = [i + 1 for i, l in enumerate(src)
                     if word.search(l) and not l.lstrip().startswith(("//", "*"))]
+            # A citation names where a thing IS, so rank declaration sites over uses:
+            # a function definition, then #define / extern / enumerator, then a call.
             calls = [i for i in hits if re.search(re.escape(sym) + r'\s*\(', src[i - 1])]
-            defs = [i for i in calls if not src[i - 1].rstrip().endswith(";")]
-            pick = defs or calls or hits
-            hint = f" -> now :{pick[0]}" if pick else " -> symbol not found (prose, not a code token)"
+            fndef = [i for i in calls if not src[i - 1].rstrip().endswith(";")
+                     and not src[i - 1].lstrip().startswith(("if", "while", "for", "switch", "return"))]
+            decl = [i for i in hits if re.search(
+                        r'^\s*(#\s*define\s+' + re.escape(sym) + r'\b'
+                        r'|extern\b.*\b' + re.escape(sym) + r'\s*[\[;]'
+                        r'|[A-Za-z_][A-Za-z0-9_ *]*\b' + re.escape(sym) + r'\s*(\[[^]]*\])?\s*[;=]'
+                        r'|' + re.escape(sym) + r'\s*(=[^,]*)?,\s*(//.*)?$)', src[i - 1])]
+            pick = fndef or decl or calls or hits
+            if not hits:
+                unanchored += 1      # the word is nowhere in the file: prose, never a claim
+                continue
             moved += 1
-            findings.append(f" MOVED      {rel}:{ln}  {f}:{n} `{sym}`{hint}")
+            findings.append(f" MOVED      {rel}:{ln}  {f}:{n} `{sym}` -> now :{pick[0]}")
 
 print(f"citations checked: {total}  (anchored to a symbol: {total - unanchored}, unanchored: {unanchored})")
 print(f"resolved against upstream {commit}")

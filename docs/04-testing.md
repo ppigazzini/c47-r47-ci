@@ -151,7 +151,7 @@ beside `tempConv.txt`.
   any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
   A name that resolves to nothing calls `abortTest()`. This replaced a set of
   hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:4117`), so a file
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3880`), so a file
   still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
   explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
   `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The

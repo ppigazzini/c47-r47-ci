@@ -336,10 +336,10 @@ too.
 | term | what it is |
 |---|---|
 | **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:870`). X is what you see and what commands consume. |
-| **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:881`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
+| **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:905`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
 | **LastX** | register `L`. Commands that consume X save it there first (`saveLastX`, called from 87 files), so the user can recover the operand. A new command that forgets this is a user-visible regression. |
 | **f / g** | the two shift keys. The DM42 has one physical shift, so C47 cycles it - that single constraint is why this fork exists. |
-| **USER mode** | `FLAG_USER` (`defines.h:866`) swaps the factory keyboard `kbd_std` for the user's own assignments `kbd_usr`. ASSIGN is how entries get there. |
+| **USER mode** | `FLAG_USER` (`defines.h:890`) swaps the factory keyboard `kbd_std` for the user's own assignments `kbd_usr`. ASSIGN is how entries get there. |
 | **softmenu** | the six softkeys. f and g reveal two more rows, so 18 items are one page; the arrows page through. Menus stack (depth 8), and each entry remembers its page and its parent mode. |
 | **catalog** | a browsable list of commands. `status & CAT_STATUS` (13 values) says which catalog a command appears in; `generateCatalogs` sorts each one by name at build time. |
 | **item** | one row of `indexOfItems[]`: a thing the calculator can do. It carries the user-facing name in two widths, the function and its parameter, the argument it prompts for, which catalogs list it, and what it does to the stack and undo. Keys, menus, programs and the corpus all address commands by item number. |
@@ -713,7 +713,7 @@ off the top.
 
 `lastErrorCode` is the error channel: functions return `void` and set the
 global. It is cleared not by the caller but by the **next refresh**, together
-with `temporaryInformation` (`screen.c:2127-2131`) - that coupling is the only
+with `temporaryInformation` (`screen.c:2150-2153`) - that coupling is the only
 normal path that resets it.
 
 ### The programming state
@@ -730,6 +730,48 @@ normal path that resets it.
 `labelList` and `programList` are **derived state**: they are rebuilt from the
 program bytes by `scanLabelsAndPrograms()` after any edit, load or restore. The
 program bytes are the source of truth; the indices are a cache.
+
+#### How a step is encoded, and who owns the grammar
+
+A step is an opcode and a tail. The opcode is one byte below 128 and two
+otherwise, the high bit of the first marking the wide form and the remaining 15
+bits carrying the item number; `0x7fff` is `.END.`. The tail's length is not in
+the step - it is derived from the item's `PTP_*` parameter class in `status`, and
+for a literal from the type byte that follows the opcode.
+
+Two functions own that derivation for the whole product:
+
+| function | owns | declared |
+|---|---|---|
+| `paramTailBytes` | a parameter tail: a fixed byte count, or a length-prefixed one | `nextStep.c:23` |
+| `literalTailBytes` | a literal tail, keyed by the type byte after `ITM_LITERAL` | `nextStep.c:89` |
+
+Both return a count, or one of three sentinels - `PARAM_TAIL_INVALID`,
+`PARAM_TAIL_LENGTH_PREFIXED`, `PARAM_TAIL_BASE_LENGTH_PREFIXED`
+(`nextStep.h:14-16`). Every walker goes through them: `countOpBytes`
+(`nextStep.c:111`) and `countLiteralBytes` (`nextStep.c:131`) size one step,
+`findKey2ndParam` (`nextStep.c:172`) steps over a `KEY`/`42KEY` first parameter,
+and `findNextStep` (`nextStep.c:151`) is the walker everything else calls. The
+`.p47` loader's screening pass reuses the same two functions
+(`_screenFileStep`, `saveRestorePrograms.c:95`) rather than carrying a second
+copy, so a grammar change cannot desynchronise the reader from the writer.
+
+**The invariant that keeps a walk in bounds is `programBytesAvailable`**
+(`nextStep.c:12`): a step's length comes from the step's own bytes, so corrupt or
+imported program memory can push a walk past the region, and every result is
+required to land at or before `firstFreeProgramByte` - equal being the valid end
+position. A walker that cannot satisfy it returns `NULL`, and every caller must
+treat `NULL` as "stop", not as "step zero".
+
+**What the screening pass does not check.** `_programFileRefused`
+(`saveRestorePrograms.c:168`) walks a program file before anything is reserved
+and refuses two things: an opcode at or above `LAST_ITEM`, and a declared label
+name longer than `MAX_LABEL_NAME_LENGTH` (`defines.h:1152`). It does **not**
+check that a parameter byte lies inside its item's declared range - see
+[00-architecture.md](00-architecture.md), `tamMinMax`. A file is therefore
+trusted for parameter values in a way keyboard entry is not, which is the
+asymmetry to keep in mind when reading any handler that indexes with its
+parameter.
 
 ### The UI state
 
@@ -958,7 +1000,7 @@ a key press, so anything that clears that global mid-press cancels the command.
 
 **Digits are the exception: they act on press.** `processKeyAction` consumes
 `ITM_0`..`ITM_9`, `ITM_PERIOD` and `ITM_EXPONENT` immediately and sets
-`keyActionProcessed` (`keyboard.c:2803`), so they never reach the release path.
+`keyActionProcessed` (`keyboard.c:2803-2817`), so they never reach the release path.
 Every other item defers. Typing is therefore a different code path from
 commanding, not a special case of it.
 

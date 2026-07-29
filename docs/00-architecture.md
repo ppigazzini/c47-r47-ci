@@ -327,6 +327,23 @@ Three costs follow:
 - It is why `items.c` (535 commits/yr) and `items.h` (247) are the two hottest
   files and `defines.h` (396) is third: item numbers are `#define`s, so every new
   command touches all three. Merge contention there is structural.
+`tamMinMax` is two fields in one `uint16_t`: the minimum in the top 2 bits, the
+maximum in the low 14 (`TAM_MAX_BITS` and `TAM_MAX_MASK`, `defines.h:1061-1062`).
+The invariant it states is that **a command runs only with a parameter inside
+that range**, and the range is a property of the item, not of whoever supplies
+the parameter. Four suppliers read it, and they are not the same code:
+`_tamProcessInput` for keyboard entry (`tam.c:1142-1143`), the two indirect
+paths in `_executeOp` through `indirectAddressing`
+(`lblGtoXeq.c:329`, `:345`), and the t47 DSL (`value.c:224`). The fifth
+supplier - the parameter byte in a program step - is read by `_executeOp`'s own
+`PARAM_NUMBER_8` arm (`lblGtoXeq.c:427`), which at this page's audit basis
+enforces the maximum only. That is a **gap, not a design**: a step reaching a
+command below its declared minimum is exactly what an imported `.p47` can carry,
+because the loader's screening pass checks opcodes and label names and no
+parameter range (see [01-codebase.md](01-codebase.md) Section 7). Fourteen items
+declare a minimum above zero; `KEY` is the one whose handler indexes an array
+with it.
+
 - `item_t` carries four concerns: execution (`func`, `param`), presentation (two
   16-byte names), input validation (`tamMinMax`) and semantics (`status` packs
   catalogue + stack-lift + undo). The cleaner shape survives as a comment above it
@@ -661,7 +678,7 @@ classifies the allocator as a user-interface component.
 `displayCalcErrorMessage` renders nothing. Its success path is three assignments
 -- `lastErrorCode`, `errorMessageRegisterLine`, `screenUpdatingMode`
 (`error.c:296-298`) -- and the message is painted much later by
-`_refreshRegisterLine` (`screen.c:3723`), which is why the name misleads. But the
+`_refreshRegisterLine` (`screen.c:3205`), which is why the name misleads. But the
 same translation unit holds `displayBugScreen` (`error.c:352`), a real renderer:
 it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:364`) and
 `showString` (`error.c:367`). The two validation-failure paths of
