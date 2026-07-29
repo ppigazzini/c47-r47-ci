@@ -11,8 +11,8 @@
 # proposed guard: that row gates the detector, not a merged fix.
 # Audit basis: upstream master ccafdfe51 for the first four rows, 5e628d1e0 for
 # glyphrank.c, 3c84890a1 for the two backup rows, 199477075 (MR !1631) for the
-# four restore rows, 4697e526a for keymenuparam.c. Frama-C 32.1, machdep
-# gcc_x86_64.
+# four restore rows, 4697e526a for keymenuparam.c and convpartner.c. Frama-C
+# 32.1, machdep gcc_x86_64.
 # The four restore rows read `unfixed` because the guards they model are the ones
 # proposed on !1631 and not yet on upstream master; they gate the detector, and
 # the -DFIXED side is the guard as that branch writes it.
@@ -32,3 +32,4 @@ restoresums.c   |  200 | unfixed   | statisticalSumsPointer[i] written at the fi
 restoretoken.c  | 3000 | unfixed   | readToken()/readComplexToken() walk a .d47 element into tmpString with no end (saveRestoreCalcState.c:1117-1160) - ASan-visible; slevel must exceed TMP_STR_LENGTH
 keymenuparam.c  |  200 | unfixed   | programmableMenu.itemParam[keyNum-1] written at a key number the direct program path never bounds below (programmableMenu.c:225,:232 via lblGtoXeq.c:427) - ASan-blind, the write stays inside the struct
 eqnullsave.c    | 5000 | unfixed   | doSave() hands TO_PCMEMPTR(C47_NULL) to stringToUtf8 for a formula with no text yet (saveRestoreCalcState.c:853) - a two keystroke SIGSEGV, ASan-visible; slevel must keep the C47_NULL states apart from the offsets
+convpartner.c   |  200 | unfixed   | userMenuItems[] / userMenus[].menuItem[] read at the partner softkey dynamicMenuItem ^ 1, which is -2 while no softkey is selected (conversionUnits.c:824,:825) - ASan- and UBSan-visible, the tables are globals
