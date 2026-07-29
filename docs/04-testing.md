@@ -120,6 +120,20 @@ beside `tempConv.txt`.
   `Func:`, `Item:`, `In:`, `Out:`, `Desc:`, `Desc_prefix:`, `Desc_suffix:`,
   `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
   function. `PGM="Name"` selects a global label for `Func: fnExecute`.
+- **A case is a setup phase then an assertion phase, and the driver does not
+  bracket them.** `Func:`, `Item:` and `In:` build the case; `Out:` asserts it
+  and is what increments the pass or fail counter. Neither is once-only: several
+  `In:` lines accumulate into one setup, and **several `Out:` lines may follow a
+  single setup**, which the corpus uses to assert an involution -
+  `conj(conj(x))==x` and its neighbours. Count the shape before assuming one
+  `Out:` per `In:`:
+  `awk '/^Out:/{o++;next} /^(Func:|Item:|In:)/{if(o>1)n++;o=0} END{print n}' src/testSuite/tests/*.txt`.
+  Because there is no bracket, a line that fails during **setup** is charged to
+  whichever case the counters are currently on: a malformed `In:` - an unresolved
+  `PGM=`, a bad register letter, a value past the parser buffer - calls
+  `abortTest()` before this case's `Out:` has re-armed the counters, so it debits
+  the *previous* case's pass. When a case you did not touch turns red, read the
+  two lines above it before reading the case itself.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
   (`testSuite.c:75-638`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
 - `Item:` (`itemToCall`, `testSuite.c:4358`) drives the **real dispatch chain**

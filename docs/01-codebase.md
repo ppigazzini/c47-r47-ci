@@ -692,6 +692,17 @@ follows is where the state that matters actually lives.
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
 | the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:335`, `:351` |
 | the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:276` |
+
+I and J are **ordinary user registers on loan**, not private cursor storage:
+anything that walks a matrix writes them, so a program using I or J for its own
+arithmetic loses them across `INDEX`, the matrix editor, `STOVEL`/`RCLVEL` and
+the element ops. The contract that makes that survivable is
+`saveMatrixIndexState()` / `restoreMatrixIndexState()` (`matrixEditor.h:106`,
+`:113`): open a shadow index, and **route every exit through the restore** -
+while the shadow is open, a read of I or J sees the walking index rather than the
+user's. A walker that returns early on an error path without restoring leaves the
+user's cursor destroyed, and the symptom is a wrong result later with nothing
+wrong at the point of failure.
 | statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:331` |
 
 The RPN stack is not a separate structure: it is

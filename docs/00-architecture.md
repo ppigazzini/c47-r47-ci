@@ -811,6 +811,15 @@ it is why moving files alone will not dissolve the cycle.
   screen.c                      39    33
 ```
 
+**`findGlyph` returns an index on a hit and a not-found *code* on a miss, and the
+two share a return type.** `findGlyphExact` (`fonts.c:40`) is the binary-search
+core and answers -1 for any miss; the `findGlyph` wrapper (`fonts.c:67`) maps a
+miss onto a code chosen by the font's `id`. The invariant a caller must keep is
+that **a miss code is not a glyph index** - indexing `font->glyphs[]` with the
+raw result reads outside the table. `sort.c:202` and its three neighbours do
+exactly that at this page's audit basis, which is the shape to check for in any
+new caller.
+
 `charString.c` has three outgoing edges: `displayBugScreen()` in `error.c`, and
 `findGlyph()`/`generateNotFoundGlyph()` in `fonts.c`. Only the `error.c` edge
 enters the cycle (`fonts.c` is outside it) -- a 2-cycle at the bottom of the graph:
