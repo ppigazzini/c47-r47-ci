@@ -1,6 +1,6 @@
 # The High-Level Modules
 
-Audit basis: upstream `b18a42df723108e9a771153692de923da7e4f8d3`, 2026-07-22.
+Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
 
 C47's directory names describe files, not systems, and that hides what the
 program actually contains. This page is the inventory of the **high-level
@@ -212,7 +212,7 @@ as the polling points.
 
 | module | what it is, technically | components |
 |---|---|---|
-| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:5993` `refreshScreen` |
+| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6016` `refreshScreen` |
 | status bar | mode annunciators on a timer cadence | `statusBar.c` |
 | number formatter | value to glyph string: FIX/SCI/ENG, grouping, fractions, bases | `display.c:228` |
 | font and glyph engine | four bitmap fonts (standard, numeric, numeric bold, tiny), glyph lookup by codepoint, multi-byte strings | `fonts.c`, `charString.c`, `src/generated/` fonts |

@@ -1,6 +1,6 @@
 # C47 Architecture
 
-Audit basis: upstream `33328e4cc25588eb7504f38f4076f8feae3ae766`, 2026-07-18.
+Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
 
 A measured architecture analysis of the upstream C47 calculator application:
 what shape the code is in, why, and what that costs anyone changing it.
@@ -188,22 +188,22 @@ and every upward call is one of the violations catalogued in Section 8.3.
 | 0 | platform | nothing; five headers | `hal/io.h`, `hal/lcd.h` |
 | 1 | block allocator | `ram`, `freeMemoryRegions[]` | `memory.c:76` `allocC47Blocks` |
 | 2 | primitives | glyphs, string and real helpers | `charString.c`, `realType.c`, `fonts.c`, `sort.c` |
-| 3 | error signalling | `lastErrorCode`, `errorMessageRegisterLine` | `error.c:261` `displayCalcErrorMessage` |
+| 3 | error signalling | `lastErrorCode`, `errorMessageRegisterLine` | `error.c:280` `displayCalcErrorMessage` |
 | 4 | register and variable store | `globalRegister[]`, `allNamedVariables` | `registers.c:212` `getRegisterDataPointer` |
-| 4 | stack and undo | undo snapshot, lift semantics | `stack.c:20` `liftStack` |
+| 4 | stack and undo | undo snapshot, lift semantics | `stack.c:21` `liftStack` |
 | 5 | types and conversions | `shortIntegerMask`, `denMax` | `registerValueConversions.c` |
 | 6 | mathematics | the four type-dispatch tables | `mathematics/addition.c:10` |
 | 7 | derived numerics | statistical sums, unit tables | `stats.c`, `conversionUnits.c` |
 | 8 | program store | program memory, `labelList`, `programList` | `programming/manage.c:102` |
 | 9 | value formatting | `displayFormat*`, grouping | `display.c:228` `real34ToDisplayString` |
-| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:5993` `refreshScreen` |
-| 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:237` `reallyRunFunction` |
-| 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:750` `executeOneStep` |
+| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6016` `refreshScreen` |
+| 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:239` `reallyRunFunction` |
+| 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:754` `executeOneStep` |
 | 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:439` |
 | 12 | application | file formats, config | `saveRestoreBackup.c:242` `saveCalc` |
 
 Levels 9 to 11 are one block in practice, not three. `display.c` and `screen.c`
-are mutually recursive (`display.c:3511` against `screen.c:2551`), as are
+are mutually recursive (`display.c:3511` against `screen.c:2023`), as are
 `screen.c` and `softmenus.c`, and `screen.c` and `items.c`. They are listed
 apart because that is the shape a split would take, not because the split exists.
 
@@ -439,7 +439,7 @@ The last five carry the types in declarations rather than definitions -
 seven.
 
 `screen.c:114` defines `gboolean drawScreen(GtkWidget *widget, cairo_t *cr,
-gpointer data)`; `screen.c:492` `refreshLcd`; `timer.c:104` `refreshTimer`. These
+gpointer data)`; `screen.c:497` `refreshLcd`; `timer.c:104` `refreshTimer`. These
 are GTK callbacks defined **inside the library**, not in `src/c47-gtk/`. The
 library is not platform-independent code calling a HAL; it is a
 preprocessor-multiplexed superset of all platforms that also has a HAL. The HAL
@@ -660,11 +660,11 @@ classifies the allocator as a user-interface component.
 **The edge 151 files ride: `error.c` is two modules in one file.**
 `displayCalcErrorMessage` renders nothing. Its success path is three assignments
 -- `lastErrorCode`, `errorMessageRegisterLine`, `screenUpdatingMode`
-(`error.c:277-279`) -- and the message is painted much later by
+(`error.c:296-298`) -- and the message is painted much later by
 `_refreshRegisterLine` (`screen.c:3723`), which is why the name misleads. But the
-same translation unit holds `displayBugScreen` (`error.c:333`), a real renderer:
-it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:345`) and
-`showString` (`error.c:348`). The two validation-failure paths of
+same translation unit holds `displayBugScreen` (`error.c:352`), a real renderer:
+it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:364`) and
+`showString` (`error.c:367`). The two validation-failure paths of
 `displayCalcErrorMessage` call it.
 
 So every file that merely wants to *signal* an error links, through one file, to
@@ -755,14 +755,14 @@ leaves `maths`: two downward edges, and two upward ones.
 | maths -> registers | `mathematics/addition.c:56` |
 | maths -> error | `mathematics/addition.c:35` |
 | registers -> memory | `registers.c:520` `allocC47Blocks` |
-| screen -> display | `screen.c:2551` `real34ToDisplayString` |
+| screen -> display | `screen.c:2023` `real34ToDisplayString` |
 | buf -.-> items | `ui/tam.c:219` `reallyRunFunction` |
 | convu -.-> items | `conversionUnits.c:761` `runFunction` |
 | maths -.-> softmenus | `mathematics/matrix.c:1469` |
 | maths -.-> screen | `mathematics/prime.c:818` |
 | display -.-> screen | `display.c:3511` |
-| registers -.-> display | `registers.c:1585` |
-| error -.-> screen | `error.c:348` `showString` |
+| registers -.-> display | `registers.c:1652` |
+| error -.-> screen | `error.c:367` `showString` |
 | charstring -.-> error | `charString.c:297` `displayBugScreen` |
 | temporaryInformation | written `display.c:3101`, read `charString.c:241` |
 
@@ -771,10 +771,10 @@ a few classes, and one of them carries most of the weight:
 
 | class | edges | where |
 |---|---|---|
-| the error TU | 1 structural cut, 6 sites | `error.c:339-380` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
+| the error TU | 1 structural cut, 6 sites | `error.c:358-399` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
 | compute reaching the screen | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - each has a product reason (progress, in-place round, menu); needs a reporting channel, not a file move |
 | conversion re-enters dispatch | 3 | `conversionUnits.c:761,779,782` call `runFunction` rather than the conversion directly |
-| store reaches formatting | 1 | `registers.c:1585` calls `shortIntegerToDisplayString` |
+| store reaches formatting | 1 | `registers.c:1652` calls `shortIntegerToDisplayString` |
 | primitives reach up | 1 | `charString.c:297` - a string helper calling the bug screen. `charString.c:241` looks like a second, but it is a `temporaryInformation` read: the data channel reaching the very bottom of the graph |
 | flags, timer, store reach up | 6 | `flags.c:359`, `store.c:199`, `timer.c:189` and neighbours |
 | the data channel | 56 writers | `temporaryInformation` - not cuttable by moving files; the writers must return a status instead |
@@ -1081,7 +1081,7 @@ document came from reconstructing something the build had already computed.
 | gtk inside the library | 12 files; `c47.h`, `screen.c:114,492`, `screen.h`, `timer.c:104`, `timer.h`, `programming/input.c:76`, `hal/lcd.h`, `keyboard.c/.h`, `typeDefinitions.h:811`, `c47Extensions/keyboardTweak.c/.h` |
 | testSuite links gtk | `src/testSuite/meson.build` `dependencies: [gtk_dep, gmp_dep, m_dep]`; `testSuite.c:29` `GtkWidget *screen;` |
 | conditionals | `grep -rhoE '^\s*#\s*(if\|ifdef\|ifndef\|elif)' src/c47` = 2781; PC_BUILD/DMCP_BUILD union = 67 files, 37 both |
-| item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 2870` at `items.h:2989` = 2871 slots; table `items.c:1775-4734` |
+| item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 2870` at `items.h:2989` = 2871 slots; table `items.c:1784-4743` |
 | the 887 stubs | `items.c:778-1670`, 893 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
 | dispatch reach | the table's `func` symbols resolve to 205 of 229 files |
 | header cycle | `c47.h:120,165` -> `solver/solver.h:12` -> `solver/finite_differences.h:5` -> `c47.h` |

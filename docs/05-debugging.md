@@ -22,7 +22,7 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 Verified in `../c43/src/c47/`:
 
-- `ram` is a single `uint32_t *` (`c47.h:333`), `malloc`ed once in
+- `ram` is a single `uint32_t *` (`c47.h:335`), `malloc`ed once in
   `config.c:1533`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
@@ -106,9 +106,22 @@ Accounting facts worth knowing before you measure anything:
 | Logic bug (wrong value) | corpus with value assertions | every sanitizer |
 | Register/state collision | t47 sentinel battery ([04-testing.md](04-testing.md) Section 2); the UI lane for the keyboard path | every memory tool |
 | **Keyboard/menu-only regression** | UI lane (`run-ui.sh`, real GTK under `xvfb-run`) | the corpus, t47, every memory tool |
+| **A parameter below its declared minimum reaching an array index** | Frama-C Eva over the extracted kernel (`run-framac-regress.sh`) | ASan and Valgrind when the write stays inside one struct; the corpus, which only ever stores parameters the UI can produce |
 | **Unbounded C-stack recursion** (a program re-entering its own engine) | nestcheck lane (`run-nestcheck.sh`); Frama-C Nonterm on the guard shape | ASan/Valgrind see the crash, not the cause; the corpus never nests a program in itself |
 
-The last row matters more than it looks: two of the most recent real bugs (the
+The Eva row answers a question no other lane here does: *is the index in range for
+every input*, not *did this input crash*. That is what reaches a write landing in
+the sibling array of the same struct, where ASan and Valgrind are silent by
+construction (Section 5.4) and a fuzz seed has nothing to crash on. `KEY 00`
+writing `programmableMenu.itemParam[-1]` (c43 !1647) is the worked instance.
+
+**Where one bound is enforced on several paths and dropped on one, the dropped
+path is the one a file reaches.** A calculator bound is written for the keyboard;
+the step decoder, the state reader and the program loader each take the same
+value from a file and are each a separate site that may or may not repeat it.
+When auditing a bound, enumerate its enforcers before its callers.
+
+The recursion row matters more than it looks: two of the most recent real bugs (the
 matrix editor clobbering I/J, and the STOVEL/RCLVEL off-by-one) are register
 collisions. Both were initially suspected to be pool corruption and are not
 memory bugs at all. Before reaching for a canary, ask whether the symptom is
@@ -292,7 +305,7 @@ stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
 
 **A live-region sweep needs a reset hook, or it reports the reset.** A block that
 is never freed is never checked at free time, so the sweep has to walk a registry
-the wrappers keep. `doFnReset` (`config.c:1535-1547`) `memset`s the whole pool and
+the wrappers keep. `doFnReset` (`config.c:1534-1547`) `memset`s the whole pool and
 re-forms the free list to one region **without a single `free`**, so from that
 point every registered pointer is stale and its guard bytes read as zero. Without
 a `poolGuardResetRegistry()` call there, a corpus run reports the reset itself as
@@ -306,7 +319,7 @@ run ends on **30 sweep-time violations**, 25 of them 4-block regions with a zero
 guard. That count was **identical with and without** the restore fixes of
 !1631, so it is a property of the tree, not of any one change - use it as a
 baseline and compare counts, never "clean vs not clean". It is unexplained; one
-candidate is `resizeProgramMemory` (`memory.c:272`), which grows program memory
+candidate is `resizeProgramMemory` (`memory.c:158`), which grows program memory
 downwards by adjusting `freeMemoryRegions[last]` and `xcopy`ing over the result,
 entirely outside the four wrappers the canary instruments. That is a hypothesis,
 not a finding: nobody has confirmed it.
@@ -793,6 +806,33 @@ Every one of these has silently passed a broken thing at least once.
     evidence. Every `harness_die` that follows a redirected command should
     inline the tail of what it captured, and every lane whose deliverable is a
     log needs an upload step.
+25. **`git commit --amend` ships what is in the index, not what you tested.**
+    `git checkout HEAD~1 -- <file>` **stages** the reverted file; copying the
+    fixed file back over the working tree does not unstage it. `git status`
+    reads `MM` and `git diff HEAD` prints nothing, because it ignores the index,
+    so both obvious checks look clean while the amended commit carries the
+    revert - and the corpus run that "proved" the commit green ran against the
+    working tree. After an amend, interrogate the **commit**: `git show
+    HEAD:<file>` for the change, then `git status --porcelain` empty, which is
+    the only statement that the tested tree is the committed tree.
+26. **A sentinel that survives proves nothing if the code never ran.** A gate
+    that seeds a canary, runs a program the fix should refuse, and asserts the
+    canary intact passes identically when the program failed to load, when the
+    label did not resolve, and when the fix works. The negative control shows
+    only that the gate fires on the unfixed tree. Pair every "nothing happened"
+    assertion with a **witness** that something did: `keymenu_cov` puts a
+    literal after the refused step and requires it to reach X, so the refusal is
+    proved to have skipped one step and not the whole program.
+27. **A `file:line` citation into upstream rots with no commit here, and nothing
+    fails.** Upstream inserts lines above it and a page that read `error.c:333`
+    `displayBugScreen` points at a blank line; `run-docs-lint.sh` cannot see it,
+    having no clone. `bash scripts/test/run-docs-citations.sh` resolves every
+    citation against a live clone and owns those counts; write the symbol
+    immediately after the citation (`` `stack.c:21` `liftStack` ``) so the gate
+    can anchor it, or it is reported unanchored and stays unchecked. **Resolve a
+    citation by path suffix, never by basename** - the GMP subproject ships its
+    own `memory.c` and `config.c`, and a basename match reports drift in a file
+    the page never cited.
 
 ## 13. Current gaps
 

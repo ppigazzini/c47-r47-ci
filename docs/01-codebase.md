@@ -10,7 +10,7 @@ The product source is not in this repository. Clone it first:
 git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
-Audit basis: upstream `33328e4cc25588eb7504f38f4076f8feae3ae766`, 2026-07-18.
+Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
 
 Every count on this page was measured at that commit; re-measure before relying
 on one. Line counts are blob lines, not SLOC: an upper bound, useful for
@@ -503,7 +503,7 @@ ignoring shift.
 it on exit.** The slot is `previousCalcMode`, written by `fnAssign`
 (`assign.c:557`), the four browsers (`registerBrowser.c:172`, `flagBrowser.c:71`,
 `fontBrowser.c:102`, `asnBrowser.c:144`), `setConfirmationMode`
-(`config.c:1054`), `displayBugScreen` (`error.c:339`) and the graph entry
+(`config.c:1065`), `displayBugScreen` (`error.c:352`) and the graph entry
 (`graphs.c:306,309`). Exit assigns `calcMode = previousCalcMode`.
 
 It is **one slot, not a stack**, and no writer checks whether the mode it is
@@ -514,7 +514,7 @@ only. Treat "modal over modal" as unsupported rather than as a bug to work
 around.
 
 Two mode values are worth knowing for the wrong reasons. `CM_ERROR_MESSAGE` (9)
-has **no writer anywhere** - errors set `lastErrorCode` instead (`error.c:277`) -
+has **no writer anywhere** - errors set `lastErrorCode` instead (`error.c:296`) -
 yet four `switch` arms still handle it. `CM_NO_UNDO` (16) is in no `determineItem`
 branch, so a key pressed while `complexSolver()` holds it reaches the bug screen
 at `keyboard.c:1688`.
@@ -563,7 +563,7 @@ Anything that reads or writes a program byte must convert; anything that touches
 `globalRegister[]` must not.
 
 Byte values 249-255 are not registers at all but TAM sentinels
-(`defines.h:1384-1393`): `LOCAL_LABEL_VARIABLE` 249, `SYSTEM_FLAG_NUMBER` 250,
+(`defines.h:1414-1423`): `LOCAL_LABEL_VARIABLE` 249, `SYSTEM_FLAG_NUMBER` 250,
 `VALUE_0` 251, `VALUE_1` 252, `STRING_LABEL_VARIABLE` 253, `INDIRECT_REGISTER`
 254, `INDIRECT_VARIABLE` 255. This is why the local-register block had to move
 out of the 0-255 range in the C numbering: 99 locals plus 112 low registers plus
@@ -586,12 +586,12 @@ type field is why the type space is full at 16 entries
 per type; a long integer's sign lives there, not in its data.
 
 **Memory is a block pool addressed by those 16-bit indices.** `ram` is a
-`uint32_t *` (`c47.h:333`), allocated once (`config.c:1533`). A block is 4
-bytes: `BPB` is 2, `BYTES_PER_BLOCK = 1 << BPB` (`defines.h:2208-2209`),
-`TO_BLOCKS(n)` rounds up (`defines.h:2210`). `C47_NULL` is 65535
-(`defines.h:2213`), so the pool must stay below 65535 blocks:
+`uint32_t *` (`c47.h:335`), allocated once (`config.c:1545`). A block is 4
+bytes: `BPB` is 2, `BYTES_PER_BLOCK = 1 << BPB` (`defines.h:2247-2248`),
+`TO_BLOCKS(n)` rounds up (`defines.h:2249`). `C47_NULL` is 65535
+(`defines.h:2252`), so the pool must stay below 65535 blocks:
 `RAM_SIZE_IN_BLOCKS` is 16384 on old hardware and 65534 on new
-(`defines.h:2048-2055`). `allocC47Blocks` / `freeC47Blocks` (`memory.c:76`,
+(`defines.h:2080-2087`). `allocC47Blocks` / `freeC47Blocks` (`memory.c:76`,
 `memory.c:116`) are accounting shims over `src/c47/core/freeList.c`, a best-fit
 free-region allocator with no compaction.
 
@@ -690,7 +690,7 @@ follows is where the state that matters actually lives.
 | named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:336` |
 | local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:347` |
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
-| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:333`, `:351` |
+| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:335`, `:351` |
 | the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:276` |
 | statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:331` |
 
