@@ -28,12 +28,11 @@ they live. Anything below is someone else's, and is not re-derived here.
 Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the
 older `c43` name; the application it builds is C47). The audit basis above is
 the commit behind every figure measured from git
-objects. **The `nm` link-graph metrics are older**: they come from an object
-build at `d969ec75db` and were not re-derived here, which is why s11's
-before-column (224 trapped, ACD 221) does not match s8.2's headline (222, ACD
-222.0) - two builds, comparable deltas, non-comparable absolutes. The method for
-each figure is stated with it, and every load-bearing claim is indexed in Annex C. Line
-counts are blob lines, not SLOC: an upper bound, used for relative scale only.
+objects. The `nm` link-graph metrics come from a full object build of that same
+commit, so s8.2's headline and s11's before-column are now one measurement
+rather than two. The method for each figure is stated with it, and every
+load-bearing claim is indexed in Annex C. Line counts are blob lines, not SLOC:
+an upper bound, used for relative scale only.
 
 ## Read this before quoting a number
 
@@ -71,9 +70,9 @@ grep -rho '\bPC_BUILD\b' src/c47 --include=*.c --include=*.h | wc -l
 ```
 
 The `nm` link-graph metrics in Section 8 and Annex A (edge count, the SCC size,
-CCD/ACD/NCCD, the degree tables) are measured from a full object build and are
-**not re-derived at `33328e4cc`**; re-run the Annex A method against a fresh
-build before quoting them.
+CCD/ACD/NCCD, the degree tables) need a full object build, and were re-derived at
+the audit basis. Re-run the Annex A method against a fresh build before quoting
+them: they move with any change to who calls whom.
 
 This document describes the upstream product. It is not a plan of record for it.
 
@@ -583,26 +582,27 @@ defines them) gives whole-program truth:
 
 ```
   link units                            228
-  edges                                2408
+  edges                                2421
   files trapped in cycles         222 = 97%      one SCC
   CCD                                 50624
   ACD                                 222.0      (97% of the library)
   NCCD                                32.10
-  globals defined by >1 object       0 of 3023
+  globals defined by >1 object       0 of 3040
 ```
 
 **C47 is one cycle of 222 files.** ACD 222.0 means the average file transitively
 depends on 222 of 228. NCCD 32.10 is thirty-two times a balanced binary tree of the
 same size -- the signature of one dominant cycle, not of untidiness.
 
-The symbol space is clean: 3023 globals, none defined twice. C47's problem is not
+The symbol space is clean: 3040 globals, none defined twice. C47's problem is not
 ambiguity about who owns what; it is that everyone can reach everyone.
 
-The files outside the cycle are the proof rather than the exception: `fonts.c`,
-`printing/martelFonts.c`, `printing/printerFont8.c` (font data),
-`mathematics/pcg_basic.c` (a vendored PRNG), and
-`reservedRegisterLookupGenerator.c` (not in the library build). **No part of C47's
-own logic is outside the cycle.**
+The six files outside the cycle are the proof rather than the exception:
+`fonts.c`, `printing/martelFonts.c`, `printing/printerFont8.c` (font data),
+`mathematics/pcg_basic.c` (a vendored PRNG), `c47Extensions/inlineTest.c`, and
+`c47.c` - which is outside only because it is where the globals are *defined*:
+out-degree 0, in-degree 201. **No part of C47's own logic is outside the
+cycle.**
 
 This inverts the obvious reading of s3. With a mutual-recursion knot of this size,
 per-component headers are not merely neglected -- they are unwritable: any
@@ -611,25 +611,24 @@ it. **`c47.h` is not the disease. It is what makes the disease survivable.**
 
 ### 8.3 What closes the cycle
 
-**`item_t.func` is the dominant edge.** `items.c` dispatches to **205 of the 229
-files**. The table touches 90% of the library, and every command calls back into
+**`item_t.func` is the dominant edge.** `items.c` dispatches to **211 of the 228
+link units**. The table touches 90% of the library, and every command calls back into
 `items.c`, `registers.c`, `flags.c` and `error.c`.
 
-**A base component reaches a high-level feature.** Shortest cycle through
-`mathematics/addition.c`:
+**A base component is in a cycle with a text utility.** Shortest cycle through
+`mathematics/addition.c`, measured at the audit basis - it is two edges, not
+three:
 
 ```
-  mathematics/addition.c  --fnSwapXY()-->        stack.c
-  stack.c                 --fnEqSolvGraph()-->   solver/graph.c
-  solver/graph.c          --addComplex()-->      mathematics/addition.c
+  mathematics/addition.c  --trimLeadingSpace()-->  stringFuncs.c
+  stringFuncs.c           --addition()-->          mathematics/addition.c
 ```
 
-**The middle edge in this illustration does not hold:** at `33328e4cc`,
-`fnEqSolvGraph` is called from `c47Extensions/graphs.c` and `keyboard.c`, not
-from `stack.c` (in `stack.c` the symbol appears only in a comment). Re-derive the
-shortest cycle against a current build (Annex A) before
-quoting it. The structural point stands - a base component transitively reaches a
-high-level feature - but the specific edge must be re-measured.
+The broader claim needs no illustration: `addition.c` and every high-level
+feature file are in the same 222-file SCC, so each reaches the other by
+definition. Re-derive against a current build (Annex A) before quoting any
+specific edge - this one replaced a three-hop cycle through `stack.c` and
+`solver/graph.c` that no longer exists.
 
 **The compute level already exists by content.** Measured against the true UI
 surface (`lcd_fill_rect`, `showString`/`showGlyph`, `showSoftmenu`,
@@ -645,7 +644,7 @@ surface (`lcd_fill_rect`, `showString`/`showGlyph`, `showSoftmenu`,
 ```
 
 **150 of the 156 `.c` files in mathematics/distributions/logicalOps/core never
-touch the UI** (34278 of the 46253 `.c` lines in those four directories; blob
+touch the UI** (33717 of the 46371 `.c` lines in those four directories; blob
 lines, `.c` only). Probe with the full render surface: a set that omits
 `refreshScreen`, `refreshRegisterLine` and `popSoftmenu` reports three files
 rather than six. The six:
@@ -653,7 +652,7 @@ rather than six. The six:
 ```
   mathematics/int.c:24        refreshLcd(NULL);        // integration refreshes the LCD
   mathematics/matrix.c:1462   showSoftmenu(-MNU_SIMQ); // matrix maths opens a menu
-  mathematics/matrix.c:1470   showSoftmenu(-MNU_TAM);
+  mathematics/matrix.c:1463   showSoftmenu(-MNU_TAM);
   mathematics/prime.c:818     refreshScreen(253);      // factorising reports progress
   mathematics/rdp.c:119       refreshRegisterLine(REGISTER_X);
   mathematics/round.c:120     refreshRegisterLine(REGISTER_X);
@@ -933,13 +932,14 @@ way a project of this size moves. Order is forced by dependency, not by cost.
                      and the 887 stubs (893 lines) delete themselves.
        items_bind.c  void (*itemFunc[LAST_ITEM+1])(uint16_t), parallel-indexed.
                      The only component holding dispatch edges.
-       Measured effect: 224 -> 114 files trapped; ACD 221 -> 108; NCCD 32 -> 15.7.
+       Measured effect: 222 -> 111 files trapped; ACD 222.0 -> 108.4;
+       NCCD 32.10 -> 15.68.
        Everything below is second-order to this.
 
   2. INVERT the plot-from-compute edge (fnEqSolvGraph): the caller replots,
        compute does not. Re-identify the exact edge against a current build: at
-       33328e4cc fnEqSolvGraph is called from graphs.c and keyboard.c, not from
-       stack.c.
+       the audit basis fnEqSolvGraph is called from graphs.c and keyboard.c, not
+       from stack.c.
 
   3. ESCALATE the six compute->UI files: int.c, matrix.c, prime.c, rdp.c,
        round.c, rsd.c.
@@ -1033,9 +1033,10 @@ Two rules for reading them:
 | tool | for | invocation |
 |---|---|---|
 | **`nm`** | **THE link graph. Exact, whole-program, no inference. The primary instrument.** | `nm --defined-only <obj>` -- keep only globals (`T`/`D`/`B`/`R`/`W`); `nm -u <obj>` for undefined. Edge A->B iff A undefines a symbol B defines. |
-| **the meson build dir** | the authoritative object list -- never guess it | `build.sim/src/c47-gtk/c47.p/*.o` (the target's `.p` directory) |
+| **the meson build dir** | the authoritative object list -- never guess it | the target's `.p` directory, `build.sim/src/c47-gtk/c47.p/`. **Do not glob it with `*.o`:** meson names a library object after its relative path, so all 228 from `src/c47` begin `.._c47_` and a shell glob skips them as dotfiles - `*.o` matches 10 of 246. Use `find <dir> -name '*.o'`. |
 | **clang analyzer** | AST call graph per TU; validates one file precisely | `clang -Xclang -analyze -Xclang -analyzer-checker=debug.DumpCallGraph -Isrc/c47 -Isrc/c47/hal -Idep/decNumberICU -Isrc/generated $(pkg-config --cflags gtk+-3.0) -DPC_BUILD=1 -DLINUX=1 -DOS64BIT=1 <file.c>` |
 | **Tarjan SCC** | cycles in any graph above | ~30 lines; it is the whole diagnosis |
+| [`tooling/linkgraph.py`](../scripts/test/tooling/linkgraph.py) | all of the above in one run: edges, SCCs, CCD/ACD/NCCD, the files outside the cycle, and s11's dispatch-split effect | `make simc47` first, then `python3 scripts/test/tooling/linkgraph.py <clone>/build.sim/src/c47-gtk/c47.p`. It encodes both traps: the dotfile glob, and the `.._c47_` vertex set |
 | **`git log --since --name-only`** | churn | exclude sweep commits (>100 files) |
 | `objdump`, `readelf` | relocations, sections | when `nm` is not enough |
 | `include-what-you-use` | header hygiene | would flag `c47.h`'s 134-include bundle directly |
@@ -1111,14 +1112,14 @@ document came from reconstructing something the build had already computed.
 | the 887 stubs | `items.c:789-1681`, 893 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
 | dispatch reach | the table's `func` symbols resolve to 205 of 229 files |
 | header cycle | `c47.h:120,165` -> `solver/solver.h:12` -> `solver/finite_differences.h:5` -> `c47.h` |
-| link graph | `nm` over `build.sim/src/c47-gtk/c47.p/*.o` (228 objects): 2408 edges; 222/228 in one SCC; CCD 50624; ACD 222.0; NCCD 32.10; 3023 globals, 0 duplicated |
+| link graph | `nm` over `build.sim/src/c47-gtk/c47.p/` (246 objects, the 228 named `.._c47_*.o`): 2421 edges; 222/228 in one SCC; CCD 50624; ACD 222.0; NCCD 32.10; 3023 globals, 0 duplicated |
 | no object partition | 228 objects for 229 `.c` -- one per compiled source |
-| the maths cycle | `addition.c --fnSwapXY--> stack.c --fnEqSolvGraph--> solver/graph.c --addComplex--> addition.c` |
+| the maths cycle | `addition.c --trimLeadingSpace--> stringFuncs.c --addition--> addition.c` (two edges, at the audit basis) |
 | compute is clean | 150 of 156 `.c` in mathematics/distributions/logicalOps/core touch no true-UI symbol; the six exceptions are `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` |
-| base traps | `charString.c` in=41 out=1 (`displayBugScreen` in `error.c`); `error.c` in=72 out=8; `flags.c` in=68 out=9 |
-| split effect | removing the dispatch edges: 224 -> 114 trapped; ACD 221.1 -> 108.4; NCCD 31.94 -> 15.67 |
+| base traps | `charString.c` in=47 out=3; `error.c` in=171 out=9; `flags.c` in=140 out=10 |
+| split effect | removing the dispatch edges: 222 -> 111 trapped; ACD 222.0 -> 108.4; NCCD 32.10 -> 15.68 |
 | churn | 12mo window, existing paths, 5 sweeps >100 files excluded; stable for thresholds 100-400 |
-| corpus | `src/testSuite`: 322 `.txt`, 6 `.c` |
+| corpus | `src/testSuite`: 331 `.txt`, 6 `.c` |
 | CI | `.gitlab-ci.yml` 170 lines; jobs macOS/Linux/Windows/dmcp/dmcp5/dmcp5r47/testSuite/codeDocs |
 | build | 15 `meson.build`; `Makefile` (62 targets) wraps `meson`/`ninja` |
 | xlsx build inputs | `.gitlab-ci.yml:38-39` builds `xlsxio` to convert `sortingOrder.xlsx`; `src/index spreadsheet/` (16 files, spaces in the name) |
