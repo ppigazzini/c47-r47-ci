@@ -80,7 +80,7 @@ make simc47 t47     # the GTK simulator (./c47) and the scripted one (./t47)
 make test           # the behavioural corpus; passes clean
 make docs           # doxygen + sphinx
 
-./t47 --reset --exec 'nim 2; nim 3; item 99; puts "X=[reg X]"'
+./t47 --reset --exec 'nim 2; nim 3; xeq +; puts "X=[reg X]"'      # -> X=5
 ```
 
 Run a CI lane the way CI runs it:

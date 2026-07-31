@@ -1,11 +1,12 @@
 # Testing c43
 
-Audit basis: upstream `8bf795092ff7a03e85c5688abc8d56a90fa583f1`, 2026-07-19.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 Every citation and count was re-read against that commit, and the behavioural
 claims were re-run on a build of it: `make test` (passes clean, GMP owns 0
-bytes), the `t47` probes, the headless file-dialog table and the four softmenu
-hashes, which still reproduce byte-identically. Two things on this page are
+bytes), the `t47` probes and the headless file-dialog table, which reproduce
+unchanged. The four softmenu hashes moved - all four at once, which is what a
+font or blitter change looks like - and are re-pinned below. Two things on this page are
 **not** covered by that: the coverage percentages in Section 5, whose
 measurement method was never recorded, and the anecdotes in Sections 6 and 7,
 which describe past incidents and leave no artifact to check.
@@ -27,7 +28,7 @@ make test     # builds the testPgms fixture, then runs the corpus - SERIAL ONLY,
 ```
 
 `make test -j` corrupts itself: the target's prerequisites are `clean build.sim
-testPgms` (`Makefile:157`) and under `-j` they run concurrently, so `clean`
+testPgms` (`Makefile:164`) and under `-j` they run concurrently, so `clean`
 deletes directories meson is mid-regenerate in - the failure is a meson
 `FileNotFoundError`, not a test result.
 
@@ -59,14 +60,14 @@ GTK blitter, which is how `SNAP` works with no window. `./c47 --headless` and
 `press`, because a key event needs a realized window.
 
 **A softmenu can be opened and hashed headlessly**, so the gap above is a gap,
-not a constraint. Measured at upstream `709423619`, `DISPLAY` and
-`WAYLAND_DISPLAY` unset, SHA-256 of the first 16 hex digits of each bitmap:
+not a constraint. Measured at the audit basis, `DISPLAY` and
+`WAYLAND_DISPLAY` unset, first 16 hex digits of each bitmap's SHA-256:
 
 ```bash
-./t47 --reset --exec 'snap s_base'             # 50dd8e4c347f6dc8
-./t47 --reset --exec 'menu STAT; snap s_stat'  # d6ddd78d6c23cf34
-./t47 --reset --exec 'menu PROB; snap s_prob'  # fae840fdc0d3a57f
-./t47 --reset --exec 'menu MATX; snap s_matx'  # cf34826d16ad4f42
+./t47 --reset --exec 'snap s_base'             # e598d3a891c16453
+./t47 --reset --exec 'menu STAT; snap s_stat'  # 646cf9de7d5b3b5d
+./t47 --reset --exec 'menu PROB; snap s_prob'  # defa977133fd4339
+./t47 --reset --exec 'menu MATX; snap s_matx'  # 3baa29210342689e
 ```
 
 Four distinct hashes: the menu really is rendered into the buffer, and a wrong
@@ -89,10 +90,10 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size at upstream `8bf795092`: **322 test files in
-`src/testSuite/tests/`, 318 listed** in `testSuiteList.txt`. Count test files,
+Corpus size at the audit basis: **330 test files in
+`src/testSuite/tests/`, 326 listed** in `testSuiteList.txt`. Count test files,
 not `.txt` blobs: the directory also holds `testSuiteList.txt` itself and
-`validate_tvm.py`, so a raw `ls` counts 324. (All three move; re-count rather
+`validate_tvm.py`, so a raw `ls` counts 332. (All three move; re-count rather
 than quoting this line.)
 
 **Count with `git ls-files`, not `ls`.** Running the suite drops a gitignored
@@ -116,7 +117,7 @@ beside `tempConv.txt`.
   `any` / `?` to skip an element. It does **not** document the directives: grep
   it for `Item` or `Timer` and you get nothing, so a reader who trusts it as the
   whole grammar will conclude those do not exist. `processLine()`
-  (`testSuite.c:4525-4581`) is the authority on directives, and it handles ten:
+  (`testSuite.c:5529-5625`) is the authority on directives, and it handles ten:
   `Func:`, `Item:`, `In:`, `Out:`, `Desc:`, `Desc_prefix:`, `Desc_suffix:`,
   `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
   function. `PGM="Name"` selects a global label for `Func: fnExecute`.
@@ -135,37 +136,37 @@ beside `tempConv.txt`.
   the *previous* case's pass. When a case you did not touch turns red, read the
   two lines above it before reading the case itself.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:75-638`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
+  (`testSuite.c:92-671`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
 - `Item:` (`itemToCall`, `testSuite.c:5373`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:5213` and `:4227` are `funcToTest(functionParameter)` against
+  at `testSuite.c:5213` and `:5219` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
   `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:2992`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:2921`) or `Func: name(n)`
+  with `In: FARG=n` (`testSuite.c:2922`) or `Func: name(n)`
   (`testSuite.c:5274`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
 - **A value is compared to 30 significant digits, not 34.** A mismatch is
   reported only when `correctSignificantDigits < 30` (`testSuite.c:3784`), so the
   last four digits of a 34-digit expectation are documentation, not assertion: a
-  result wrong only in those digits passes. The return condition at `:2822,2828`
+  result wrong only in those digits passes. The return condition at `:3800`
   conjoins `NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED`, so the effective
   threshold is the lower of the two. Pin a result that matters on its exponent or
   on an error code.
 - **Spell a system flag by its catalog name, not its `FLAG_` identifier.**
   `In: FL_<name>=0|1` resolves `<name>` by scanning `indexOfItems[]` for a
-  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:1936-1947`,
-  inside the fallback at `:1933-1952`), so
+  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:2902`,
+  inside the fallback at `:2898-2905`), so
   any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
   A name that resolves to nothing calls `abortTest()`. This replaced a set of
   hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3891`), so a file
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:4128`), so a file
   still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
   explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
   `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
@@ -178,7 +179,7 @@ beside `tempConv.txt`.
   in list order: `matrixIndex`, the stack size, `denMax` and the angular mode all
   survive into the next file. Name every setting a case depends on, and leave a
   changed setting as you found it.
-- **A `*Cov` driver hides a function from name-based coverage counting.** 25
+- **A `*Cov` driver hides a function from name-based coverage counting.** 36
   entries in `funcTestNoParam[]` are `fn...Cov` wrappers that set up context and
   then call the real function - `covEff` stores the TVM variables and calls
   `fnEff`, for instance. The wrapped function carries no `Func:` line of its own,
@@ -220,7 +221,7 @@ Those reasons are the durable fact; the count moves with the catalog.
 
 | Command | Signature | Notes |
 |---|---|---|
-| `item` | `item <number> [arg] [#comment]` | By item code, bypasses name lookup. `1..LAST_ITEM-1`. |
+| `item` | `item <number> [arg] [#comment]` | By item code, bypasses name lookup. `1..LAST_ITEM-1`. **Fallback only** - upstream requires the command name in any script a reader sees ([10-writing.md](10-writing.md)); use `catfn` for a name that is not a legal Tcl identifier. |
 | `catfn` | `catfn <name> [arg]` | By name. Needed for names that are not legal Tcl identifiers: `catfn STO+ 00`. |
 | `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:846`). |
 | `nim` | `nim <string>` | Types a number key-by-key then `closeNim()`. First `nim` -> Y, second -> X. `-` is deferred and emitted as CHS (RPN semantics). |
@@ -278,21 +279,21 @@ guards both dialog paths on `headlessMode`: `file_selection_screen` returns
 `FILE_ERROR` as its first statement (`src/c47-gtk/hal/io.c:36-41`) and
 `show_warning` prints to stderr (`src/c47-gtk/hal/io.c:312-315`). Write that
 path in full - four files in the tree are called `hal/io.c`, and the testSuite's
-own (rule 6.9) is a different one. Re-measured at upstream `8bf795092` with
+own (rule 6.9) is a different one. Re-measured at the audit basis with
 `DISPLAY` and `WAYLAND_DISPLAY` unset, each under `timeout 12`:
 
 | invocation | result |
 |---|---|
 | `loadst` / `savest` / `expreg` with no filename | exit 0, diagnostic on stderr |
-| `item 2388` (LOADST), `item 1567` (READP) | exit 0, diagnostic on stderr |
-| `item 1509` (LOAD) | exit 0, silent |
+| `catfn LOADST`, `catfn READP` | exit 0, diagnostic on stderr |
+| `load` | exit 0, silent |
 | the same commands with a filename | exit 0 |
 
 The diagnostic reads `<title>: no file chooser without a GUI; name the file in
 the script instead`, and continues with the list of commands that take one. The
 named-file forms take a different path entirely: `_ioFileNameOverride`
 short-circuits the chooser (`src/c47-gtk/hal/io.c:96-100`), which is
-why the DSL commands take a filename at all. `item 1509` (LOAD) never reaches a
+why the DSL commands take a filename at all. `load` (the LOAD catalog item) never reaches a
 chooser - `LM_ALL` routes to the fixed `SAVE_DIR/SAVE_FILE`.
 
 **The exit code is 0 either way**, so a script whose `loadst` silently did
@@ -304,7 +305,7 @@ Wrap every headless `--exec` in `timeout` regardless. This particular hang is
 fixed, but the class is not: a blocking GTK call in a headless run produces no
 output and no non-zero exit, so it surfaces only as an unrelated lane stall. Any
 lane pinning an `UPSTREAM_COMMIT` older than `33328e4cc` still has the original
-bug, where `savest`, `loadst`, `impreg`, `expreg`, `item 2388` and `item 1567`
+bug, where `savest`, `loadst`, `impreg`, `expreg`, `catfn LOADST` and `catfn READP`
 all hung at exit 124.
 
 ### 2.1 The sentinel battery
@@ -313,13 +314,13 @@ Plant a sentinel, run the operation, read the sentinel back. The cheapest
 bug-finding tool on this page; needs no instrumented build.
 
 ```bash
-# I=7, J=9, build a 2x2 matrix (1536 = M.NEW), open the editor (1529 = M.EDIT)
-./t47 --reset --exec 'nim 7; item 44 I; nim 9; item 44 J; \
-                      nim 2; nim 2; item 1536; item 1529; \
+# I=7, J=9, build a 2x2 matrix (M.NEW), open the editor (M.EDIT)
+./t47 --reset --exec 'nim 7; sto I; nim 9; sto J; \
+                      nim 2; nim 2; m.new; m.edit; \
                       puts "I=[reg I] J=[reg J]"'
 ```
 
-`item 44 I` is STO I. This prints **`I=7 J=9`**: the matrix editor keeps its
+`sto I` stores X into I. This prints **`I=7 J=9`**: the matrix editor keeps its
 cursor in a shadow pair (`shadowI`/`shadowJ` in `ui/matrixEditor.c`, routed by
 `ijIsShadowed()`), so it does not touch the user's I/J, and the vector functions
 (STOVEL/RCLVEL/STOVEC/RCLVEC) bracket their index access the same way. INDEX
@@ -345,7 +346,7 @@ returning a long integer, exposes a truncating round-trip that integer sentinels
 sail straight through.
 
 **Write the complex with the spaces.** `isComplexNumber` requires whitespace
-after the sign (`value.c:475-483`), so `"3+ix4"` fails the complex test, falls
+after the sign (`value.c:486`), so `"3+ix4"` fails the complex test, falls
 through real parsing, and is stored as a **string** - a probe that silently
 tests string round-tripping instead of the type you meant to test, which is the
 exact failure this paragraph is about.
@@ -386,10 +387,10 @@ scriptable at all. Driving the matrix editor to cell 2;2, which `snap` then
 shows as `2;2=`:
 
 ```bash
-xvfb-run -a ./c47 --reset --exec 'nim 3; nim 3; item 1526 00; item 51 00; item 1529; press F6; press @f; press F6; snap'
+xvfb-run -a ./c47 --reset --exec 'nim 3; nim 3; m.dim 00; rcl 00; m.edit; press F6; press @f; press F6; snap'
 ```
 
-`1526` is M.DIM, `51` RCL, `1529` M.EDIT; in M_EDIT `F5`/`F6` are left/right and
+In M_EDIT `F5`/`F6` are left/right and
 the f-shifted pair is up/down (`softmenus.c:214-216`). M.EDIT binds the editor
 to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:83-87`), so a
 later `nim` pushes the matrix out of X - index a numbered register instead when
@@ -425,9 +426,8 @@ the test needs the stack.
 ## 4. Programs and `.p47`
 
 `.p47` is **plain ASCII**, one decimal byte value per line after a six-line
-header. Read the writer (`saveRestorePrograms.c:429-437`), not the comment block
-at `:12-29`: that comment still names line 3 as `WP43_program_file_version`,
-which the code stopped writing:
+header, written at `saveRestorePrograms.c:541-545`. The comment block at
+`:13-29` tabulates the same layout and agrees with the writer:
 
 ```
 PROGRAM_FILE_FORMAT
@@ -442,7 +442,8 @@ PROGRAM
 255                        <- .END. if last program in memory
 ```
 
-`WP43_program_file_version` is also accepted (with an "experimental" warning).
+`WP43_program_file_version` is still accepted on read, with an "experimental"
+warning (`saveRestorePrograms.c:658-660`).
 Extensions (`src/c47/hal/io.h`): `.p47` programs, `.s47` state, `.d47` data,
 `.rtf`/`.txt` human-readable exports.
 
@@ -599,17 +600,15 @@ don't OR. A prior TVM solve leaves `SOLVER_STATUS_TVM_APPLICATION` set the same
 way, so a later `covSolvePgm` must clear it.
 
 When a test genuinely cannot self-clean, document the ordering constraint where
-the run order is defined - see the comment block in `testSuiteList.txt`
-(currently around line 450, not at the end of the file) explaining why
-`matrix2_cov`, `clcvar_cov`, `serialize_state_cov`, `pgm_solve_cov`,
-`histo_cov`, `clearvars_cov` and `program_flow_cov` must all run after
-`programs`. Those seven are right.
+the run order is defined - see the comment block in `testSuiteList.txt` (around
+line 441, not at the end of the file) explaining why `matrix2_cov`,
+`clcvar_cov`, `serialize_state_cov`, `pgm_solve_cov`, `histo_cov`,
+`clearvars_cov` and `program_flow_cov` must all run after `programs`.
 
-**Do not trust that comment's last sentence.** It says `config_cov` "runs dead
-last", and it does not: `stack_cov` is listed after it. `config_cov` is after
-`graphs_cov`, which is what the constraint actually needs, but the comment
-overstates it and this page repeated the overstatement for as long as it has
-existed. Check the tail of the list, not the prose about the tail.
+**Read the tail of the list, not the prose about it.** A comment that places a
+file relative to the end is a claim about a line that moves: what `config_cov`
+actually needs is to run after `graphs_cov`, and the list ends `serialize_cov`,
+`graphs_cov`, `nested_cov`, `config_cov`, `stack_cov`.
 
 Watch for mode-dependent readings: `fnGetType` folds the operand angular/polar
 mode into the pushed code's fraction (a complex reads `2.000` in RECT but `2.300`

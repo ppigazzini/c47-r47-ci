@@ -98,7 +98,7 @@ make simc47 t47        # -> ./c47 and ./t47
 make test              # builds the testPgms fixture, then runs the corpus; passes clean
 
 # drive the calculator headlessly
-./t47 --reset --exec 'nim 2; nim 3; item 99; puts "X=[reg X]"'
+./t47 --reset --exec 'nim 2; nim 3; xeq +; puts "X=[reg X]"'      # -> X=5
 ```
 
 Run a CI lane the way CI runs it - the script is the contract, the workflow is a

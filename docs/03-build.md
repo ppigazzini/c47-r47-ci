@@ -1,6 +1,6 @@
 # Building c43
 
-Audit basis: upstream `8bf795092ff7a03e85c5688abc8d56a90fa583f1`, 2026-07-19.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 The `make` targets, the Meson graph underneath them, the generators, and how
 each platform package is produced. The product source is not in this
@@ -30,8 +30,17 @@ upstream CI, by this repo's lanes, and by the wiki.
 | `dist_macos` | `build.rel` | `c47-macos.zip` |
 | `dist_windows` | `build.rel` | `c47-windows.zip` |
 | `dist_dmcp` | `build.dmcp.p<N>` | `c47-dmcp-pkg<N>.zip` (default package 4) |
+| `dist_dmcpr47` | `build.dmcp.p<N>` | `r47-dmcp.zip` |
 | `dist_dmcp5` | `build.dmcp5` | `c47-dmcp5.zip` |
 | `dist_dmcp5r47` | `build.dmcp5` | `r47-dmcp5.zip` |
+| `bench` | `build.sim.t47.bench` | `./t47bench`, then `tools/bench/benchreport.py` |
+
+**The DMCP packages have their own targets, and they are the only way to build a
+package other than the default.** `dmcp_pkg<N>` builds one, `dist_dmcp_pkg<N>`
+packages it, and `dmcp_pkgs_all` / `dist_dmcp_pkgs_all` sweep 1 to 3;
+`dist_dmcp_pkgs_small` does 2 and 3. Plain `dist_dmcp` delegates to
+`dist_dmcp_pkg$(DMCP_PACKAGE)`. Which packages link is a memory question, not a
+build one - see [06-memory.md](06-memory.md).
 
 Notes that cost time if you do not know them:
 
@@ -68,7 +77,7 @@ From upstream `Makefile` / `BUILD.md`:
 | `make test` | `clean` + build + run the corpus. Cleans first to avoid ASan contamination. |
 | `make repeattest` | re-run without the clean (timing/stability); stamp-driven |
 | `make test_asan` | the suite with `-Db_sanitize=address` |
-| `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** - `otool -L` then `ldd`, so it holds on macOS and Linux alike (`Makefile:63`, `Makefile:71`) |
+| `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** - `otool -L` then `ldd`, so it holds on macOS and Linux alike (`Makefile:83`, `Makefile:91`) |
 | `make testPgms` | builds and stages `res/testPgms/testPgms.bin` (see [04-testing.md](04-testing.md) Section 5) |
 | `make docs` | needs `sphinx-build`, `doxygen`, `breathe-apidoc`; silently produces no target if any is missing |
 | `make XVFB=xvfb-run dist_linux` | packaging; `XVFB` is an override variable, empty by default |
