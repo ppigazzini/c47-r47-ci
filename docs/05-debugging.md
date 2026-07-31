@@ -593,9 +593,19 @@ Three hard-won points:
   matched nothing: `valgrind-found.txt` was always empty and the gate was
   **inert**, detecting zero of the six real findings. The matcher is now driven
   by `find "$UPSTREAM_DIR/src/c47" -printf '%f'`. Attribute access errors to the
-  **innermost** frame and leaks to the **first c47 frame** in the allocation
+  **innermost** frame and leaks to the **first owned frame** in the allocation
   stack. `--error-exitcode=0` is kept deliberately: valgrind's own exit would
   trip on third-party noise, so the scoped baseline diff is the gate.
+- **Own the allocation, not the call.** "First *c47* frame" was the rule until
+  upstream `85b1636da` gave the testSuite a real frame buffer: the harness's own
+  `src/testSuite/hal/lcd.c` calloc's ~12 KB once and keeps it for the process,
+  and the walk sailed past `lcd.c` to blame `doFnReset` in `config.c` - a
+  product file that never allocated the block. Keyed to a `config.c` line, it
+  then drifted `1704 -> 1713 -> 1714 -> 1727` and failed the lane on each
+  upstream edit. The map now tags `src/c47` as `c47` and `src/testSuite` as
+  `harness` (the two trees share no basename), the walk stops at whichever comes
+  first, and a harness-owned block is logged under "harness-owned allocations"
+  rather than gated. A leak c47 really allocates still gates exactly as before.
 - **Do not subset the corpus for memcheck.** Runtime is not spread across it but
   concentrated in a few iterative solver/integration tests (tvm, solve,
   integrate, sumprod, iteration, curveFitting). A random subset that happens to
@@ -607,12 +617,15 @@ Three hard-won points:
   than a typical local install. A locally-regenerated baseline is missing
   runner-only sites and the gate fails.
 
-Current baseline: `valgrind-baseline.txt` (8) - seven uninitialised-value reads plus one
-`possibly lost @ config.c:1714`; definitely/indirectly lost stay **zero**,
-because c47 is malloc-clean (it sub-allocates from its own pool). Any new c47
-site is a real finding. The baseline is **line-number keyed** against a moving
-upstream - a legitimate upstream edit that shifts lines fails the gate until
-refreshed. That is the intended cost of a strong regression gate.
+Current baseline: `valgrind-baseline.txt` (7) - all uninitialised-value reads. No
+leak is baselined: definitely/indirectly lost stay **zero** because c47 is
+malloc-clean (it sub-allocates from its own pool), and the one possibly-lost
+block in the run belongs to the harness, not the product. Any new c47 site is a
+real finding. The baseline is **line-number keyed** against a moving upstream - a
+legitimate upstream edit that shifts lines fails the gate until refreshed. That
+is the intended cost of a strong regression gate, and it is a cost worth paying
+only for sites c47 owns, which is why the harness's own allocation is no longer
+one of them.
 
 ## 10. Static analysis and warnings
 

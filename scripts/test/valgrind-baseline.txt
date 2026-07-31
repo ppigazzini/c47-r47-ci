@@ -7,10 +7,13 @@
 # upstream.
 #
 # c47 is per-operation malloc-clean: definitely/indirectly lost stay zero on
-# current master. The single possibly-lost entry is a one-time frame-buffer
-# allocation held for process life (see config.c:1714 below). The leak kind is
-# normalised to the loss category, not the run-varying byte/block count and
-# loss-record index, so a leak site keys to a stable signature across runs.
+# current master, and no leak is baselined at all. The one-time LCD frame buffer
+# that used to sit here is allocated by src/testSuite/hal/lcd.c - the harness,
+# not the product - and the lane now stops the ownership walk at that frame
+# instead of charging it to its first c47 caller, so it is reported under
+# "harness-owned allocations" and never gates. The leak kind is normalised to
+# the loss category, not the run-varying byte/block count and loss-record index,
+# so a leak site keys to a stable signature across runs.
 #
 # The uninitialised-read (conditional-jump) line set is TOOLCHAIN-DEPENDENT: how
 # many jumps memcheck attributes inside a function, and at which lines, varies
@@ -45,6 +48,13 @@
 # the 1-line hunk @@ -576 +591 @@ confirms the same +15. matrixEditor.c,
 # saveRestoreBackup.c and config.c are untouched since 1624e09b3, so those three
 # entries stand. Confirm against valgrind-found.txt on the next runner pass.
+# The config.c LCD-buffer entry is GONE at upstream master 5697da162, and not
+# because it was re-keyed a fifth time: 85b1636da moved the simulator display
+# into a real frame buffer in src/testSuite/hal/lcd.c, and the lane now
+# recognises that the harness owns that allocation. The entry had drifted
+# 1704 -> 1713 -> 1714 -> 1727 across four upstream commits, failing the lane
+# each time, while naming a file that never allocated the block. Ownership is
+# read from the allocating frame now, so the drift cannot recur.
 #
 # Known upstream uninitialised-value reads in c47 display/formatting paths.
 # Display-only: every math test passes and no memory is corrupted. To be filed
@@ -67,12 +77,3 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:599
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
 Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:194
-
-# One-time LCD frame-buffer allocation, not a per-operation leak. On the first
-# reset, doFnReset (config.c:1714) calls lcd_fill_rect -> bitblt24 ->
-# ensureLcdBuffer, which lazily calloc's the ~12 KB simulator frame buffer and
-# holds it for the process lifetime. memcheck reports it "possibly lost"
-# (reachable only through an interior pointer at exit). Benign and deterministic:
-# it appears exactly once per run. lcd.c is not c47-owned, so the finding is
-# attributed to the first c47 frame, doFnReset.
-possibly lost @ config.c:1714

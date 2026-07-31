@@ -78,21 +78,32 @@ main() {
             "$bin" "$list"
     ) > "$LOG_DIR/valgrind.log" 2>&1 || true
 
-    # Ownership map: every c47 source basename in the synced tree. memcheck prints
-    # basenames, so a finding is c47-owned when the relevant frame names one of
-    # these files. Third-party frames (decNumberICU, GTK, GMP, libc) are excluded
-    # from the gate but stay in the uploaded log.
-    local c47_names="$LOG_DIR/c47-basenames.txt"
-    find "$UPSTREAM_DIR/src/c47" \( -name '*.c' -o -name '*.h' \) -printf '%f\n' \
-        | LC_ALL=C sort -u > "$c47_names"
+    # Ownership map: every source basename in the synced tree, tagged with the
+    # tree that owns it. memcheck prints basenames, so a finding is c47-owned when
+    # the relevant frame names a src/c47 file. src/testSuite is the harness itself
+    # - it never ships, so a block IT allocates is not a product leak. Third-party
+    # frames (decNumberICU, GTK, GMP, libc) are in neither set and never gate.
+    # The two trees share no basename, so the tag is unambiguous.
+    local owner_map="$LOG_DIR/owner-map.txt"
+    {
+        find "$UPSTREAM_DIR/src/c47"       \( -name '*.c' -o -name '*.h' \) -printf 'c47 %f\n'
+        find "$UPSTREAM_DIR/src/testSuite" \( -name '*.c' -o -name '*.h' \) -printf 'harness %f\n'
+    } | LC_ALL=C sort -u > "$owner_map"
+
+    local harness_owned="$LOG_DIR/valgrind-harness-owned.txt"
+    rm -f "$harness_owned"
 
     # Normalise to one line per distinct c47 error site: "<kind> @ <file>:<line>".
     # Access errors are attributed to the innermost frame (where the bad access
-    # happens); leaks to the first c47 frame in the allocation stack, past the
-    # allocator. Third-party-rooted findings are dropped here, not weakened: the
-    # full memcheck report is preserved in valgrind.log.
-    awk '
-        NR == FNR { c47[$0] = 1; next }
+    # happens); leaks to the first OWNED frame in the allocation stack, past the
+    # allocator - and if that frame is the harness rather than c47, the block is
+    # the harness's own and is recorded instead of gated. Walking past a harness
+    # frame to the first c47 caller is what used to happen, and it blamed a
+    # product file for a buffer the product never allocated. Third-party-rooted
+    # findings are dropped here, not weakened: the full memcheck report is
+    # preserved in valgrind.log.
+    awk -v harness_owned="$harness_owned" '
+        NR == FNR { owner[$2] = $1; next }
         /^==[0-9]+== (Invalid|Use of|Conditional|Syscall|Mismatched|Source and destination|.*lost)/ {
             kind = $0; sub(/^==[0-9]+== */, "", kind)
             isleak = (kind ~ /lost/)
@@ -112,14 +123,26 @@ main() {
             f = $0; sub(/^.*\(/, "", f); sub(/\).*$/, "", f)   # f = "file:line"
             bn = f; sub(/:.*/, "", bn)
             if (isleak) {
-                if (bn in c47) { print kind " @ " f; pending = 0 }
+                # First frame with a known owner decides, so a harness allocation
+                # stops the walk instead of being charged to its c47 caller.
+                if (bn in owner) {
+                    if (owner[bn] == "c47") print kind " @ " f
+                    else print kind " @ " f > harness_owned
+                    pending = 0
+                }
             } else {
-                if (first && (bn in c47)) print kind " @ " f
+                if (first && (bn in owner) && owner[bn] == "c47") print kind " @ " f
                 pending = 0          # access errors: only the innermost frame counts
             }
             first = 0
         }
-    ' "$c47_names" "$LOG_DIR/valgrind.log" | LC_ALL=C sort -u > "$LOG_DIR/valgrind-found.txt" || true
+    ' "$owner_map" "$LOG_DIR/valgrind.log" | LC_ALL=C sort -u > "$LOG_DIR/valgrind-found.txt" || true
+
+    # Never silent: say what the gate declined to charge to c47.
+    if [[ -s "$harness_owned" ]]; then
+        harness_log "harness-owned allocations, excluded from the gate (src/testSuite is not product code):"
+        LC_ALL=C sort -u "$harness_owned" | sed 's/^/ /'
+    fi
 
     # Headline counts from memcheck's own summary.
     grep -E "definitely lost|indirectly lost|possibly lost|ERROR SUMMARY" "$LOG_DIR/valgrind.log" | tail -4 | sed 's/^/ /' || true
