@@ -76,9 +76,9 @@ contain SOLVE; an integrand can contain INT), so unbounded recursion on the C
 stack is a reachable user input, not a coding accident - and on the DM42 that
 stack is a scheduler task stack sharing one firmware arena with the C47 pool and
 with GMP, which the tree does not state anywhere
-([06-memory.md](06-memory.md) Section 3 owns the derivation). Upstream caps integrator
-self-nesting with a depth counter (`MAX_INTEGRATOR_NESTING_DEPTH` in
-`defines.h`, merged from !1598). The mature-interpreter consensus, for when
+([06-memory.md](06-memory.md) Section 3 owns the derivation). Upstream caps PLOT,
+INT and SOLVE nesting with one shared depth counter (`MAX_ENGINE_NESTING_DEPTH`
+in `defines.h`). The mature-interpreter consensus, for when
 this class comes up again:
 
 - **One budget per stack, not one per facility.** Lua bounds *all* nested C

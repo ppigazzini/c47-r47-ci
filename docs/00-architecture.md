@@ -174,7 +174,7 @@ accurate but keep it).xlsx`.
 A spreadsheet is also a build input, but not one of these: CI clones and builds
 `xlsxio` from source to convert `res/fonts/sortingOrder.xlsx` to CSV
 (`.gitlab-ci.yml:38-39`). The files under `src/index spreadsheet/` are design
-source consumed by hand, which is why `items.c:1777` records that the item table
+source consumed by hand, which is why `items.c:1779` records that the item table
 was "generated (manually)".
 
 ## 2.1 The logical components
@@ -196,21 +196,21 @@ and every upward call is one of the violations catalogued in Section 8.3.
 | 7 | derived numerics | statistical sums, unit tables | `stats.c`, `conversionUnits.c` |
 | 8 | program store | program memory, `labelList`, `programList` | `programming/manage.c:102` |
 | 9 | value formatting | `displayFormat*`, grouping | `display.c:228` `real34ToDisplayString` |
-| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6016` `refreshScreen` |
+| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6039` `refreshScreen` |
 | 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:239` `reallyRunFunction` |
 | 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:754` `executeOneStep` |
 | 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:439` |
 | 12 | application | file formats, config | `saveRestoreBackup.c:242` `saveCalc` |
 
 Levels 9 to 11 are one block in practice, not three. `display.c` and `screen.c`
-are mutually recursive (`display.c:3511` against `screen.c:2023`), as are
+are mutually recursive (`display.c:3511` against `screen.c:2033`), as are
 `screen.c` and `softmenus.c`, and `screen.c` and `items.c`. They are listed
 apart because that is the shape a split would take, not because the split exists.
 
 **Three components are fused in the source, and each fusion is a finding.**
 
 - **Number entry and alpha entry are one component.** They share a buffer, and
-  `c47.c:122` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
+  `c47.c:124` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
   `addItemToBuffer` routes AIM, TAM, NIM and MIM from one if/else chain
   (`bufferize.c:445`).
 - **The matrix type and the matrix editor are one component.**
@@ -222,8 +222,8 @@ apart because that is the shape a split would take, not because the split exists
   file.
 
 **Why the components have to be inferred rather than read off.** `src/c47/c47.c`
-defines just **two** functions - `convertKeyCode` (`c47.c:430`) and
-`program_main` (`c47.c:594`, the DMCP run loop) - and everything else in its
+defines just **two** functions - `convertKeyCode` (`c47.c:429`) and
+`program_main` (`c47.c:593`, the DMCP run loop) - and everything else in its
 1258 lines is global variable definitions for every component in the system,
 declared through the 345 `extern`s in `c47.h`. There is almost no file-private
 state anywhere, so a component owns its globals by convention only - nothing
@@ -455,8 +455,8 @@ The last five carry the types in declarations rather than definitions -
 `btnFnClicked(GtkWidget*, gpointer)` - which is why a narrower grep reports
 seven.
 
-`screen.c:114` defines `gboolean drawScreen(GtkWidget *widget, cairo_t *cr,
-gpointer data)`; `screen.c:497` `refreshLcd`; `timer.c:104` `refreshTimer`. These
+`screen.c:124` defines `gboolean drawScreen(GtkWidget *widget, cairo_t *cr,
+gpointer data)`; `screen.c:507` `refreshLcd`; `timer.c:104` `refreshTimer`. These
 are GTK callbacks defined **inside the library**, not in `src/c47-gtk/`. The
 library is not platform-independent code calling a HAL; it is a
 preprocessor-multiplexed superset of all platforms that also has a HAL. The HAL
@@ -624,10 +624,10 @@ files**. The table touches 90% of the library, and every command calls back into
   solver/graph.c          --addComplex()-->      mathematics/addition.c
 ```
 
-**This illustration is from the prior object build and its middle edge no longer
-holds:** at `33328e4cc`, `fnEqSolvGraph` is called from `c47Extensions/graphs.c`
-and `keyboard.c`, not from `stack.c` (in `stack.c` the symbol appears only in a
-comment). Re-derive the shortest cycle against a current build (Annex A) before
+**The middle edge in this illustration does not hold:** at `33328e4cc`,
+`fnEqSolvGraph` is called from `c47Extensions/graphs.c` and `keyboard.c`, not
+from `stack.c` (in `stack.c` the symbol appears only in a comment). Re-derive the
+shortest cycle against a current build (Annex A) before
 quoting it. The structural point stands - a base component transitively reaches a
 high-level feature - but the specific edge must be re-measured.
 
@@ -652,7 +652,7 @@ rather than six. The six:
 
 ```
   mathematics/int.c:24        refreshLcd(NULL);        // integration refreshes the LCD
-  mathematics/matrix.c:1469   showSoftmenu(-MNU_SIMQ); // matrix maths opens a menu
+  mathematics/matrix.c:1462   showSoftmenu(-MNU_SIMQ); // matrix maths opens a menu
   mathematics/matrix.c:1470   showSoftmenu(-MNU_TAM);
   mathematics/prime.c:818     refreshScreen(253);      // factorising reports progress
   mathematics/rdp.c:119       refreshRegisterLine(REGISTER_X);
@@ -678,7 +678,7 @@ classifies the allocator as a user-interface component.
 `displayCalcErrorMessage` renders nothing. Its success path is three assignments
 -- `lastErrorCode`, `errorMessageRegisterLine`, `screenUpdatingMode`
 (`error.c:296-298`) -- and the message is painted much later by
-`_refreshRegisterLine` (`screen.c:3205`), which is why the name misleads. But the
+`_refreshRegisterLine` (`screen.c:3215`), which is why the name misleads. But the
 same translation unit holds `displayBugScreen` (`error.c:352`), a real renderer:
 it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:364`) and
 `showString` (`error.c:367`). The two validation-failure paths of
@@ -771,14 +771,14 @@ leaves `maths`: two downward edges, and two upward ones.
 | prog -> items | `programming/lblGtoXeq.c:784` |
 | maths -> registers | `mathematics/addition.c:56` |
 | maths -> error | `mathematics/addition.c:35` |
-| registers -> memory | `registers.c:520` `allocC47Blocks` |
-| screen -> display | `screen.c:2023` `real34ToDisplayString` |
+| registers -> memory | `registers.c:516` `allocC47Blocks` |
+| screen -> display | `screen.c:2033` `real34ToDisplayString` |
 | buf -.-> items | `ui/tam.c:219` `reallyRunFunction` |
 | convu -.-> items | `conversionUnits.c:761` `runFunction` |
-| maths -.-> softmenus | `mathematics/matrix.c:1469` |
+| maths -.-> softmenus | `mathematics/matrix.c:1462` |
 | maths -.-> screen | `mathematics/prime.c:818` |
 | display -.-> screen | `display.c:3511` |
-| registers -.-> display | `registers.c:1652` |
+| registers -.-> display | `registers.c:1648` |
 | error -.-> screen | `error.c:367` `showString` |
 | charstring -.-> error | `charString.c:297` `displayBugScreen` |
 | temporaryInformation | written `display.c:3101`, read `charString.c:241` |
@@ -791,7 +791,7 @@ a few classes, and one of them carries most of the weight:
 | the error TU | 1 structural cut, 6 sites | `error.c:358-399` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
 | compute reaching the screen | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - each has a product reason (progress, in-place round, menu); needs a reporting channel, not a file move |
 | conversion re-enters dispatch | 3 | `conversionUnits.c:761,779,782` call `runFunction` rather than the conversion directly |
-| store reaches formatting | 1 | `registers.c:1652` calls `shortIntegerToDisplayString` |
+| store reaches formatting | 1 | `registers.c:1648` calls `shortIntegerToDisplayString` |
 | primitives reach up | 1 | `charString.c:297` - a string helper calling the bug screen. `charString.c:241` looks like a second, but it is a `temporaryInformation` read: the data channel reaching the very bottom of the graph |
 | flags, timer, store reach up | 6 | `flags.c:359`, `store.c:199`, `timer.c:189` and neighbours |
 | the data channel | 56 writers | `temporaryInformation` - not cuttable by moving files; the writers must return a status instead |
@@ -937,9 +937,9 @@ way a project of this size moves. Order is forced by dependency, not by cost.
        Everything below is second-order to this.
 
   2. INVERT the plot-from-compute edge (fnEqSolvGraph): the caller replots,
-       compute does not. Re-identify the exact edge against a current build - the
-       prior stack.c -> solver/graph.c edge no longer holds (fnEqSolvGraph is
-       called from graphs.c and keyboard.c at 33328e4cc).
+       compute does not. Re-identify the exact edge against a current build: at
+       33328e4cc fnEqSolvGraph is called from graphs.c and keyboard.c, not from
+       stack.c.
 
   3. ESCALATE the six compute->UI files: int.c, matrix.c, prime.c, rdp.c,
        round.c, rsd.c.
@@ -1104,7 +1104,7 @@ document came from reconstructing something the build had already computed.
 | hal adapters | `src/{c47-gtk,testSuite}/hal/*.c` (5 each); `src/c47-dmcp{,5}/hal/*.c` (4 each) |
 | hal is the DMCP API | `src/c47/hal/lcd.h:29-31` |
 | glib in the hal | `src/c47/hal/lcd.h:40` `extern gboolean ui_is_active;` |
-| gtk inside the library | 12 files; `c47.h`, `screen.c:114,492`, `screen.h`, `timer.c:104`, `timer.h`, `programming/input.c:76`, `hal/lcd.h`, `keyboard.c/.h`, `typeDefinitions.h:811`, `c47Extensions/keyboardTweak.c/.h` |
+| gtk inside the library | 12 files; `c47.h`, `screen.c:124,492`, `screen.h`, `timer.c:104`, `timer.h`, `programming/input.c:76`, `hal/lcd.h`, `keyboard.c/.h`, `typeDefinitions.h:811`, `c47Extensions/keyboardTweak.c/.h` |
 | testSuite links gtk | `src/testSuite/meson.build` `dependencies: [gtk_dep, gmp_dep, m_dep]`; `testSuite.c:29` `GtkWidget *screen;` |
 | conditionals | `grep -rhoE '^\s*#\s*(if\|ifdef\|ifndef\|elif)' src/c47` = 2781; PC_BUILD/DMCP_BUILD union = 67 files, 37 both |
 | item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 2870` at `items.h:2989` = 2871 slots; table `items.c:1784-4743` |

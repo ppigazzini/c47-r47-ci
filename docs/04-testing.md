@@ -136,23 +136,23 @@ beside `tempConv.txt`.
   two lines above it before reading the case itself.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
   (`testSuite.c:75-638`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
-- `Item:` (`itemToCall`, `testSuite.c:4358`) drives the **real dispatch chain**
+- `Item:` (`itemToCall`, `testSuite.c:5373`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:4221` and `:4227` are `funcToTest(functionParameter)` against
+  at `testSuite.c:5213` and `:4227` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
   `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:2992`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:1956`) or `Func: name(n)`
-  (`testSuite.c:4261`) - both write the same variable - or use `Item:` and get
+  with `In: FARG=n` (`testSuite.c:2921`) or `Func: name(n)`
+  (`testSuite.c:5274`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
 - **A value is compared to 30 significant digits, not 34.** A mismatch is
-  reported only when `correctSignificantDigits < 30` (`testSuite.c:2806`), so the
+  reported only when `correctSignificantDigits < 30` (`testSuite.c:3784`), so the
   last four digits of a 34-digit expectation are documentation, not assertion: a
   result wrong only in those digits passes. The return condition at `:2822,2828`
   conjoins `NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED`, so the effective
@@ -165,7 +165,7 @@ beside `tempConv.txt`.
   any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
   A name that resolves to nothing calls `abortTest()`. This replaced a set of
   hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3880`), so a file
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3891`), so a file
   still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
   explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
   `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
@@ -222,7 +222,7 @@ Those reasons are the durable fact; the count moves with the catalog.
 |---|---|---|
 | `item` | `item <number> [arg] [#comment]` | By item code, bypasses name lookup. `1..LAST_ITEM-1`. |
 | `catfn` | `catfn <name> [arg]` | By name. Needed for names that are not legal Tcl identifiers: `catfn STO+ 00`. |
-| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:845`). |
+| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:846`). |
 | `nim` | `nim <string>` | Types a number key-by-key then `closeNim()`. First `nim` -> Y, second -> X. `-` is deferred and emitted as CHS (RPN semantics). |
 | `reg` | `reg <name>` / `reg <name> <value>` | Read/write a register. **Returns a Jim value - wrap in `puts`.** Matrices return `<unsupported>`. |
 | `var` | `var <name>` / `var <name> <value>` | Same, but **creates** the named variable. |
@@ -231,14 +231,14 @@ Those reasons are the durable fact; the count moves with the catalog.
 | `xportp` | `xportp <label> <file>` | Export a program. |
 | `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - unnamed is a silent no-op headless, see below. |
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
-| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1098`). |
+| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1130`). |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
 | `press` | registered in every build; **refuses at runtime when headless** (`dsl.c:995-1001`) | Section 3. |
 
 **A single-letter name is a register, never a named variable.** `reg` and `var`
 resolve their argument through `dslParseRegisterArg` (`value.c:59`): one
 alphabetic character is case-folded into `registerFlagLetters`
-("XYZTABCDLIJKMNPQRSEFGHOUVW", `c47.c:29`) - all 26 letters map to a lettered,
+("XYZTABCDLIJKMNPQRSEFGHOUVW", `c47.c:30`) - all 26 letters map to a lettered,
 stat or spare register, so the lookup never misses and never reaches the named
 variables. `[var x]` reads stack register X and `[var u]` reads spare register
 U, whatever named variables exist. A named variable is reachable only with a
@@ -409,7 +409,7 @@ the test needs the stack.
 - **`press` takes ONE key per call** (`press 1; press ENTER`), or a Tcl list.
   Registered in every build, so a headless script gets a named refusal rather than
   "invalid command name": it returns a Jim error and the script exits non-zero.
-  The headless gate at `dsl.c:997` is what blocks every token; only the single
+  The headless gate at `dsl.c:1004` is what blocks every token; only the single
   character, `ENTER` and `R/S` paths go through `scriptInjectGtkKey`, which needs
   a realized window (`gtkGui.c:128`). `F1`-`F6` and `@k NN` call the button
   handlers instead. Either way the command needs the GTK binary under xvfb.
@@ -487,7 +487,7 @@ ninja -C build.sim testPgms
 mkdir -p res/testPgms && cp build.sim/src/generateTestPgms/testPgms.bin res/testPgms/
 ```
 
-`addTestPrograms()` (`config.c:1225`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
+`addTestPrograms()` (`config.c:1237`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
 `fopen`s `res/testPgms/testPgms.bin` **relative to the cwd**. It is called
 unconditionally under `TESTSUITE_BUILD`.
 
@@ -507,7 +507,7 @@ from the **same synced upstream sources** as the binary, or the opcode numbering
 will not match.
 
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
-`loadTestPrograms` is set (`saveRestoreBackup.c:764`).
+`loadTestPrograms` is set (`saveRestoreBackup.c:832`).
 
 ## 6. The test-authoring rules
 

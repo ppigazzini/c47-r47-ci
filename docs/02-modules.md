@@ -26,8 +26,8 @@ Five distinct input languages, each with its own scanner or parser:
 
 | surface | what it is, technically | components | literature term |
 |---|---|---|---|
-| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1408` | bytecode / VM instruction-set design |
-| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:718` | keystroke programming (HP-41/42 model) |
+| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1411` | bytecode / VM instruction-set design |
+| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:720` | keystroke programming (HP-41/42 model) |
 | - its disassembler | byte-code back to listing text for the editor and browser | `programming/decode.c` | disassembly / listing generation |
 | - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:750`, `nextStep.c` | interpreter main loops; activation records / call frames |
 | - its symbol tables | global/local label scan (`labelList`, `programList`), named variables | `programming/manage.c:122` | symbol table management |
@@ -58,7 +58,7 @@ erroring.
 
 **The assembler.** PEM is not a text editor: each keystroke resolves to an
 item, and in PEM the dispatcher records the item as byte-code instead of
-running it (`items.c:718`, the `calcMode == CM_PEM` branch). Insert and delete
+running it (`items.c:720`, the `calcMode == CM_PEM` branch). Insert and delete
 shift the byte stream and re-scan.
 
 **The virtual machine.** `runProgram` (`lblGtoXeq.c:891`) is the
@@ -92,7 +92,7 @@ The parser (`equation.c`) is a **single-pass operator-precedence evaluator
 with an explicit operator stack** - the shunting-yard family - reducing
 through `_processOperator` (`equation.c:874`), with parenthesis and
 absolute-value-bar matching and a hard operator-stack overflow check
-(`equation.c:1004`). It has exactly two modes (`equation.h:14`):
+(`equation.c:1006`). It has exactly two modes (`equation.h:14`):
 `EQUATION_PARSER_MVAR` scans the formula only to build the variable menu, and
 `EQUATION_PARSER_XEQ` evaluates it against the registers. Formulae live in the
 pool as `formulaHeader_t` records - a block pointer and a size
@@ -119,7 +119,7 @@ variable `x`.
 | decimal arithmetic | 34-digit IEEE 754-2008 decimal floating point - the value type of the whole machine | `dep/decNumberICU` | General Decimal Arithmetic (Cowlishaw) |
 | bignum integers | arbitrary-precision long integers | GMP, `longIntegerType.c` | arbitrary-precision arithmetic |
 | root finder | Brent's method with a Newton polish option | `solver/solve.c:463` | Brent's method / derivative-free root finding |
-| quadrature | double-exponential (tanh-sinh) integration | `solver/integrate.c:350` | Takahasi-Mori double-exponential transformation |
+| quadrature | double-exponential (tanh-sinh) integration | `solver/integrate.c:354` | Takahasi-Mori double-exponential transformation |
 | numeric differentiation | finite differences over a program or formula | `solver/differentiate.c`, `solver/finite_differences.h` | finite-difference stencils |
 | summation/product | programmed series evaluation | `solver/sumprod.c`, `solver/isumprod.c` | - |
 | financial solver | time-value-of-money equation solving | `solver/tvm.c` | TVM equations |
@@ -164,10 +164,10 @@ flowchart LR
 Because the loop closes, nesting is user input: upstream deliberately enables
 SOLVE(SOLVE) and PLOT(SOLVE). The engines share the bookkeeping counter
 `currentSolverNestingDepth` and the FLAG_SOLVING/FLAG_INTING flag dance on
-entry and exit (`integrate.c:1578`, `solve.c`), progress display runs only at
-depth 1 (`solve.c:404`), and the integrator carries the depth cap that stops
-a self-referential nest from overflowing the C stack (`defines.h`,
-`MAX_INTEGRATOR_NESTING_DEPTH`; the escape analysis and the stack-budget
+entry and exit (`integrate.c:1582`, `solve.c`), progress display runs only at
+depth 1 (`solve.c:404`), and one shared counter caps PLOT, INT and SOLVE
+together, stopping a self-referential nest from overflowing the C stack
+(`defines.h`, `MAX_ENGINE_NESTING_DEPTH`; the escape analysis and the stack-budget
 question live in [08-references.md](08-references.md), "Recursion guards on
 an embedded C stack"). The grapher evaluates per pixel through
 `_executeSolverReal` (`graph.c:102`) - **outside any depth cap** at the audit
@@ -177,7 +177,7 @@ basis: a gap, not a design.
 
 | module | what it is, technically | components |
 |---|---|---|
-| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:430` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
+| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:429` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
 | key assignment | user remapping of keys to items (ASN), with its browser | `assign.c`, `browsers/asnBrowser.c` |
 | operand entry | TAM - the state machine that collects an instruction's operand (register, digit, name, indirect) after the key | `bufferize.c`, `tamState_t` |
 | the modal editors | AIM (alpha), NIM (number), MIM (matrix), EIM (equation), PEM (program) - five modal input surfaces over one buffer | `bufferize.c`, `ui/matrixEditor.c`, `programming/`, `calcMode.c` |
@@ -204,7 +204,7 @@ physical key.
 **R/S and EXIT double as the computation interrupt**: `exitKeyWaiting()`
 (`c47Extensions/addons.c:1102`) is polled inside the solver, integrator,
 grapher and other long loops. The engines also clear the pending key code at
-entry (`solve.c:458`), so an interrupt key landing exactly between two nested
+entry (`solve.c:462`), so an interrupt key landing exactly between two nested
 evaluations is discarded - state the limit: the abort is only as responsive
 as the polling points.
 
@@ -212,7 +212,7 @@ as the polling points.
 
 | module | what it is, technically | components |
 |---|---|---|
-| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6016` `refreshScreen` |
+| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6039` `refreshScreen` |
 | status bar | mode annunciators on a timer cadence | `statusBar.c` |
 | number formatter | value to glyph string: FIX/SCI/ENG, grouping, fractions, bases | `display.c:228` |
 | font and glyph engine | four bitmap fonts (standard, numeric, numeric bold, tiny), glyph lookup by codepoint, multi-byte strings | `fonts.c`, `charString.c`, `src/generated/` fonts |
@@ -222,11 +222,11 @@ as the polling points.
 
 ### 4.1 Structure
 
-The screen is a fixed 400x240 frame buffer (`defines.h:1460`), shared by the
+The screen is a fixed 400x240 frame buffer (`defines.h:1463`), shared by the
 register lines, the softmenus, the browsers and the grapher - there is no
 layering or clipping system; whoever draws last owns the pixels, and
 `refreshScreen` recomposes by redrawing regions. Text is drawn from four
-`font_t` bitmap fonts (`c47.h:275`); glyph lookup is a binary search on
+`font_t` bitmap fonts (`c47.h:276`); glyph lookup is a binary search on
 codepoint with **no id fallback, so a miss is always a miss**
 (`fonts.c:40`) - the multi-byte string encoding it serves is owned by
 `charString.c`.

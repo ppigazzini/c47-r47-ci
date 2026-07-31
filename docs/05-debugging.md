@@ -202,7 +202,7 @@ blocks at all.
 
 Runs the normal corpus, clears working state after each case, and reports any
 case above a **running high-water mark**. The ratchet is not a detail: a naive
-fixed baseline flagged 8848 cases; the high-water ratchet flags 11.
+fixed baseline flags cases by the thousand, the high-water ratchet a handful.
 
 Confirm any finding by **running the offending test file twice - a real leak
 doubles**; persistent state does not. (But see the doubling-test caveat in Section 12 - doubling is

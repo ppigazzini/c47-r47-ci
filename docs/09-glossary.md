@@ -33,38 +33,38 @@ do; grep the symbol if a citation misses.
 | term | what it is |
 |---|---|
 | **item** | one addressable calculator function or menu entry: a row of `item_t` carrying a function pointer, a param, catalog and softmenu names, TAM bounds and a status word (`src/c47/typeDefinitions.h:603`) |
-| **the item table** | the single flat array `indexOfItems[]`, indexed by item ID, placed in QSPI flash on hardware (`src/c47/items.c:1775`) |
+| **the item table** | the single flat array `indexOfItems[]`, indexed by item ID, placed in QSPI flash on hardware (`src/c47/items.c:1786`) |
 | **`LAST_ITEM`** | the upper bound of the item ID space (`src/c47/items.h:2989`). Also the `INVALID_MENU` sentinel - see the collisions below |
 | **softmenu** | a six-column menu descriptor: an ID, a count and a pointer to its items (`src/c47/typeDefinitions.h:523`) |
 | **TAM** | the mode that collects an item's argument after its key is pressed - a register number, a digit count. `tam.mode` non-zero means the calculator is in it (`src/c47/typeDefinitions.h:673`). **The acronym is never expanded anywhere in the c43 source**; treat any expansion you have seen as folklore |
-| **nim** | Numeric Input Mode: `calcMode == CM_NIM`, the state while digits are being typed into X (`src/c47/defines.h:1634`) |
-| **AIM, PEM, EIM, MIM** | the other input modes - Alpha, Program Entry, Equation Input, Matrix Input - all `calcMode` values alongside `CM_NIM` (`src/c47/defines.h:1664`). Read from the enum, not from an upstream statement of the expansions |
-| **`calcMode`** | one byte holding which top-level UI mode the calculator is in (`src/c47/c47.h:418`, values at `src/c47/defines.h:1632`) |
-| **reg X, the stack** | `REGISTER_X` to `REGISTER_T`, the first four of the lettered registers (`src/c47/defines.h:1202`) |
-| **lettered registers** | the fixed block that holds the stack, `L`, and `I`/`J` (`src/c47/defines.h:1205`). **Not** the same as named variables |
-| **named variables** | a separate, user-named ID space well above the lettered block (`src/c47/defines.h:1264`) |
-| **`I` and `J`** | the matrix index registers, inside the lettered block (`src/c47/defines.h:1215`) |
+| **nim** | Numeric Input Mode: `calcMode == CM_NIM`, the state while digits are being typed into X (`src/c47/defines.h:1667`) |
+| **AIM, PEM, EIM, MIM** | the other input modes - Alpha, Program Entry, Equation Input, Matrix Input - all `calcMode` values alongside `CM_NIM` (`src/c47/defines.h:1697`). Read from the enum, not from an upstream statement of the expansions |
+| **`calcMode`** | one byte holding which top-level UI mode the calculator is in (`src/c47/c47.h:422`, values at `src/c47/defines.h:1665`) |
+| **reg X, the stack** | `REGISTER_X` to `REGISTER_T`, the first four of the lettered registers (`src/c47/defines.h:1235`) |
+| **lettered registers** | the fixed block that holds the stack, `L`, and `I`/`J` (`src/c47/defines.h:1238`). **Not** the same as named variables |
+| **named variables** | a separate, user-named ID space well above the lettered block (`src/c47/defines.h:1297`) |
+| **`I` and `J`** | the matrix index registers, inside the lettered block (`src/c47/defines.h:1248`) |
 | **flags** | two disjoint sets with separate APIs: user flags via `getFlag` and system flags via `getSystemFlag` (`src/c47/flags.h:29`). A number is meaningless without knowing which set it indexes |
 | **`real34` / `complex34` / longint** | the numeric payloads: `decQuad` (34 digits), a pair of those, and GMP's `mpz_t` (`src/c47/realType.h:13`, `src/c47/longIntegerType.h:23`). Their type tags are `dtReal34`, `dtComplex34`, `dtLongInteger` (`src/c47/typeDefinitions.h:199`) |
 | **HAL** | hardware abstraction layer: the adapters between the calculator core and a platform. [00-architecture.md](00-architecture.md) Section 5 owns what it does and does not cover |
 | **DMCP, DMCP5** | SwissMicros' firmware platforms - DMCP for the DM42, DMCP5 for the newer board, selected by the `DMCPVERSION` Meson option (`meson.build:120` in the clone) |
-| **QSPI, `TO_QSPI`** | the DM42's external flash, and the attribute that places a const table there rather than in scarce internal memory (`src/c47/items.c:1775`) |
+| **QSPI, `TO_QSPI`** | the DM42's external flash, and the attribute that places a const table there rather than in scarce internal memory (`src/c47/items.c:1786`) |
 | **the arena** | the firmware allocator's own heap, which every C47 `malloc` comes out of - including the one that creates the pool. A DMCP term by behaviour, not by name: nothing in c43 calls it this. [06-memory.md](06-memory.md) has its bounds per target |
 | **`DMCP_PACKAGE`, a package** | one of four DM42 builds that trade functions for internal flash, selected by the Meson option of that name (`src/c47/defines.h:143`, tabulated at `:154`). Same memory model, different code built - so "the DM42's largest frame" is a per-package answer |
 | **`OLD_HW` / `NEW_HW`** | the macros that pick the hardware memory model (`src/c47-dmcp/meson.build`, `src/c47-dmcp5/meson.build`). A **host build defines neither**, and takes the `NEW_HW` values for the pool - which is why a simulator run cannot reproduce a DM42 memory limit |
 | **`.p47`, `.s47`, `.d47`** | the keystroke-program, saved-state and data file extensions (`src/c47/hal/io.h:20`, `:12`, `:15`) |
-| **`SNAP`** | the item that captures the LCD to a bitmap (`src/c47/items.h:1452`). Its handler is an **empty stub in the testSuite build** (`src/c47/items.c:1495`), which is why a skipped `SNAP` leaves a stale bitmap behind rather than failing |
-| **SHOI** | how many stack lines the hex/binary integer display takes over in base mode, held in `displayStackSHOIDISP` (`src/c47/c47.h:424`). **The acronym is expanded nowhere in the c43 source.** The behaviour is verified; the letters are not |
+| **`SNAP`** | the item that captures the LCD to a bitmap (`src/c47/items.h:1452`). Its handler is an **empty stub in the testSuite build** (`src/c47/items.c:1506`), which is why a skipped `SNAP` leaves a stale bitmap behind rather than failing |
+| **SHOI** | how many stack lines the hex/binary integer display takes over in base mode, held in `displayStackSHOIDISP` (`src/c47/c47.h:428`). **The acronym is expanded nowhere in the c43 source.** The behaviour is verified; the letters are not |
 
 ### c47, r47 and t47 are not three of the same thing
 
 The set names them in one breath, and the source does not treat them alike:
 
 - **`c47` and `r47` are runtime keyboard models**, chosen from `calcModel`
-  (`src/c47/c47.h:237`); the R47 family is tested with `isR47FAM`
-  (`src/c47/defines.h:625`).
+  (`src/c47/c47.h:238`); the R47 family is tested with `isR47FAM`
+  (`src/c47/defines.h:649`).
 - **`t47` is a build**, not a model: a compile-time `T47` define that strips the
-  debug options (`src/c47/defines.h:419`) plus a Jim/Tcl front end
+  debug options (`src/c47/defines.h:421`) plus a Jim/Tcl front end
   (`src/t47/dsl.c`).
 
 That asymmetry is why `make t47` alone gives you the R47-based binary - the
@@ -92,7 +92,7 @@ script wins.
 | **the canary, `POOL_GUARD`** | a by-hand patch that writes a position-dependent value around each allocated block to catch an overrun *inside* the pool - the class ASan and Valgrind are structurally blind to. Not a lane. [05-debugging.md](05-debugging.md) Section 5 owns it |
 | **the MSP band** | this set's name for the gap between a DMCP target's initial MSP and the top of the firmware data below it. It is the **handler and boot** stack, not a program's: SVCall and PendSV write PSP, so thread mode runs on a task stack. Naming it "the C stack" is the mistake [06-memory.md](06-memory.md) Section 3 exists to prevent |
 | **task stack** | the stack a program actually runs on: `malloc`'d by the scheduler out of the firmware arena, so it competes with C47's pool and with every GMP long integer. Its size is not in the firmware image and is **not measured** - only its ceiling is |
-| **level** | one nested engine evaluation, and the unit stack cost is quoted in: the frames between re-entering `execProgram` and reaching the kernel. Multiply by the runtime nesting cap (`MAX_INTEGRATOR_NESTING_DEPTH` on master, `src/c47/defines.h:565`, which bounds the integrator only), compare against the task-stack ceiling (`scripts/test/stackprof-baseline.txt`) |
+| **level** | one nested engine evaluation, and the unit stack cost is quoted in: the frames between re-entering `execProgram` and reaching the kernel. Multiply by the runtime nesting cap (`MAX_ENGINE_NESTING_DEPTH`, `src/c47/defines.h`, which bounds PLOT, INT and SOLVE together and differs per target), compare against the task-stack ceiling (`scripts/test/stackprof-baseline.txt`) |
 | **tail-call aware** | of a chain sum: a member whose only edge onward is a branch has run its epilogue first, so its frame is gone before the callee's exists and must not be charged. Charging it reads 24-32 B high per level on an optimised build, and nothing at all on the `-O0` simulator |
 | **cut** | a call-graph edge deliberately dropped so a recursive engine yields a per-level number. A declared input that the profiler prints - unlike a walk that prunes back edges silently and reports a finite bound for something unbounded |
 | **sweep** | driving one operation across every item, or every stack type, to find the case that breaks. Not a garbage-collection term |
@@ -109,11 +109,11 @@ definition.
 |---|---|---|
 | **`LAST_ITEM`** | one past the last real item ID | the `INVALID_MENU` sentinel (`src/c47/items.h:2997`) |
 | **softmenu** | the descriptor struct, and the global array | the bottom row on screen. A third type, `softmenuStack_t`, is the display stack (`src/c47/typeDefinitions.h:545`) |
-| **TAM** | the argument-entry mode | a bezel state, and a display line (`src/c47/defines.h:1430`) |
+| **TAM** | the argument-entry mode | a bezel state, and a display line (`src/c47/defines.h:1463`) |
 | **tag** | the `dataType` enum in a register header (`src/c47/typeDefinitions.h:419`) | the adjacent 5-bit `tag` field in the same word, carrying short-integer base, real34 angular mode or long-integer sign (`src/c47/typeDefinitions.h:420`) |
-| **`I`** | the matrix index register | `FLAG_I`, at the same numeric index in a different space (`src/c47/defines.h:825`) |
+| **`I`** | the matrix index register | `FLAG_I`, at the same numeric index in a different space (`src/c47/defines.h:852`) |
 | **`calcMode`** | the global UI mode | a member of `softmenuStack_t` holding the parent mode (`src/c47/typeDefinitions.h:552`) |
-| **nim** | Numeric Input Mode | the `const char *nim` argument of `displayNim` (`src/c47/screen.h:252`) |
+| **nim** | Numeric Input Mode | the `const char *nim` argument of `displayNim` (`src/c47/screen.h:253`) |
 | **register** | a lettered register, including the stack | a named variable, in a wholly separate ID space |
 | **corpus** | the testSuite regression files | a libFuzzer seed corpus |
 | **ratchet** | the coverage floors | the leak scanner's high-water bound |

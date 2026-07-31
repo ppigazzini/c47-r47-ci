@@ -55,10 +55,10 @@ One library, several targets:
 | `generateConstants`, `generateCatalogs`, `generateTestPgms`, `ttf2RasterFonts`, `forcecrc32` | build-time generators |
 
 `R47` is not a platform, and it is not a build either. `calcModel` is a runtime
-`uint8_t` (`c47.h:237`) that the **user** changes from the settings menu
+`uint8_t` (`c47.h:238`) that the **user** changes from the settings menu
 (`config.c:2161`, `calcModel = choice;`) and which persists across a restart.
 `-DCALCMODEL` only picks the power-on default - and `USER_R47` is not even a
-runtime value: `c47.c:33` rewrites it to `USER_R47f_g`. Ten models exist
+runtime value: `c47.c:34` rewrites it to `USER_R47f_g`. Ten models exist
 (`c47.h:257-258`), four of them R47 variants that differ by where f, g and
 backspace sit on the faceplate. That is the product's premise: C47 gives the
 DM42's single shift key the two-shift behaviour WP43 needs, so a faceplate
@@ -228,7 +228,7 @@ before trusting either:
   shells out to `xlsxio_xlsx2csv` to read it
   (`src/ttf2RasterFonts/ttf2RasterFonts.c:338`), which is why CI builds xlsxio
   from source.
-- `items3.xlsx` is **not** a build input. `items.c:1777` and `items.h:8` both
+- `items3.xlsx` is **not** a build input. `items.c:1779` and `items.h:8` both
   say the table is "generated (**manually**)" from it. `items.c` is
   hand-maintained and is the source of truth;
   `tools/create items spreadsheet.py` runs the other way - it reads `items.c`
@@ -335,11 +335,11 @@ too.
 
 | term | what it is |
 |---|---|
-| **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:870`). X is what you see and what commands consume. |
-| **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:905`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
+| **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:873`). X is what you see and what commands consume. |
+| **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:908`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
 | **LastX** | register `L`. Commands that consume X save it there first (`saveLastX`, called from 87 files), so the user can recover the operand. A new command that forgets this is a user-visible regression. |
 | **f / g** | the two shift keys. The DM42 has one physical shift, so C47 cycles it - that single constraint is why this fork exists. |
-| **USER mode** | `FLAG_USER` (`defines.h:890`) swaps the factory keyboard `kbd_std` for the user's own assignments `kbd_usr`. ASSIGN is how entries get there. |
+| **USER mode** | `FLAG_USER` (`defines.h:893`) swaps the factory keyboard `kbd_std` for the user's own assignments `kbd_usr`. ASSIGN is how entries get there. |
 | **softmenu** | the six softkeys. f and g reveal two more rows, so 18 items are one page; the arrows page through. Menus stack (depth 8), and each entry remembers its page and its parent mode. |
 | **catalog** | a browsable list of commands. `status & CAT_STATUS` (13 values) says which catalog a command appears in; `generateCatalogs` sorts each one by name at build time. |
 | **item** | one row of `indexOfItems[]`: a thing the calculator can do. It carries the user-facing name in two widths, the function and its parameter, the argument it prompts for, which catalogs list it, and what it does to the stack and undo. Keys, menus, programs and the corpus all address commands by item number. |
@@ -492,11 +492,11 @@ save and restore through one slot.
 
 **TAM is not one of these modes.** There is no `CM_TAM`. Parameter entry is a
 second, parallel state machine held in `tamState_t tam` (`typeDefinitions.h:672`,
-declared `c47.h:451`) and tested as `tam.mode`, whose values are the `TM_*`
+declared `c47.h:453`) and tested as `tam.mode`, whose values are the `TM_*`
 constants 10001..10022 (`defines.h:1673-1694`) - a range chosen so it cannot
 collide with a `calcMode`. Both are live at once: you are in `CM_NORMAL` *and*
 in TAM. `determineItem` checks `tam.mode` before it checks `calcMode`
-(`keyboard.c:1675`) and resolves the key through the `primaryTam` column,
+(`keyboard.c:1678`) and resolves the key through the `primaryTam` column,
 ignoring shift.
 
 **Eight of the modes are modal: they save the mode they interrupted and restore
@@ -509,7 +509,7 @@ it on exit.** The slot is `previousCalcMode`, written by `fnAssign`
 It is **one slot, not a stack**, and no writer checks whether the mode it is
 saving is itself a modal one. Open a browser from a confirmation prompt and the
 prompt's own restore target is overwritten. The only patch for this is a
-special case for the timer at `keyboard.c:3929`, and it covers the browsers
+special case for the timer at `keyboard.c:3936`, and it covers the browsers
 only. Treat "modal over modal" as unsupported rather than as a bug to work
 around.
 
@@ -538,7 +538,7 @@ documented at `defines.h:1183-1206` and defined in the enum below it:
 ```
 
 The RPN stack is the first four or eight lettered registers:
-`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2203`). In
+`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2206`). In
 4-level mode A-D are ordinary user registers; in 8-level mode they are stack.
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
@@ -550,7 +550,7 @@ found there and the sentinel battery that finds them.
 stores a register in **one byte**, so a second enum exists purely for the
 keystroke encoding:
 
-| | C (`enum REG_NUMBERS`, `defines.h:1202`) | keystroke (`enum REG_NUMBERS_IN_KS_CODE`, `defines.h:1337`) |
+| | C (`enum REG_NUMBERS`, `defines.h:1205`) | keystroke (`enum REG_NUMBERS_IN_KS_CODE`, `defines.h:1340`) |
 |---|---|---|
 | global numbered | 0-99 | 0-99 |
 | lettered X..K | 100-111 | 100-111 |
@@ -558,7 +558,7 @@ keystroke encoding:
 | stat M-S, spare E-W | 112-125 | 211-224 |
 
 The two agree only for 0-111. The bridge is branchless arithmetic:
-`regKStoC()` (`defines.h:1414`) and `regCtoKS()` (`defines.h:1422`).
+`regKStoC()` (`defines.h:1417`) and `regCtoKS()` (`defines.h:1425`).
 Anything that reads or writes a program byte must convert; anything that touches
 `globalRegister[]` must not.
 
@@ -586,10 +586,10 @@ type field is why the type space is full at 16 entries
 per type; a long integer's sign lives there, not in its data.
 
 **Memory is a block pool addressed by those 16-bit indices.** `ram` is a
-`uint32_t *` (`c47.h:335`), allocated once (`config.c:1545`). A block is 4
+`uint32_t *` (`c47.h:337`), allocated once (`config.c:1545`). A block is 4
 bytes: `BPB` is 2, `BYTES_PER_BLOCK = 1 << BPB` (`defines.h:2247-2248`),
-`TO_BLOCKS(n)` rounds up (`defines.h:2249`). `C47_NULL` is 65535
-(`defines.h:2252`), so the pool must stay below 65535 blocks:
+`TO_BLOCKS(n)` rounds up (`defines.h:2255`). `C47_NULL` is 65535
+(`defines.h:2255`), so the pool must stay below 65535 blocks:
 `RAM_SIZE_IN_BLOCKS` is 16384 on old hardware and 65534 on new
 (`defines.h:2080-2087`). `allocC47Blocks` / `freeC47Blocks` (`memory.c:76`,
 `memory.c:116`) are accounting shims over `src/c47/core/freeList.c`, a best-fit
@@ -632,7 +632,7 @@ and then calls libc `malloc`; the `freeListAlloc` call is commented out
 heap that the pool's own accounting cannot see.
 
 **Types dispatch through 10x10 tables.**
-`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1559`). The four
+`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1562`). The four
 arithmetic operations are matrices of function pointers indexed by the types of
 X and Y, declared in `c47.h:278-281` and defined in
 `mathematics/addition.c:10` and its siblings, marked `TO_QSPI` so they land in
@@ -663,10 +663,10 @@ meets in this order:
 - **Owned and borrowed matrices look identical.** `realMatrixInit` allocates and
   the caller must free; `linkTo*MatrixRegister` borrows and the caller must not.
   Both produce a `real34Matrix_t`. `realMatrixFree` frees unconditionally
-  (`matrix.c:2028`), so calling it on a linked matrix frees the register's
+  (`matrix.c:2021`), so calling it on a linked matrix frees the register's
   payload out from under the register.
 - **Adding a named variable moves the table.** `allNamedVariables` is itself
-  pool-allocated and grown one entry at a time (`registers.c:862`), so any
+  pool-allocated and grown one entry at a time (`registers.c:858`), so any
   pointer into it is stale afterwards. The same applies to `currentLocalRegisters`
   across `allocateLocalRegisters`, which is why that function re-derives its own
   pointers and re-links the frame.
@@ -687,11 +687,11 @@ follows is where the state that matters actually lives.
 | what | global | declared |
 |---|---|---|
 | registers 0-136 | `globalRegister[NUMBER_OF_GLOBAL_REGISTERS]` | `c47.h:350` |
-| named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:336` |
-| local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:347` |
+| named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:338` |
+| local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:349` |
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
-| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:335`, `:351` |
-| the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:276` |
+| the pool | `ram`, `freeMemoryRegions[MAX_FREE_REGIONS]` (50 on DMCP, 200 elsewhere) | `c47.h:337`, `:351` |
+| the indexed matrix | `matrixIndex` (+ registers I/J as the cursor) | `c47.h:277` |
 
 I and J are **ordinary user registers on loan**, not private cursor storage:
 anything that walks a matrix writes them, so a program using I or J for its own
@@ -703,7 +703,7 @@ while the shadow is open, a read of I or J sees the walking index rather than th
 user's. A walker that returns early on an error path without restoring leaves the
 user's cursor destroyed, and the symptom is a wrong result later with nothing
 wrong at the point of failure.
-| statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:331` |
+| statistical sums | `statisticalSumsPointer` (28 sums at 75 digits) | `c47.h:333` |
 
 The RPN stack is not a separate structure: it is
 `globalRegister[REGISTER_X .. getStackTop()]`. Stack operations move 32-bit
@@ -714,13 +714,13 @@ off the top.
 
 | what | global | declared |
 |---|---|---|
-| system flags | `systemFlags0` (a 64-bit word; `systemFlags1` follows) | `c47.h:576` |
-| local flags | `currentLocalFlags` (32 per subroutine level) | `c47.h:334` |
-| undo | `thereIsSomethingToUndo` + `SAVED_REGISTER_*` (126-134) | `c47.c:51` |
+| system flags | `systemFlags0` (a 64-bit word; `systemFlags1` follows) | `c47.h:580` |
+| local flags | `currentLocalFlags` (32 per subroutine level) | `c47.h:338` |
+| undo | `thereIsSomethingToUndo` + `SAVED_REGISTER_*` (126-134) | `c47.c:52` |
 | last function | `lastFunc`, `lastParam` | `c47.c:11-12` |
-| error | `lastErrorCode`, `errorMessageRegisterLine` | `c47.h:433` |
-| transient display note | `temporaryInformation` | `c47.h:435` |
-| solver | `currentSolverStatus` (a bitfield: formula vs program, ready flags) | `c47.h:536` |
+| error | `lastErrorCode`, `errorMessageRegisterLine` | `c47.h:437` |
+| transient display note | `temporaryInformation` | `c47.h:437` |
+| solver | `currentSolverStatus` (a bitfield: formula vs program, ready flags) | `c47.h:537` |
 
 `lastErrorCode` is the error channel: functions return `void` and set the
 global. It is cleared not by the caller but by the **next refresh**, together
@@ -731,11 +731,11 @@ normal path that resets it.
 
 | what | global | declared |
 |---|---|---|
-| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:444`, `:445`, `:520` |
+| program memory | `beginOfProgramMemory`, `firstFreeProgramByte`, `freeProgramBytes` | `c47.h:446`, `:445`, `:520` |
 | the label index | `labelList` (rebuilt by `scanLabelsAndPrograms`) | `c47.h:362` |
-| the program index | `programList` | `c47.h:364` |
-| the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:372`, `c47.c:53-54` |
-| run state | `programRunStop` (`PGM_STOPPED`/`PGM_RUNNING`/`PGM_WAITING`/`PGM_SINGLE_STEP`) | `c47.h:438` |
+| the program index | `programList` | `c47.h:366` |
+| the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:374`, `c47.c:53-54` |
+| run state | `programRunStop` (`PGM_STOPPED`/`PGM_RUNNING`/`PGM_WAITING`/`PGM_SINGLE_STEP`) | `c47.h:440` |
 | the return stack | `currentSubroutineLevelData` - a linked list in the pool | `c47.h:330` |
 
 `labelList` and `programList` are **derived state**: they are rebuilt from the
@@ -777,7 +777,7 @@ treat `NULL` as "stop", not as "step zero".
 **What the screening pass does not check.** `_programFileRefused`
 (`saveRestorePrograms.c:168`) walks a program file before anything is reserved
 and refuses two things: an opcode at or above `LAST_ITEM`, and a declared label
-name longer than `MAX_LABEL_NAME_LENGTH` (`defines.h:1152`). It does **not**
+name longer than `MAX_LABEL_NAME_LENGTH` (`defines.h:1155`). It does **not**
 check that a parameter byte lies inside its item's declared range - see
 [00-architecture.md](00-architecture.md), `tamMinMax`. A file is therefore
 trusted for parameter values in a way keyboard entry is not, which is the
@@ -788,14 +788,14 @@ parameter.
 
 | what | global | declared |
 |---|---|---|
-| the mode | `calcMode` | `c47.h:418` |
+| the mode | `calcMode` | `c47.h:420` |
 | shift | `shiftF`, `shiftG` (+ `lastshiftF`/`lastshiftG` snapshots) | `c47.c:44-47` |
 | the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:337` |
-| pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:451` |
-| the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:377` |
-| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:343` |
-| the frame buffer | `lcd_buffer` (240 rows x 52 bytes) | `c47.h:239` |
-| refresh budget | `screenUpdatingMode` (a suppression bitmask) | `c47.h:443` |
+| pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:453` |
+| the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:379` |
+| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:345` |
+| the frame buffer | `lcd_buffer` (240 rows x 52 bytes) | `c47.h:240` |
+| refresh budget | `screenUpdatingMode` (a suppression bitmask) | `c47.h:445` |
 
 Two of these carry more weight than their size suggests. `calcMode` decides who
 owns the keyboard, so almost every input path begins `switch(calcMode)`. And
@@ -838,7 +838,7 @@ possible - it runs the whole calculator with no window and no hardware.
   static inline void flipPixel    (uint32_t x, uint32_t y) { bitblt24(x, 1, y, 1, BLT_XOR,  BLT_NONE); }
 ```
 
-The shared frame buffer is `lcd_buffer` (`c47.h:239`), laid out as the DM42
+The shared frame buffer is `lcd_buffer` (`c47.h:240`), laid out as the DM42
 hardware lays it out: 240 rows of 52 bytes, being a dirty flag, a row number,
 and 50 bytes = 400 bits. On DMCP it is bound to the SDK's own buffer
 (`c47.c:617`); on GTK it is host memory and `LCD_write_line` expands 1bpp to a
@@ -1019,7 +1019,7 @@ commanding, not a special case of it.
 calls `liftStack()` and then zeroes X (`calcMode.c:269`), so the display already
 shows a pushed stack while you are still typing. `closeNim` re-arms the *next*
 lift with `setSystemFlag(FLAG_ASLIFT)` as its first statement
-(`bufferize.c:2344`). That is why ENTER, which clears `FLAG_ASLIFT`, makes the
+(`bufferize.c:2342`). That is why ENTER, which clears `FLAG_ASLIFT`, makes the
 following digits overwrite X instead of pushing.
 
 **Errors are polled, never returned.** No function in the dispatch chain returns
@@ -1029,7 +1029,7 @@ afterwards: `reallyRunFunction` undoes the operation (`items.c:581`), and
 (`lblGtoXeq.c:919`), which is why a stopped program rests on the offending line.
 
 **The next key press clears the error and executes.** Any item except EXIT and
-BACKSPACE zeroes `lastErrorCode` on the way in (`keyboard.c:2368`), so dismissing
+BACKSPACE zeroes `lastErrorCode` on the way in (`keyboard.c:2375`), so dismissing
 an error and acting on it are the same keystroke - there is no acknowledge step.
 
 **`refreshScreen` is not a pure renderer and not idempotent.** It pushes
@@ -1155,6 +1155,7 @@ paths (`io.h:51-67`) and one `ioFileOpen`/`Write`/`Read`/`Seek`/`Close` set
 - [00-architecture.md](00-architecture.md), for the physical architecture. It
   analysed `d969ec75db`; its headline figures were reproduced at `33328e4cc`.
 - [03-build.md](03-build.md), [05-debugging.md](05-debugging.md).
-- Upstream `docs/appnotes/sources/AN0025_C47_R47_JM_d47_file_format_2026-07-13.txt` is the
-  first-party spec for the `.d47` record layout. Not read for this page; read it
-  before documenting that format.
+- Upstream `docs/appnotes/sources/AN0025/` holds the first-party spec for the
+  `.d47` record layout; its filename carries a date, so list the directory rather
+  than citing the file. Not read for this page; read it before documenting that
+  format.

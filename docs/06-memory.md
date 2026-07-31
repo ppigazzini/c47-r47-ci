@@ -208,11 +208,17 @@ Every alarming conclusion on this page is an **old-hardware** conclusion.
 
 A user program may re-enter its own numeric engines - `SOLVE(SOLVE)` and
 `PLOT(SOLVE)` are supported features - so the frames of one nested evaluation
-multiply by the nesting depth. On current upstream the only runtime bound is
-`MAX_INTEGRATOR_NESTING_DEPTH` (5, `src/c47/defines.h:565`) and it caps the
-**integrator only**; the solver, sum/product, differentiator and grapher have
-none, which is why `run-nestcheck.sh` still records crashes. c43 MR !1610
-proposes one bound at the `execProgram` choke point.
+multiply by the nesting depth. Upstream bounds that count with
+`engineNestingDepth` (`src/c47/c47.h`), which covers **PLOT, INT and SOLVE
+combined** and is capped by `MAX_ENGINE_NESTING_DEPTH` in `src/c47/defines.h`:
+**1** on the DM42 (`OLD_HW`), **3** on the DM42n (`NEW_HW`), **4** on the
+simulator. PLOT runs only as the outermost engine. Past the cap the program
+stops with `ERROR_NESTING_TOO_DEEP` rather than overflowing the C stack.
+
+The counter is taken at each engine's own entry - `solver/integrate.c`,
+`solver/solve.c`, `solver/graph.c` - and reset in `config.c`, not at a single
+`execProgram` choke point. Sum/product and the differentiator are outside it.
+Re-measure `run-nestcheck.sh` against this cap before quoting a crash from it.
 
 The per-level chains and their measured cost live in
 [`scripts/test/stackprof-baseline.txt`](../scripts/test/stackprof-baseline.txt),
