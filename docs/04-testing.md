@@ -197,7 +197,7 @@ beside `tempConv.txt`.
 
 `t47` is **not a separate program**: it is a copy of the `c47` or `r47` GTK
 binary built into `build.sim.t47` with `-DT47`, which only silences debug output
-(`defines.h:419-458`). Headless is selected by **the binary's basename**
+(`defines.h:421-460`). Headless is selected by **the binary's basename**
 (`c47-gtk.c:371-380`), so `./c47 --headless ...` is identical to `./t47 ...`.
 
 ```bash
