@@ -10,8 +10,10 @@ claim about the thing it describes - and the ones marked hot in that page's own
 table describe **upstream**, a tree that moves without a commit here. Change something a page claims, fix the
 page in the SAME commit; sync upstream, re-read the pages that track it.
 [docs/10-writing.md](docs/10-writing.md) carries the rules for everything this
-repo writes for a reader - pages, comments and commit messages alike - and maps
-every page to what it owns and which run hot. `bash scripts/test/run-docs-lint.sh`
+repo writes for a reader - pages, code comments, corpus comments, commit
+messages and merge request text alike - and maps every page to what it owns and
+which run hot. Three of those land in upstream c43 and meet its review conditions
+there; a t47 script in any of them names its commands, never `item <n>`. `bash scripts/test/run-docs-lint.sh`
 catches a dead link, a dead path, a stale pinned count, a non-ASCII byte, a
 `__DEV/` citation, a broken `@AGENTS.md` import, or an upstream-tracking page
 with no audit basis. It cannot tell you a sentence has become false, and an
@@ -69,7 +71,7 @@ debugs a product whose source lives somewhere else.
 | understand or add a CI lane | [docs/07-ci.md](docs/07-ci.md) |
 | find an authoritative external reference | [docs/08-references.md](docs/08-references.md) |
 | look up a term, or check which tier of vocabulary it belongs to | [docs/09-glossary.md](docs/09-glossary.md) |
-| write a doc, a code comment or a commit message | [docs/10-writing.md](docs/10-writing.md) |
+| write a doc, a code comment, a corpus comment, a commit message or an MR body | [docs/10-writing.md](docs/10-writing.md) |
 
 ## This file, and CLAUDE.md
 

@@ -1,10 +1,17 @@
 # Writing
 
-The rules for everything this repo writes for a reader: the **doc pages**, the
-**code comments**, and the **commit messages**. One set of rules, because all
-three fail the same way; then what is specific to each.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
-Read it before writing any of the three.
+The rules for everything this repo writes for a reader: the **doc pages**, the
+**code comments**, the **corpus comments**, the **commit messages** and the
+**merge request text**. One set of rules, because all of them fail the same way;
+then what is specific to each.
+
+Read it before writing any of them.
+
+Three of them leave this repo. A code comment, a corpus comment and an MR body
+land in upstream c43 and are read there, so those three are not this repo's
+preference to set: they are conditions a change meets before it merges.
 
 ## The rules
 
@@ -46,6 +53,14 @@ selects a dynamic menu item" is accurate and useless. The fact a reader needs is
 that **-1 means nothing is selected**, that `c47.c` documents it, and that
 `fnSolveVar` and `fnIntVar` index with it anyway - which is why a headless call
 segfaults. Write the sentence a reader needs before they delete your line.
+
+**Every word names the operation it performs.** A word taken from the domain the
+code sits near, rather than from what the code does, reads as precise and is not:
+*collate* for a function that ranks a code point having no glyph. Use the verb
+the code performs. This reaches identifiers, comments, commit subjects and MR
+titles, and stops at the **branch name** - the branch is the MR's address and the
+reviewer pushes to it, so a rename orphans the review. A badly-named branch stays
+badly named.
 
 **Describe a gap as a gap, never as a design.** "The corpus tests computation"
 sounds like a scope decision. The fact is that **only `graphs_cov.txt` asserts
@@ -142,7 +157,7 @@ exactly that way, in the session that changed it.
 | [07-ci.md](07-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
 | [08-references.md](08-references.md) | external links | cold |
 | [09-glossary.md](09-glossary.md) | what the words mean, product and harness | mixed - see below |
-| this page | the rules | cold |
+| [10-writing.md](10-writing.md) | the rules | hot - tracks upstream |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3
 describe a tree **this repo does not control**, so they rot when upstream moves
@@ -194,7 +209,7 @@ does not check one.
 ## Code comments
 
 This repo's own code is shell; the product it drives is C. The rules above hold,
-plus these.
+plus these. Volume is what upstream review rejects hardest.
 
 **A comment lives two lives.** As you code and debug it is a **breadcrumb** - the
 history, the hypothesis, the value that surprised you all earn their place. Once
@@ -210,7 +225,9 @@ resolves...", or "used to be a stub".
 
 **State the invariant the code keeps, never the bug that motivated it.** "uvw to
 keep ll positive", not "xyz because ll went negative". The failure is history;
-the standing guarantee is the fact. The lane scripts do this well:
+the standing guarantee is the fact. Where the guarantee alone leaves a reader
+guessing, name **what the code prevents** - the standing condition, never the
+incident - and only there. The lane scripts do this well:
 
 ```sh
 # Tolerate an all-comment baseline (every finding fixed): grep -v then matches nothing and exits 1, which pipefail+set -e would turn into a spurious abort.
@@ -239,6 +256,27 @@ a reflow on every read. Do not break before column 160 unless a punctuation mark
 falls between 150 and 170; then break there, ending the line on one of
 `, . ; : ! ? "`.
 
+## Corpus comments
+
+A corpus file is `src/testSuite/tests/*.txt` in upstream c43, and `;` starts a
+comment. [04-testing.md](04-testing.md) owns the case grammar; this owns the
+prose between the cases.
+
+**Open with the banner box, 62 columns.** It states what the file covers, not how
+it works. Not every file agrees, so measure rather than copy the neighbour:
+
+```sh
+git show <sha>:src/testSuite/tests/bits_cov.txt | grep -m1 '^;\*' | awk '{print length($0)}'
+```
+
+**A corpus comment says what the case pins**: the symbol under test, the register
+number, the gate covering the accepted path. Stop there.
+
+**It does not argue for the fix.** Its reader is someone whose case just failed,
+not the reviewer deciding whether to merge. A sentence explaining why the case is
+right belongs in the MR body, read once, rather than in a test file, where it
+rots against a case nobody re-reads. Write the reasoning once, in the MR.
+
 ## Commit messages
 
 The commit is the durable record of *why*, and the only place history belongs.
@@ -256,6 +294,48 @@ The commit is the durable record of *why*, and the only place history belongs.
   is dead for every reader but its author.
 - A commit that changes a number a doc pins changes the doc too, in the same
   commit.
+
+## Merge request text
+
+An MR body goes to upstream c43 and is read by someone who did not write the fix.
+
+**The title is the commit subject**, and carries the naming rule above: a title
+that admits a second reading starts the review from the wrong one.
+
+**One defect per MR.** A finding turned up while fixing something else is
+flagged, not folded in. Flagging costs a paragraph; folding costs the review.
+
+**State the landing order when two MRs touch the same code**: which lands first,
+why, and what the corpus reads with both applied.
+
+**Give a line number only beside the commit it was read at.** These citations rot
+faster than anything else here, so lead with the symbol or the quoted source
+line.
+
+### The t47 rule: the named command, always
+
+**Never write `item <n>` in a script that reaches a reader** - not in an MR body,
+a corpus file, a doc page or a commit message. A bare number is unreadable to
+anyone without the item table in their head, and these scripts end up public.
+Upstream states it in `res/SCRIPTS/cli_automation_examples.txt`:
+
+> The legal and only accepted way to control, is to use commands, not item
+> numbers. [...] `item <n>` is the fallback ONLY, not the first choice, for a
+> name that cannot be typed.
+
+The fallback is narrow, and a name that is merely hard to find does not qualify:
+
+- Bare commands are registered lowercase (`m.dim 00`, `42dim#`, `scatr`); `xeq`
+  takes the catalog's own case (`xeq SCATR`).
+- A constant is not an untypable name - reach it with `cnst <n>`.
+- For a genuinely untypable name, copy it from the list that exists for this:
+  `./t47 --dslcommands` writes `t47-op-commands.txt`, carrying the item number,
+  the command name and the catalog name. `PLT f` is the case in point - its gap
+  is a U+2005 four-per-em, not a space - and pasted it resolves as `xeq PLT f`.
+  Braces and double quotes work; single quotes are not Jim quoting and fail.
+- An item named `>NNNN<` is legacy and barred outright: "not in a script, not in
+  a program, not as a stand-in for a name you cannot type". Look up the current
+  name.
 
 ## The gates
 
