@@ -17,25 +17,30 @@
 #    absent at 87c70c77a. Removed because the finding is fixed, not because the
 #    baseline was noisy.
 #
-# 2. ADDED: CRASH item=994 (fnSolveVar "SOLVE Var") and item=1002 (fnIntVar
-#    "fdx VarL") - SIGSEGV on all four stack types. Same documented class as the
-#    other CRASH entries: a handler called out of keyboard/menu context. Both do
-#      getNthString(dynamicSoftmenu[softmenuStack[0].softmenuId].menuContent,
-#                   dynamicMenuItem)
-#    (solve.c fnSolveVar, integrate.c fnIntVar) without guarding dynamicMenuItem.
-#    c47.c documents -1 as "no dynamic menu item is selected", and every other
-#    consumer honours it (programmableMenu.c ==-1; lblGtoXeq.c and print.c >=0);
-#    these two index with it instead. Bisected (git bisect run over the lane) to
-#    upstream 82d580db8 "default dynamicMenuItem to -1 so the first XEQ does not
-#    divert": that commit did not create the flaw, it made the sentinel take its
-#    documented value - the previous default 0 was a valid index that masked the
-#    missing guard. Not user-reachable: both items are CAT_NONE (in no catalog,
-#    so not XEQ/ASN reachable) and are only invoked from the MVAR dynamic
-#    softmenu, where the key press sets dynamicMenuItem >= 0. The scanner calls
-#    them headless with no menu, so it sees -1. Baselined as an out-of-context
-#    artifact; a guard in those two functions would retire these entries.
+# 2. REMOVED (fixed upstream): CRASH item=994 (fnSolveVar), item=1002 (fnIntVar)
+#    and item=1611 (fnStoreConfig "STOCFG"), and ADDED leakscan LEAK item=1611 in
+#    their place. All four changes are one commit: upstream 29bbdf017
+#    "fix(registers): a reserved variable keeps the type it was declared with"
+#    (MR !1664). It deleted an out-of-bounds write in setRegisterDataType():
+#      allNamedVariables[regist].header.dataType = dataType;   // regist is a
+#                                                              // RESERVED index
+#    which wrote past allNamedVariables[] into the pool. fnSolveVar and fnIntVar
+#    both resolve their variable through findOrAllocateNamedVariable(), which
+#    reads that table, so the corruption is what crashed them - not the
+#    dynamicMenuItem sentinel the previous note blamed. That guard
+#    (currentDynamicSoftmenu()/dynamicMenuItem bounds, upstream 243ae4648) was
+#    already present one commit earlier and did NOT retire the entries.
+#    Verified by pinning the lane either side of the fix:
+#      29bbdf017^ = 5496afd05   CRASH item=994, CRASH item=1611   gate PASSED
+#      29bbdf017                LEAK  item=1611, no CRASH         gate FAILED
+#    STOCFG no longer crashes because the OOB write became an error return, and
+#    the 840 bytes it had already put in the destination register are now
+#    visible: pool=840 gmp=0, identical on all four stack types, so a one-shot
+#    allocation and not per-iteration growth. That is the configuration block
+#    STOCFG exists to store - the same persistent-state class as the LEAK
+#    entries below, not an orphan leak.
 #
-# Triage (see __DEV/reports/REPORT-4-BUGS.md):
+# Triage:
 # - leakscan LEAK item=1202/1203/1465/1889 - persistent state
 #   (named vars / equations / refresh), not orphan leaks.
 # - CRASH item=... - handlers called out of keyboard/menu context.
@@ -44,7 +49,6 @@
 # Remove a line here only when the underlying finding is fixed upstream.
 
 keyscan CRASH seq=integrate_pgm_x20
-leakscan CRASH item=1002
 leakscan CRASH item=1197
 leakscan CRASH item=1483
 leakscan CRASH item=1484
@@ -53,7 +57,6 @@ leakscan CRASH item=1505
 leakscan CRASH item=1506
 leakscan CRASH item=1526
 leakscan CRASH item=1550
-leakscan CRASH item=1611
 leakscan CRASH item=1623
 leakscan CRASH item=1627
 leakscan CRASH item=1665
@@ -68,8 +71,8 @@ leakscan CRASH item=2773
 leakscan CRASH item=2774
 leakscan CRASH item=2785
 leakscan CRASH item=38
-leakscan CRASH item=994
 leakscan LEAK item=1202
 leakscan LEAK item=1203
 leakscan LEAK item=1465
+leakscan LEAK item=1611
 leakscan LEAK item=1889
