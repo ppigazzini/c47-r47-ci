@@ -38,8 +38,7 @@ LIMITS: tuple[tuple[str, str], ...] = (
     ("MAX_LONG_INTEGER_SIZE_IN_BITS", "long-integer cap, and the bound on GMP's alloca temporaries"),
     ("AIM_BUFFER_LENGTH", "alpha input buffer"),
     ("TMP_STR_LENGTH", "the shared scratch string"),
-    ("MAX_INTEGRATOR_NESTING_DEPTH", "runtime cap on nested integrate() re-entry"),
-    ("MAX_SOLVER_NESTING_DEPTH", "runtime cap on nested engine evaluation, if this tree has one"),
+    ("MAX_ENGINE_NESTING_DEPTH", "runtime cap on PLOT, INT and SOLVE nesting, counted together by engineNestingDepth"),
 )
 
 # Platform -> the macros its meson build defines. Sourced from src/c47-dmcp/meson.build (-DOLD_HW), src/c47-dmcp5/meson.build (-DNEW_HW),

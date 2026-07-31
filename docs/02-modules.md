@@ -1,6 +1,6 @@
 # The High-Level Modules
 
-Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 C47's directory names describe files, not systems, and that hides what the
 program actually contains. This page is the inventory of the **high-level
@@ -27,9 +27,9 @@ Five distinct input languages, each with its own scanner or parser:
 | surface | what it is, technically | components | literature term |
 |---|---|---|---|
 | the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1411` | bytecode / VM instruction-set design |
-| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:720` | keystroke programming (HP-41/42 model) |
+| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:661` | keystroke programming (HP-41/42 model) |
 | - its disassembler | byte-code back to listing text for the editor and browser | `programming/decode.c` | disassembly / listing generation |
-| - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:750`, `nextStep.c` | interpreter main loops; activation records / call frames |
+| - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:891`, `nextStep.c` | interpreter main loops; activation records / call frames |
 | - its symbol tables | global/local label scan (`labelList`, `programList`), named variables | `programming/manage.c:122` | symbol table management |
 | the EQN formula language | infix expression entry, parsed and evaluated against the register model; feeds the solver, grapher and integrator; edited in EIM, stored in `allFormulae` | `solver/equation.c` | expression parsing and evaluation |
 | the number-entry lexer | NIM tokenizes keystrokes into typed literals - integer bases, exponents, fractions, complex parts, angles - sharing one buffer with alpha entry | `bufferize.c:445` | lexing / tokenization |
@@ -52,13 +52,13 @@ edit or load re-derives the symbol tables by a single forward scan,
 `{program, step, labelPointer, instructionPointer}` where **`step < 0` marks a
 local label and `step > 0` a global one** (`typeDefinitions.h:650`), and
 `programList_t` records each program's first step. The scan stops at the first
-step it cannot decode - so does the step walker (`decode.c:104`) - which means
+step it cannot decode - so does the step walker (`nextStep.c:151`) - which means
 a corrupt byte silently truncates the visible program list rather than
 erroring.
 
 **The assembler.** PEM is not a text editor: each keystroke resolves to an
 item, and in PEM the dispatcher records the item as byte-code instead of
-running it (`items.c:720`, the `calcMode == CM_PEM` branch). Insert and delete
+running it (`items.c:661`, the `calcMode == CM_PEM` branch). Insert and delete
 shift the byte stream and re-scan.
 
 **The virtual machine.** `runProgram` (`lblGtoXeq.c:891`) is the
@@ -69,7 +69,7 @@ step's decoded length. Subroutine state is a **doubly-linked list of
 pool-allocated activation records**, `subroutineLevelHeader_t`
 (`typeDefinitions.h:466`): return program + step, counts of local flags and
 registers (whose storage is appended directly behind the header,
-`lblGtoXeq.c:191`), and next/previous level pointers. Two invariants a
+`lblGtoXeq.c:171`), and next/previous level pointers. Two invariants a
 maintainer needs:
 
 - `returnProgramNumber` is signed: **negative means the return address is in
@@ -102,7 +102,7 @@ re-parses the text**, once per solver sample or plot point.
 ### 1.3 Structure: the automation DSL
 
 `t47` embeds Jim Tcl whole (`dep/jimtcl`) and registers the calculator
-commands in one table (`dsl.c:1300`): state (`reg`, `var`, `flag`,
+commands in one table (`dsl.c:1307`): state (`reg`, `var`, `flag`,
 `loadst`/`savest`), programs (`readp`, `xportp`, `xeq`), input (`press`,
 `nim`, `item`), capture (`snap`). Everything a script can do funnels into the
 same dispatch and key paths as the keyboard - the DSL adds no second
@@ -118,7 +118,7 @@ variable `x`.
 |---|---|---|---|
 | decimal arithmetic | 34-digit IEEE 754-2008 decimal floating point - the value type of the whole machine | `dep/decNumberICU` | General Decimal Arithmetic (Cowlishaw) |
 | bignum integers | arbitrary-precision long integers | GMP, `longIntegerType.c` | arbitrary-precision arithmetic |
-| root finder | Brent's method with a Newton polish option | `solver/solve.c:463` | Brent's method / derivative-free root finding |
+| root finder | Brent's method with a Newton polish option | `solver/solve.c:485` | Brent's method / derivative-free root finding |
 | quadrature | double-exponential (tanh-sinh) integration | `solver/integrate.c:354` | Takahasi-Mori double-exponential transformation |
 | numeric differentiation | finite differences over a program or formula | `solver/differentiate.c`, `solver/finite_differences.h` | finite-difference stencils |
 | summation/product | programmed series evaluation | `solver/sumprod.c`, `solver/isumprod.c` | - |
@@ -202,11 +202,10 @@ the config as `kbd_usr[37]` (`typeDefinitions.h:328` block), one entry per
 physical key.
 
 **R/S and EXIT double as the computation interrupt**: `exitKeyWaiting()`
-(`c47Extensions/addons.c:1102`) is polled inside the solver, integrator,
-grapher and other long loops. The engines also clear the pending key code at
-entry (`solve.c:462`), so an interrupt key landing exactly between two nested
-evaluations is discarded - state the limit: the abort is only as responsive
-as the polling points.
+(`c47Extensions/addons.c:1113`) is polled inside the solver, integrator,
+grapher and other long loops. State the limit: the abort is only as responsive
+as the polling points, so an interrupt landing between two of them waits for the
+next one.
 
 ## 4. The presentation machine
 
