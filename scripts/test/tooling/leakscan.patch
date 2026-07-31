@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 819de3344..b35051305 100644
+index 0611796f2..2e2518fbb 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -11,9 +11,9 @@ index 819de3344..b35051305 100644
  
  #define NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED 34
  
-@@ -24,6 +26,13 @@ int32_t lineNumber, numTestsFile, numTestsTotal, successfulTests, failedTests;
- int32_t functionIndex, funcType, correctSignificantDigits;
- bool_t noFailForNow = true; // abortTest counts a failure only while set; starts true so the run's first test can fail
+@@ -29,6 +31,13 @@ bool_t caseSetupFailed;
+ // Set when an Out: line has already failed the case, so countUnreportedSetupFailure() does not count that same rejection again when the file or the block ends.
+ bool_t caseSetupReported;
  
 +// Per-test pool/GMP attribution (--testmem mode).
 +bool_t          testMemMode = false;
@@ -25,7 +25,7 @@ index 819de3344..b35051305 100644
  uint16_t label, functionParameter;
  
  GtkWidget      *screen;
-@@ -5088,6 +5097,53 @@ void stopTimerAndPrint(void) {
+@@ -5526,6 +5535,53 @@ void stopTimerAndPrint(void) {
  
  
  
@@ -79,7 +79,7 @@ index 819de3344..b35051305 100644
  void processLine(void) {
    // convert to upper case
    int32_t lg = strlen(line);
-@@ -5123,6 +5179,10 @@ void processLine(void) {
+@@ -5561,6 +5617,10 @@ void processLine(void) {
  
    else if(strncmp(line, "IN: ", 4) == 0) {
      //printf("%s\n", line);
@@ -90,17 +90,17 @@ index 819de3344..b35051305 100644
      strcpy(lastInParameters, line);
      inParameters(line + 4);
    }
-@@ -5171,6 +5231,9 @@ void processLine(void) {
-     successfulTests++;
-     noFailForNow = true;
-     outParameters(line + 5);
-+    if(testMemMode) { // a case completed; checked at the next IN (handles multi-OUT cases)
-+      testMemPending = true;
-+    }
+@@ -5615,6 +5675,9 @@ void processLine(void) {
+     }
+     else {
+       outParameters(line + 5);
++      if(testMemMode) { // a case completed; checked at the next IN (handles multi-OUT cases). A case whose setup failed never got here, so it is not measured.
++        testMemPending = true;
++      }
+     }
    }
  
-   else if(line[0] != 0) {
-@@ -5313,6 +5376,56 @@ int processTests(const char *listPath) {
+@@ -5760,6 +5823,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -157,7 +157,7 @@ index 819de3344..b35051305 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -5327,6 +5440,340 @@ int main(int argc, char* argv[]) {
+@@ -5774,6 +5887,340 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
