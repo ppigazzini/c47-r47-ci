@@ -1,6 +1,6 @@
 # C47 Architecture
 
-Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 A measured architecture analysis of the upstream C47 calculator application:
 what shape the code is in, why, and what that costs anyone changing it.
@@ -41,22 +41,22 @@ counts are blob lines, not SLOC: an upper bound, used for relative scale only.
 **assessment and an unadopted proposal** - see the warning before Section 9.
 
 **The structural conclusions hold; the fine-grained counts drift with upstream.**
-Measured at `33328e4cc`:
+Measured at the audit basis:
 
 | figure | value |
 |---|---|
-| `c47.h` lines / `#include`s | 639 / 134 |
+| `c47.h` lines / `#include`s | 643 / 134 |
 | `.c` files including `c47.h` | 228 of 229 |
 | `LAST_ITEM` | 2870 |
-| `extern` declarations in `c47.h` | 345 |
-| `DMCP_BUILD` uses / files | 414 / 45 |
-| `EXTRA_INFO_ON_CALC_ERROR` uses / files | 1800 / 172 |
+| `extern` declarations in `c47.h` | 343 |
+| `DMCP_BUILD` uses / files | 401 / 45 |
+| `EXTRA_INFO_ON_CALC_ERROR` uses / files | 1812 / 172 |
 | headers in `src/c47` | 243 |
 | `PC_BUILD` uses | 800 |
-| `#if`/`#ifdef`/`#ifndef`/`#elif` | 2781 |
-| `src` `.c`/`.h` files / lines | 525 / 179885 |
+| `#if`/`#ifdef`/`#ifndef`/`#elif` | 2804 |
+| `src` `.c`/`.h` files / lines | 525 / 182425 |
 | DMCP / DMCP5 hal adapters | 4 each |
-| commits | 13804 |
+| commits | 14098 |
 
 The conclusions do not move - one god header, one large single cycle, a
 preprocessor-based portability layer - but **re-measure before quoting any
@@ -82,8 +82,8 @@ This document describes the upstream product. It is not a plan of record for it.
 A high-precision RPN scientific calculator descended from WP43, targeting the
 SwissMicros DM42 family. One library, several targets.
 
-Repository: 13804 commits since 2018-12-23, 35 contributors, of whom the top five
-account for 11636 -- a small-core project with a long tail.
+Repository: 14098 commits since 2018-12-23, 36 contributors, of whom the top five
+account for 11821 -- a small-core project with a long tail.
 
 | target | what it is |
 |---|---|
@@ -94,7 +94,7 @@ account for 11636 -- a small-core project with a long tail.
 Plus two harnesses: `src/testSuite` (the behavioural corpus runner) and `src/t47`
 (a Jim/Tcl scripting DSL).
 
-meson is the build; the 54-target `Makefile` wraps `meson setup` / `ninja`. 15
+meson is the build; the 62-target `Makefile` wraps `meson setup` / `ninja`. 15
 `meson.build` files. Dependencies are explicit: `dep/decNumberICU` vendored,
 `dep/jimtcl` + `dep/DMCP_SDK` + `dep/DMCP5_SDK` as submodules, GMP via
 `subprojects/gmp-6.2.1.wrap`, GTK 3 and FreeType from the system.
@@ -102,50 +102,50 @@ meson is the build; the 54-target `Makefile` wraps `meson setup` / `ninja`. 15
 ## 2. Repository map
 
 ```
-  893 src        190 res        63 docs       38 dep
-   15 PROGRAMS     6 tools        3 subprojects
+  902 src        193 res       105 docs       38 dep
+   14 PROGRAMS    61 tools        3 subprojects
 ```
 
-`src` .c/.h only: 525 files / 179885 lines.
+`src` .c/.h only: 525 files / 182425 lines.
 
 ```
   area                             files    lines
-  src/c47/(root)                      81    71003   <- 46% of the library
-  src/c47/mathematics                257    44230
-  src/c47/solver                      18    10180
-  src/c47/c47Extensions               19     9813
+  src/c47/(root)                      81    72014   <- 46% of the library
+  src/c47/mathematics                257    44327
+  src/c47/solver                      18    10489
+  src/c47/c47Extensions               19     9788
   src/c47-gtk                         10     8241
-  src/c47/programming                 15     5877
-  src/testSuite                        7     5094
+  src/c47/programming                 15     5836
+  src/testSuite                        7     6127
   src/generateTestPgms                 1     4245
   src/c47/distributions               33     4237
-  src/t47                             14     3902
+  src/t47                             14     3956
   src/c47/ui                           6     3544
   src/c47/printing                     4     3409
   src/c47/browsers                     9     1083
-  src/c47/logicalOps                  23     1072
+  src/c47/logicalOps                  23     1080
   src/generateConstants                1      960
-  src/c47-dmcp5                        8      715
-  src/c47-dmcp                         8      689
+  src/c47-dmcp5                        8      729
+  src/c47-dmcp                         8      711
   src/ttf2RasterFonts                  2      536
-  src/c47/hal                          5      497
-  src/c47/core                         2      393
+  src/c47/hal                          5      548
+  src/c47/core                         2      400
   src/generateCatalogs                 1      134
   src/generated                        1       31
 ```
 
-The library `src/c47` is 472 files / 155338 lines, of which 229 are `.c`.
+The library `src/c47` is 472 files / 156755 lines, of which 229 are `.c`.
 
-368 of the 893 `src` files are not `.c`/`.h`: 325 `.txt` (mostly the corpus), 14
+377 of the 902 `src` files are not `.c`/`.h`: 334 `.txt` (mostly the corpus), 14
 `.xlsx`, 11 `meson.build`, 4 `.py`, and assorted `.rc`/`.md`/`.ld`/`.in`.
 
 Three directory names do not describe their contents:
 
-- **`core/` is 393 lines**: `freeList.c` (327) + `freeList.h` (66). An allocator,
+- **`core/` is 400 lines**: `freeList.c` (334) + `freeList.h` (66). An allocator,
   not a core.
-- **`ui/` is 6 files**: `matrixEditor.c` (1917), `tam.c` (1400), `tone.c` (38) and
-  headers. The user interface -- `screen.c` (6623), `display.c` (4012),
-  `keyboard.c` (4987), `softmenus.c` (4428), `statusBar.c` (1098) -- is in the
+- **`ui/` is 6 files**: `matrixEditor.c` (1916), `tam.c` (1401), `tone.c` (38) and
+  headers. The user interface -- `screen.c` (6674), `display.c` (4012),
+  `keyboard.c` (4982), `softmenus.c` (4444), `statusBar.c` (1110) -- is in the
   root.
 - **`hal/` is 5 headers and zero `.c`**. That one is deliberate (s5).
 
@@ -155,14 +155,14 @@ in an 81-file flat root with no subdirectory for display, input, persistence or
 state, though each exists as a concept and each has several files.
 
 ```
-  6623 screen.c        2538 defines.h       1279 charString.c
-  4987 keyboard.c      2416 registers.c     1258 conversionUnits.c
-  4734 items.c         2228 config.c        1258 c47.c
-  4428 softmenus.c     2147 plotstat.c      1224 dateTime.c
-  4012 display.c       1570 registerValueConversions.c
-  3048 items.h         1484 saveRestoreBackup.c
-  2789 bufferize.c     1483 stringFuncs.c
-  2793 saveRestoreCalcState.c              1346 curveFitting.c
+  6674 screen.c        2580 defines.h       1308 charString.c
+  4982 keyboard.c      2489 registers.c     1257 conversionUnits.c
+  4745 items.c         2266 config.c        1258 c47.c
+  4444 softmenus.c     2152 plotstat.c      1228 dateTime.c
+  4012 display.c       1628 registerValueConversions.c
+  3048 items.h         1540 saveRestoreBackup.c
+  2787 bufferize.c     1483 stringFuncs.c
+  2959 saveRestoreCalcState.c              1346 curveFitting.c
 ```
 
 `src/index spreadsheet/` (16 files, a space in the directory name) holds the
@@ -199,7 +199,7 @@ and every upward call is one of the violations catalogued in Section 8.3.
 | 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6039` `refreshScreen` |
 | 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:239` `reallyRunFunction` |
 | 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:754` `executeOneStep` |
-| 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:439` |
+| 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:94` `fnSolve` |
 | 12 | application | file formats, config | `saveRestoreBackup.c:242` `saveCalc` |
 
 Levels 9 to 11 are one block in practice, not three. `display.c` and `screen.c`
@@ -214,7 +214,7 @@ apart because that is the shape a split would take, not because the split exists
   `addItemToBuffer` routes AIM, TAM, NIM and MIM from one if/else chain
   (`bufferize.c:445`).
 - **The matrix type and the matrix editor are one component.**
-  `mathematics/matrix.h:234-236` declares `showMatrixEditor`, `mimEnter` and
+  `mathematics/matrix.h:228-230` declares `showMatrixEditor`, `mimEnter` and
   `mimAddNumber`, all implemented in `ui/matrixEditor.c`. A maths header exports
   a user interface.
 - **Statistics and plotting have no seam.** `plotstat.c` reads the statistics
@@ -363,7 +363,7 @@ with it.
    881  actual code          (19%)
 ```
 
-`items.c:778-1670`:
+`items.c:789-1681`:
 
 ```c
   #if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)
@@ -766,7 +766,7 @@ leaves `maths`: two downward edges, and two upward ones.
 | edge | proof |
 |---|---|
 | keyboard -> items | `keyboard.c:2272` `runFunction(item)` |
-| items -> the command | `items.c:402` `indexOfItems[func].func(param)` |
+| items -> the command | `items.c:409` `indexOfItems[func].func(param)` |
 | items -> buf | `items.c:697` `tamEnterMode(func)` |
 | prog -> items | `programming/lblGtoXeq.c:784` |
 | maths -> registers | `mathematics/addition.c:56` |
@@ -1108,7 +1108,7 @@ document came from reconstructing something the build had already computed.
 | testSuite links gtk | `src/testSuite/meson.build` `dependencies: [gtk_dep, gmp_dep, m_dep]`; `testSuite.c:29` `GtkWidget *screen;` |
 | conditionals | `grep -rhoE '^\s*#\s*(if\|ifdef\|ifndef\|elif)' src/c47` = 2781; PC_BUILD/DMCP_BUILD union = 67 files, 37 both |
 | item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 2870` at `items.h:2989` = 2871 slots; table `items.c:1784-4743` |
-| the 887 stubs | `items.c:778-1670`, 893 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
+| the 887 stubs | `items.c:789-1681`, 893 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
 | dispatch reach | the table's `func` symbols resolve to 205 of 229 files |
 | header cycle | `c47.h:120,165` -> `solver/solver.h:12` -> `solver/finite_differences.h:5` -> `c47.h` |
 | link graph | `nm` over `build.sim/src/c47-gtk/c47.p/*.o` (228 objects): 2408 edges; 222/228 in one SCC; CCD 50624; ACD 222.0; NCCD 32.10; 3023 globals, 0 duplicated |
@@ -1120,6 +1120,6 @@ document came from reconstructing something the build had already computed.
 | churn | 12mo window, existing paths, 5 sweeps >100 files excluded; stable for thresholds 100-400 |
 | corpus | `src/testSuite`: 322 `.txt`, 6 `.c` |
 | CI | `.gitlab-ci.yml` 170 lines; jobs macOS/Linux/Windows/dmcp/dmcp5/dmcp5r47/testSuite/codeDocs |
-| build | 15 `meson.build`; `Makefile` (54 targets) wraps `meson`/`ninja` |
+| build | 15 `meson.build`; `Makefile` (62 targets) wraps `meson`/`ninja` |
 | xlsx build inputs | `.gitlab-ci.yml:38-39` builds `xlsxio` to convert `sortingOrder.xlsx`; `src/index spreadsheet/` (16 files, spaces in the name) |
 | scale | `git rev-list --count` = 13804; `git shortlog -sn` = 35 authors; first commit 2018-12-23 |

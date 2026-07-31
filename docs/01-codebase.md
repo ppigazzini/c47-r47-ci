@@ -10,7 +10,7 @@ The product source is not in this repository. Clone it first:
 git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
-Audit basis: upstream `4697e526a3ffcbc75d5cb39ad9efe555f9c309dc`, 2026-07-29.
+Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 Every count on this page was measured at that commit; re-measure before relying
 on one. Line counts are blob lines, not SLOC: an upper bound, useful for
@@ -56,7 +56,7 @@ One library, several targets:
 
 `R47` is not a platform, and it is not a build either. `calcModel` is a runtime
 `uint8_t` (`c47.h:238`) that the **user** changes from the settings menu
-(`config.c:2161`, `calcModel = choice;`) and which persists across a restart.
+(`config.c:2199`, `calcModel = choice;`) and which persists across a restart.
 `-DCALCMODEL` only picks the power-on default - and `USER_R47` is not even a
 runtime value: `c47.c:34` rewrites it to `USER_R47f_g`. Ten models exist
 (`c47.h:257-258`), four of them R47 variants that differ by where f, g and
@@ -91,13 +91,13 @@ Three consequences worth knowing before choosing a harness:
   links GTK. The testSuite's `hal/gui.c` is stubs and its `hal/lcd.c` renders to
   a buffer; it is display-less, not GTK-less ([00-architecture.md](00-architecture.md) s5.4).
 - **`t47` is the `r47` build, not a separate program.** `T47` is consumed at one
-  place, `defines.h:419`, which `#undef`s the DM42/monitor/debug options. Its
+  place, `defines.h:421`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
   `press` is registered in every build but refuses when headless, so keyboard tests need
   the GTK binary under xvfb ([04-testing.md](04-testing.md) s3).
 
-Scale at `33328e4cc`: 13804 commits; 525 tracked `.c`/`.h` files totalling
-179885 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count
+Scale at the audit basis: 14098 commits; 525 tracked `.c`/`.h` files totalling
+182425 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count
 is [04-testing.md](04-testing.md) s1.
 
 ## 3. Repository map
@@ -262,7 +262,7 @@ overridden per target:
 | `dist_dmcp5`, `dist_dmcp5r47` | `build.dmcp5` | `c47-dmcp5.zip`, `r47-dmcp5.zip` |
 
 `make t47` alone resolves to `t47: simr47` (`Makefile:117`), so `./t47` is the
-R47 build. `T47` is consumed only at `src/c47/defines.h:419`, which `#undef`s the
+R47 build. `T47` is consumed only at `src/c47/defines.h:421`, which `#undef`s the
 DM42/monitor/debug options: a quiet variant, not a separate program.
 
 ### The generator pipeline
@@ -352,8 +352,8 @@ too.
 
 Three facts explain most of the codebase's shape.
 
-**`src/c47/c47.h` is a bundle, not an API.** 639 lines, 134 `#include`
-directives, 345 `extern` declarations. 228 of the 229 `.c` files under `src/c47`
+**`src/c47/c47.h` is a bundle, not an API.** 643 lines, 134 `#include`
+directives, 343 `extern` declarations. 228 of the 229 `.c` files under `src/c47`
 include it, and for most it is the only project header they include. Every
 translation unit therefore sees every declaration. The consequences - no
 encapsulation, no compiler-checkable layering, no unit-test isolation, and why
@@ -407,7 +407,7 @@ The `param` is the second half of the mechanism. It comes from the table row -
 `indexOfItems[func].param` - unless TAM supplied one (Section 10). That is how
 one C function serves many items: `fnStore` is the function for `STO`, and the
 row's `param` distinguishes `STO+`, `STO-`, `STOm`, and so on. It is also how
-the 284 `UNIT_CONV(...)` rows work: they expand at `items.c:1772-1773` to a row
+the 286 `UNIT_CONV(...)` rows work: they expand at `items.c:1783-1784` to a row
 whose `func` is `fnUnitConvert` and whose `param` is `unit | invert`.
 
 **The categories.** `status & CAT_STATUS` classifies each row
@@ -517,7 +517,7 @@ Two mode values are worth knowing for the wrong reasons. `CM_ERROR_MESSAGE` (9)
 has **no writer anywhere** - errors set `lastErrorCode` instead (`error.c:296`) -
 yet four `switch` arms still handle it. `CM_NO_UNDO` (16) is in no `determineItem`
 branch, so a key pressed while `complexSolver()` holds it reaches the bug screen
-at `keyboard.c:1688`.
+at `keyboard.c:1692`.
 
 ## 6. The data model
 
@@ -619,7 +619,7 @@ know:
 
 - **A data block's size is recoverable only by reading the block itself** -
   a string's or long integer's length is in its own first block, a matrix's
-  dimensions in its own header (`registers.c:1154-1192`). Corrupt one and the
+  dimensions in its own header (`registers.c:1203-1232`). Corrupt one and the
   next free passes a wrong size to the allocator.
 - An over-long write inside the pool is invisible to ASan and valgrind, because
   the pool is one `malloc`. That is why [05-debugging.md](05-debugging.md) s5 exists.
@@ -678,7 +678,7 @@ header on each use, and that is the contract, not an inefficiency.
 ## 7. The calculator's state
 
 There is no state object. The calculator's state is the mutable globals
-declared in `c47.h` (345 `extern` declarations in total) and visible to all 228
+declared in `c47.h` (343 `extern` declarations in total) and visible to all 228
 translation units - see [00-architecture.md](00-architecture.md) s3 for what that costs. What
 follows is where the state that matters actually lives.
 
@@ -686,7 +686,7 @@ follows is where the state that matters actually lives.
 
 | what | global | declared |
 |---|---|---|
-| registers 0-136 | `globalRegister[NUMBER_OF_GLOBAL_REGISTERS]` | `c47.h:350` |
+| registers 0-136 | `globalRegister[NUMBER_OF_GLOBAL_REGISTERS]` | `c47.h:354` |
 | named variables 256-1999 | `allNamedVariables` (pointer into the pool) | `c47.h:338` |
 | local registers 7000-7098 | `currentLocalRegisters` (behind the subroutine header) | `c47.h:349` |
 | reserved variables 2000-2047 | `allReservedVariables[]`, a `const` table + fixed pool blocks | `registers.c:61` |
@@ -736,7 +736,7 @@ normal path that resets it.
 | the program index | `programList` | `c47.h:366` |
 | the edit/run cursor | `currentStep`, `programListEnd`, `pemCursorIsZerothStep` | `c47.h:374`, `c47.c:53-54` |
 | run state | `programRunStop` (`PGM_STOPPED`/`PGM_RUNNING`/`PGM_WAITING`/`PGM_SINGLE_STEP`) | `c47.h:440` |
-| the return stack | `currentSubroutineLevelData` - a linked list in the pool | `c47.h:330` |
+| the return stack | `currentSubroutineLevelData` - a linked list in the pool | `c47.h:334` |
 
 `labelList` and `programList` are **derived state**: they are rebuilt from the
 program bytes by `scanLabelsAndPrograms()` after any edit, load or restore. The
@@ -793,7 +793,7 @@ parameter.
 | the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:337` |
 | pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:453` |
 | the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:379` |
-| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:345` |
+| user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:347` |
 | the frame buffer | `lcd_buffer` (240 rows x 52 bytes) | `c47.h:240` |
 | refresh budget | `screenUpdatingMode` (a suppression bitmask) | `c47.h:445` |
 
@@ -829,7 +829,7 @@ The library calls the contract, not the platform: the save/restore files call
 possible - it runs the whole calculator with no window and no hardware.
 
 **All drawing funnels through one function.** The screen is 400x240
-(`defines.h:1444-1445`), 1 bit per pixel, and every pixel primitive is a
+(`defines.h:1477-1478`), 1 bit per pixel, and every pixel primitive is a
 `static inline` wrapper over `bitblt24` in `hal/lcd.h`:
 
 ```c
@@ -848,7 +848,7 @@ and 50 bytes = 400 bits. On DMCP it is bound to the SDK's own buffer
 Note the input lines overlay the register lines rather than having their own
 space: `Y_POSITION_OF_NIM_LINE` equals `Y_POSITION_OF_REGISTER_X_LINE`, and
 `Y_POSITION_OF_TAM_LINE` equals `Y_POSITION_OF_REGISTER_T_LINE`
-(`defines.h:1436-1438`). Refresh is budgeted, not unconditional:
+(`defines.h:1471-1473`). Refresh is budgeted, not unconditional:
 `screenUpdatingMode` is a bitmask that lets callers suppress regions, and
 `_refreshNormalScreen` early-exits when it is not `SCRUPD_AUTO`.
 
@@ -1005,8 +1005,8 @@ Three things surprise most readers:
 ### 10.1 What the diagram cannot show
 
 **The item survives the press only in a global.** `showFunctionName` stores it -
-`showFunctionNameItem = item` (`screen.c:2097`) - and `btnReleased` reads it back
-(`keyboard.c:2137-2138`). Nothing else carries the item between the two halves of
+`showFunctionNameItem = item` (`keyboard.c:680`) - and `btnReleased` reads it back
+(`keyboard.c:1009-1011`). Nothing else carries the item between the two halves of
 a key press, so anything that clears that global mid-press cancels the command.
 
 **Digits are the exception: they act on press.** `processKeyAction` consumes
@@ -1024,7 +1024,7 @@ following digits overwrite X instead of pushing.
 
 **Errors are polled, never returned.** No function in the dispatch chain returns
 a status. `displayCalcErrorMessage` sets `lastErrorCode`, and each layer tests it
-afterwards: `reallyRunFunction` undoes the operation (`items.c:581`), and
+afterwards: `reallyRunFunction` undoes the operation (`items.c:588`), and
 `runProgram` breaks out of its loop without advancing the step
 (`lblGtoXeq.c:919`), which is why a stopped program rests on the offending line.
 
@@ -1035,7 +1035,7 @@ an error and acting on it are the same keystroke - there is no acknowledge step.
 **`refreshScreen` is not a pure renderer and not idempotent.** It pushes
 softmenus, can write `calcMode`, and on exit latches
 `SCRUPD_MANUAL_STATUSBAR | SCRUPD_MANUAL_STACK | SCRUPD_MANUAL_MENU`
-(`screen.c:5965`), so an immediate second call is close to a no-op until
+(`screen.c:6039`), so an immediate second call is close to a no-op until
 something clears those bits. Register lines are drawn T, Z, Y, X in that order
 and the order is load-bearing.
 
