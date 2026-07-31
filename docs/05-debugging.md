@@ -20,10 +20,10 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 ## 1. Why the standard tools are not enough
 
-Verified in `../c43/src/c47/`:
+Verified in `src/c47/` of the upstream clone:
 
-- `ram` is a single `uint32_t *` (`c47.h:335`), `malloc`ed once in
-  `config.c:1533`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
+- `ram` is a single `uint32_t *` (`c47.h:337`), `malloc`ed once in
+  `config.c:1545`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
 - GMP is separate: `allocGmp`/`reallocGmp`/`freeGmp` (`memory.c`) are installed
@@ -43,13 +43,14 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`../c43/src/c47/defines.h:2208-2213`:
+`src/c47/defines.h:2250-2255`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
 #define BYTES_PER_BLOCK     (1 << BPB)
 #define TO_BLOCKS(n)        ((((uint32_t)n) + (BYTES_PER_BLOCK - 1)) >> BPB)
 #define TO_BYTES(n)         (((uint32_t)n) << BPB)
+
 #define C47_NULL            65535 // NULL pointer
 ```
 
@@ -57,7 +58,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2080-2087`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2083-2090`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -425,7 +426,7 @@ so adding a free inside would double-free.
 
 ### 6.2 The attribution trap
 
-Upstream's own `items.c:620` diagnostic prints the **running total** after each
+Upstream's own `items.c:633` diagnostic prints the **running total** after each
 function. Reading it as a per-function attribution produced a completely wrong
 audit scope (golden/power/root) when the real trigger was CHS. The first
 non-zero total appears "after STO" and means nothing about where the leak is.
@@ -463,7 +464,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:4265`). Unregistered functions return "cannot find the function to
+(`testSuite.c:5311`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 

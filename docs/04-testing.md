@@ -473,7 +473,7 @@ else let `fnLoadProgram` report the failure. The plumbing is
 loader appends `.END.` as needed, calls `scanLabelsAndPrograms()`, then
 `goToGlobalStep(...)`.
 
-Programs live in `../c43/res/PROGRAMS/`: `.p47` are loadable, `.rtf` are the
+Programs live in `res/PROGRAMS/` of the upstream clone: `.p47` are loadable, `.rtf` are the
 human-readable exports. Ones we have used: `SPIRALk`, `BinetV4`, `GudrmPL`,
 `MANSLV2`, `NQueens`, `TRIv1p14`, `GRAPHS`, `TSTPLOT`, `INTDEMO`, `OpAmp`,
 `47DEFLT`.
