@@ -14,7 +14,9 @@ Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
 Every count on this page was measured at that commit; re-measure before relying
 on one. Line counts are blob lines, not SLOC: an upper bound, useful for
-relative scale only.
+relative scale only. One row is newer than the basis and names its own commit:
+`press` gained a headless path in upstream `633afdc97`, so the keyboard row of
+the harness table below no longer needs a window.
 
 ## 1. What this page does not cover
 
@@ -76,7 +78,7 @@ input stack they exercise:
 | HAL adapter | `src/c47-gtk/hal/` (5 files) | same as GTK | `src/testSuite/hal/` (5 files) | `src/c47-dmcp{,5}/hal/` (4 files; the SDK supplies the LCD) |
 | entry | `c47-gtk.c` | `c47-gtk.c` | `testSuite.c` | SDK `startup_pgm.s` |
 | driven by | keys and menus | Jim/Tcl DSL (`readp`, `xeq`, `item`, `reg`, `press`) | a `.txt` corpus, calling functions directly | keys |
-| keyboard/menu layer | yes | only with a window (`press` refuses headless) | no | yes |
+| keyboard/menu layer | yes | yes, headless included (`press`, since upstream `633afdc97`) | no | yes |
 | pool size | 65534 blocks | 65534 | 65534 | 16384 (DM42) / 65534 (DM42n) |
 | links GTK | yes | yes | **yes** - see below | no |
 
@@ -93,8 +95,9 @@ Three consequences worth knowing before choosing a harness:
 - **`t47` is the `r47` build, not a separate program.** `T47` is consumed at one
   place, `defines.h:421`, which `#undef`s the DM42/monitor/debug options. Its
   DSL lives in `src/t47/` and is linked into the simulator through `t47_dep`.
-  `press` is registered in every build but refuses when headless, so keyboard tests need
-  the GTK binary under xvfb ([04-testing.md](04-testing.md) s3).
+  `press` works in every front end, headless included, since upstream
+  `633afdc97`; what still wants a display server is `gtk_init`, not the keypress
+  ([04-testing.md](04-testing.md) s3).
 
 Scale at the audit basis: 14098 commits; 525 tracked `.c`/`.h` files totalling
 182425 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count

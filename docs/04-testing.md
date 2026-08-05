@@ -11,6 +11,11 @@ font or blitter change looks like - and are re-pinned below. Two things on this 
 measurement method was never recorded, and the anecdotes in Sections 6 and 7,
 which describe past incidents and leave no artifact to check.
 
+One subject is read against a **later** commit than the basis, and says so where
+it appears: upstream `633afdc97` made `press` work headless, which retired what
+Section 3 and the driver table used to say about needing the GUI for a keypress.
+Those paragraphs were re-measured at `dbc5cb45b`; nothing else on the page was.
+
 How to drive the calculator and how to write a test that actually tests.
 
 Four subjects next to this one belong to other pages and are not restated here:
@@ -43,8 +48,8 @@ than a count written down here - it moves with upstream.
 | driver | what it is | use it when |
 |---|---|---|
 | `testSuite` | the corpus runner: reads `.txt` files, calls functions directly | asserting a computed value |
-| `t47` | the simulator plus a Jim/Tcl DSL, forced headless | you need state set up, a program run, or a register read |
-| `c47` under `xvfb-run` | the same binary with its GTK front end, so real key presses work | the path is only reachable through the keyboard or a menu |
+| `t47` | the simulator plus a Jim/Tcl DSL, forced headless | you need state set up, a program run, a register read, or a keypress |
+| `c47` | the same binary with its GTK front end drawn on screen | you want to watch it, or you need what only a mouse click raises |
 
 The corpus never touches the keyboard or the menus. It reaches the screen in
 exactly one file: `graphs_cov.txt` renders each plot with `SNAP` and pins a
@@ -55,13 +60,15 @@ rendering - carries no assertion at all.
 **Asserting the screen does not need a GUI.** The test HAL renders into a real
 1bpp frame buffer (`src/testSuite/hal/lcd.c`) with the same row stride as the
 GTK blitter, which is how `SNAP` works with no window. `./c47 --headless` and
-`t47` are display-less the same way - they still link and initialise GTK
+`t47` draw no window either - they still link and initialise GTK
 ([00-architecture.md](00-architecture.md) s5.4). What needs `xvfb-run` is
-`press`, because a key event needs a realized window.
+`gtk_init`, which every front end calls unconditionally, and not `press`: since
+upstream `633afdc97` the DSL presses keys headlessly too (Section 3).
 
 **A softmenu can be opened and hashed headlessly**, so the gap above is a gap,
-not a constraint. Measured at the audit basis, `DISPLAY` and
-`WAYLAND_DISPLAY` unset, first 16 hex digits of each bitmap's SHA-256:
+not a constraint. Measured at the audit basis with `DISPLAY` and
+`WAYLAND_DISPLAY` unset - which is not the same as no display server, see
+Section 3 - first 16 hex digits of each bitmap's SHA-256:
 
 ```bash
 ./t47 --reset --exec 'snap s_base'             # e598d3a891c16453
@@ -234,7 +241,7 @@ Those reasons are the durable fact; the count moves with the catalog.
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
 | `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1130`). |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
-| `press` | registered in every build; **refuses at runtime when headless** (`dsl.c:995-1001`) | Section 3. |
+| `press` | one key per call; **works headless** since upstream `633afdc97` (`dsl.c` `injectScriptKey`) | Section 3. |
 
 **A single-letter name is a register, never a named variable.** `reg` and `var`
 resolve their argument through `dslParseRegisterArg` (`value.c:59`): one
@@ -253,7 +260,7 @@ keyboard the next keypress acknowledges it, but the DSL enters through
 program only when `lastErrorCode == ERROR_NONE` (`lblGtoXeq.c:201`) - the `xeq`
 returns with nothing run and no DSL-visible failure. No DSL command performs
 the acknowledgment (`nim` does not clear it, measured). Split the script at the
-abort, or drive `c47` under xvfb and `press` EXIT first.
+abort, or `press` EXIT first - which `t47` can now do itself.
 
 Value literals (`src/t47/value.c`): real `2.5`; complex `"3 + ix4"`; short
 integer `"FF#16"` (base 2..16); long integer `"12345678901234567890"`; date
@@ -357,7 +364,7 @@ G, H, K), and monadic XFN zeroes T/A/B because XFN owns six registers as two
 triples. Safe spare registers for user-program parameters are **E, F, O, U, V,
 W** only.
 
-## 3. GTK simulator under xvfb (when only a real key press will do)
+## 3. Pressing keys (when only a real key press will do)
 
 Needed when the path is reachable only through the keyboard/menu layer: the
 matrix editor (MIM), program editor (PEM), equation editor (EIM), TAM parameter
@@ -365,20 +372,51 @@ entry.
 
 ```bash
 cd ~/_git/c43            # MUST run from the repo root: res/ CSS is cwd-relative
-xvfb-run -a ./c47 --reset --exec 'press 1; press ENTER; puts "X=[reg X]"'
+./t47 --reset --exec 'press 1; press ENTER; puts "X=[reg X]"'
+xvfb-run -a ./t47 --reset --exec 'press 1; press ENTER; puts "X=[reg X]"'   # machine with no display
 ```
+
+**`press` no longer needs the GUI.** Upstream `633afdc97` added
+`scriptInjectKeyHeadless()` (`gtkGui.c`), and `injectScriptKey()` picks it over
+`scriptInjectGtkKey()` whenever `headlessMode` is set (`dsl.c`), so the runtime
+refusal this section used to describe is gone. Upstream states it too:
+"t47 and c47 are one build, two front ends [...] The whole DSL runs in both,
+press included" (`res/SCRIPTS/cli_automation_examples.txt`).
+
+**A display server is still required, for `gtk_init` rather than for `press`.**
+`gtk_init` runs unconditionally in every front end (`c47-gtk.c:428`), so on a
+machine with no X server the run dies at start-up with
+`Gtk-WARNING **: cannot open display:` and never reaches the script - measured at
+`dbc5cb45b` under `env -i`, exit 1. `xvfb-run` therefore stays in the CI lanes,
+and it now wraps whichever front end the lane wants. Unsetting `DISPLAY` and
+`WAYLAND_DISPLAY` is **not** the same test: GTK's Wayland backend falls back to
+`$XDG_RUNTIME_DIR/wayland-0`, which is why a scripted run still works on a
+Wayland desktop with both variables cleared.
+
+Measured at `dbc5cb45b`, `scripts/test/ui/ij-preservation.t47` passes identically
+four ways: `xvfb-run ./c47 --script`, `xvfb-run ./c47 --headless --script`,
+`xvfb-run ./t47 --script`, and `./t47 --script` on a Wayland desktop.
 
 `c47` and `t47` are **the same binary**, byte for byte (`md5sum c47 t47`
 matches): `make simc47 t47` builds one tree and `cp`s the result, and `main`
 reads `argv[0]` to force headless when the basename is `t47`
-(`c47-gtk.c:376`). `press` is registered in both and refuses at runtime in the
-headless one - it is not absent, see below. Build both with `make simc47 t47`
-**exactly** - a bare `make t47` builds the R47-based t47 instead.
+(`c47-gtk.c:376`). Build both with `make simc47 t47` **exactly** - a bare
+`make t47` builds the R47-based t47 instead.
 
 A consequence worth knowing: because that invocation builds everything in
 `build.sim.t47`, **the `c47` you get is itself a `-DT47` build** with the debug
 options compiled out. It is the right binary for a keyboard test and the wrong
 one for reading debug output.
+
+What the GUI still has that a headless run does not: the release handlers.
+`btnReleased`/`btnFnReleased` are wired only to GTK `button-release-event`
+signals - `gtkGui.c:5704-5709` for the softkeys, `:5817` onwards for the 37
+physical keys - so anything that happens when an on-screen button is let go needs
+a mouse click and cannot be scripted at all. `press` reaches the press handlers:
+`F1`-`F6` call `btnFnClicked()` and `@k NN` calls `btnClicked()` directly, while
+a single character, `ENTER` and `R/S` go through `injectScriptKey()`, which
+delivers a key-press and a key-release event in the GUI and calls `keyPressed()`
+and `keyReleased()` directly when headless.
 
 **Only `press` reaches the keyboard and menu decode.** `item` and `xeq` call the
 function directly, so anything behind TAM parameter entry or a softmenu is
@@ -387,7 +425,7 @@ scriptable at all. Driving the matrix editor to cell 2;2, which `snap` then
 shows as `2;2=`:
 
 ```bash
-xvfb-run -a ./c47 --reset --exec 'nim 3; nim 3; m.dim 00; rcl 00; m.edit; press F6; press @f; press F6; snap'
+./t47 --reset --exec 'nim 3; nim 3; m.dim 00; rcl 00; m.edit; press F6; press @f; press F6; snap'
 ```
 
 In M_EDIT `F5`/`F6` are left/right and
@@ -396,8 +434,6 @@ to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:83-87`), so a
 later `nim` pushes the matrix out of X - index a numbered register instead when
 the test needs the stack.
 
-- `gtk_init` runs unconditionally (`c47-gtk.c:428`), so a DISPLAY or `xvfb-run`
-  is required **even headless**.
 - The repo root is mandatory for the GUI: `prepareCssData()`
   (`src/c47-gtk/gtkGui.c:1974`) does `fopen(CSSFILE, "rb")` at `:1980` on
   `res/c47_pre.css` and calls `exit(1)` at `:1983` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
@@ -408,12 +444,8 @@ the test needs the stack.
   on Linux, `c47` from a foreign cwd dies with
   `error opening file res/c47_pre.css!`.
 - **`press` takes ONE key per call** (`press 1; press ENTER`), or a Tcl list.
-  Registered in every build, so a headless script gets a named refusal rather than
-  "invalid command name": it returns a Jim error and the script exits non-zero.
-  The headless gate at `dsl.c:1004` is what blocks every token; only the single
-  character, `ENTER` and `R/S` paths go through `scriptInjectGtkKey`, which needs
-  a realized window (`gtkGui.c:128`). `F1`-`F6` and `@k NN` call the button
-  handlers instead. Either way the command needs the GTK binary under xvfb.
+  An unknown token is a Jim error naming the token, and the script exits
+  non-zero.
 - Tokens: `F1`..`F6` (softkeys); `@f` / `@g` (shift toggles); `@k NN`; a single
   ASCII char; `ENTER`; `R/S`. Case-insensitive for `ENTER` and `R/S`. **`Return`
   is not a token** - the name is only the GDK keyval `ENTER` injects, and

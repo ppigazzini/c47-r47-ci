@@ -51,10 +51,14 @@ to reproduce a CI coverage failure.
 - `run-ui.sh` - the only lane that drives the keyboard. Builds the simulator
   (`make simc47 t47`) and runs every `ui/*.t47` through the **GTK** front end
   under `xvfb-run`, gating on each script's exit status. It runs `./c47`
-  **without** `--headless` on purpose: `press` is the one DSL command that needs
-  GTK, and `--headless` is GTK-less by design, so `t47` reports it as an unknown
-  command. Needs no upstream patch. Reaches what no other lane can - softmenu
-  decode, TAM entry and the matrix editor cursor.
+  **without** `--headless` so the keys arrive the way a user's do, as GTK events
+  through `scriptInjectGtkKey`, which the headless path bypasses. That is now the
+  only reason: upstream `633afdc97` gave `press` a headless twin, so `t47` runs
+  these same scripts unchanged - measured on `ui/ij-preservation.t47` at
+  `dbc5cb45b`, which passes under `xvfb-run ./c47`, `xvfb-run ./c47 --headless`
+  and `xvfb-run ./t47` alike. The `xvfb-run` is for `gtk_init`, not for the
+  keypress; see the note below. Needs no upstream patch. Reaches what no other
+  lane can - softmenu decode, TAM entry and the matrix editor cursor.
 - `ui/*.t47` - one self-checking DSL script per test, each exiting 0 on success
   and 1 with the failing check named. `ui/ij-preservation.t47` locks in upstream
   MR !1553: the matrix editor and the vector functions must leave the user's

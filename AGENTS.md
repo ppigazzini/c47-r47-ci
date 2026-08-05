@@ -157,11 +157,14 @@ catalogue. Read it before trusting any lane result.
   defines GTK callbacks inside itself.
 - **`c47` and `t47` are one binary, byte for byte** - the front end is picked
   from `argv[0]`, with `t47` forcing headless. Build both with `make simc47 t47`
-  exactly: a bare `make t47` builds the R47-based t47 instead. `press` needs a
-  realized window, so keyboard tests run `./c47` under `xvfb-run`, **from the
-  repo root** on Linux - the chdir that would lift that is `__APPLE__`-only
-  (`c47-gtk.c:73`). Upstream's `res/SCRIPTS/cli_automation_examples.txt` is the
-  DSL's own reference; read it before writing a script.
+  exactly: a bare `make t47` builds the R47-based t47 instead. **`press` works in
+  every front end**, headless included, since upstream `633afdc97`; what still
+  needs a display is `gtk_init`, which the binary calls unconditionally, so a
+  keyboard test on a machine with no X server runs under `xvfb-run` whichever
+  front end it uses. Run it **from the repo root** on Linux - the chdir that
+  would lift that is `__APPLE__`-only (`c47-gtk.c:73`). Upstream's
+  `res/SCRIPTS/cli_automation_examples.txt` is the DSL's own reference; read it
+  before writing a script.
 - **One corpus file asserts the screen; the rest do not.** `graphs_cov.txt`
   renders through `SNAP` and pins a SHA-256 of the bitmap (`fnHashBmpCov`), so a
   change to the grapher, the fonts or the blitter fails it. Nothing else does:

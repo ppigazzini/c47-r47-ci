@@ -33,7 +33,7 @@ The repository holds three things:
 | [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
 | [02-modules.md](02-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
 | [03-build.md](03-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
-| [04-testing.md](04-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, GTK under xvfb), and the rules for writing a test that actually tests |
+| [04-testing.md](04-testing.md) | All contributors | The behavioural corpus, the three drivers (testSuite, t47, the GTK front end), and the rules for writing a test that actually tests |
 | [05-debugging.md](05-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
 | [06-memory.md](06-memory.md) | Anyone allocating, recursing or sizing a buffer | The machine under the pool, per platform: the limits matrix for both hardware targets and the simulator, the SRAM map, which stack a program actually runs on and what bounds it, what a nested engine level costs - and why a simulator run cannot answer a DM42 question |
 | [07-ci.md](07-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |

@@ -6,11 +6,18 @@
 # has no DSL, so anything that only a keypress can drive - TAM parameter entry,
 # softmenu decode, the matrix editor's cursor - is untested everywhere else.
 #
-# This lane needs no upstream patch. press is the one DSL command that requires
-# GTK, and --headless is GTK-less by design, so a keyboard test runs the GTK
-# front end (c47) WITHOUT --headless, under a virtual X server. Upstream states
-# this in res/SCRIPTS/cli_automation_examples.txt: "press, which needs GTK: c47
-# only". Do not reach for t47 here - it will report the command as unknown.
+# This lane needs no upstream patch. It runs the GTK front end (c47) WITHOUT
+# --headless so the keys arrive the way a user's do: as GTK key events through
+# scriptInjectGtkKey. Upstream 633afdc97 gave press a headless twin
+# (scriptInjectKeyHeadless, picked in dsl.c when headlessMode is set), so t47
+# runs these scripts too - ui/ij-preservation.t47 passes under xvfb-run ./t47
+# and under xvfb-run ./c47 --headless, measured at dbc5cb45b. Keeping the GUI
+# front end is what makes this lane the only cover for the GTK event path.
+#
+# The xvfb-run below is for gtk_init, which every front end calls before it
+# parses its arguments (c47-gtk.c:428), and not for press: with no display
+# server any of these binaries exits 1 with "cannot open display" before the
+# script runs. See scripts/test/README.md.
 #
 # c47 returns the script's exit status when given --script (c47-gtk.c:540-549),
 # so the gate is simply that status. Each scripts/test/ui/*.t47 file is one test

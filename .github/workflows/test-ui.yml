@@ -5,8 +5,9 @@ name: Test UI
 #   bash scripts/test/run-ui.sh
 #
 # This is the only lane that drives the keyboard. It runs the GTK front end
-# (c47) WITHOUT --headless under xvfb, because press is the one DSL command
-# that needs GTK and --headless is GTK-less by design. No upstream patch is
+# (c47) WITHOUT --headless under xvfb, so the keys arrive as GTK events the way
+# a user's do; press itself works headless since upstream 633afdc97. The xvfb is
+# for gtk_init, which every front end calls regardless. No upstream patch is
 # required: the capability is already in upstream master.
 
 on:
