@@ -514,6 +514,28 @@ was already ~67%, so new cases
 overlap. Clean wins are files genuinely cold: `iteration.c` 0->79,
 `saveRestoreBackup.c` 0->80, `compare.c` 21->51.
 
+### 7.3 The host build compiles a different function from the one three DM42 packages ship
+
+A residual the coverage number cannot show, because the uncovered code is not in
+the binary being measured. `src/c47/defines.h` carries `OPTION_CUBIC_159`,
+`OPTION_SQUARE_159` and `OPTION_EIGEN_159` - the 159-digit internal paths for
+`SLVC`, `SLVQ` and the eigensolver - defined for the host and **undefined for
+DM42 packages 1 to 3**, which get the 75-digit siblings instead
+(`solveCubicEquation()` against `solveCubicEquation159()`, `slvq.c`). They are
+not the same code, and only one of the pair is compiled at a time.
+
+So every corpus run, every coverage run and every fuzz run exercises the
+159-digit twin, and the 75-digit one that ships to those three packages **has
+never been executed by anything in this harness**. It is not a low-coverage
+line; it is absent from the object file. The gap is wide enough to hide a
+wrong-answer defect: on a tree the corpus reports green, undefining the two
+options and sweeping `SLVC` returned **811 of 1815** cubic roots wrong.
+
+Treat any `#undef` under a `DMCP_PACKAGE` guard the same way. To test what a
+package actually ships, undefine the options that package undefines and re-run,
+rather than reading a percentage measured on package 4's configuration. The
+package matrix is in [06-memory.md](06-memory.md).
+
 ## 8. Fuzzing
 
 Three lanes, all libFuzzer + ASan + UBSan under clang:
@@ -848,6 +870,19 @@ Every one of these has silently passed a broken thing at least once.
     citation by path suffix, never by basename** - the GMP subproject ships its
     own `memory.c` and `config.c`, and a basename match reports drift in a file
     the page never cited.
+28. **Past `MAX_ALLOCATED_REGIONS` the pool's own diagnostic accuses the wrong
+    thing.** `freeList.c` records each allocation in
+    `allocatedMemoryRegions[MAX_ALLOCATED_REGIONS]`, and the bound is tested
+    before the store - correctly, since past the cap the store is itself the
+    out-of-bounds write. The cost it accepts is that such a block is never
+    recorded, so releasing it prints `blocks at address N never allocated at
+    this address` (`freeList.c`, both the realloc and the free path). That
+    sentence names a double free or a corrupt pointer. What actually happened is
+    that the region table was full when the block was taken, which is a
+    simulator-only limit: `errorf` says so at the cap
+    ("this affects only the PC simulator not the HW firmware"). Read the
+    region count printed on the same line - at the cap, the message is about the
+    table, not the block.
 
 ## 13. Current gaps
 
