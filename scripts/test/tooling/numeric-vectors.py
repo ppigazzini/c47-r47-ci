@@ -113,13 +113,30 @@ def emit(out):
             out.write(f'Out: EC=0 RX=Real:"{expected}"{out_tag}\n')
 
 
-def main():
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], "w", encoding="utf-8") as f:
+USAGE = "usage: numeric-vectors.py [output.txt]   (default: stdout)"
+
+
+def main(argv):
+    args = argv[1:]
+
+    if args[:1] in (["-h"], ["--help"]):
+        print(USAGE)
+        return 0
+
+    # The only argument is a path, so anything shaped like an option is a mistake - and
+    # opening it as the output file is how a 330-line corpus dump named "--help" got
+    # committed to this repository. Refuse rather than write.
+    if len(args) > 1 or (args and args[0].startswith("-")):
+        print(USAGE)
+        return 2
+
+    if args:
+        with open(args[0], "w", encoding="utf-8") as f:
             emit(f)
     else:
         emit(sys.stdout)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main(sys.argv))
