@@ -11,10 +11,12 @@ font or blitter change looks like - and are re-pinned below. Two things on this 
 measurement method was never recorded, and the anecdotes in Sections 6 and 7,
 which describe past incidents and leave no artifact to check.
 
-One subject is read against a **later** commit than the basis, and says so where
-it appears: upstream `633afdc97` made `press` work headless, which retired what
-Section 3 and the driver table used to say about needing the GUI for a keypress.
-Those paragraphs were re-measured at `dbc5cb45b`; nothing else on the page was.
+Several subjects are read against a **later** commit than the basis,
+`dbc5cb45b`, and say so where they appear: everything Section 3 and the driver
+table state about `press`, the softkey route and `CAT_NONE`; the global-label
+requirement in Section 4; the setup-directive behaviour and the `PGM=` count in
+Section 1; and the corpus wall-clock figures in Section 7. Nothing else on the
+page was re-read there.
 
 How to drive the calculator and how to write a test that actually tests.
 
@@ -56,6 +58,19 @@ exactly one file: `graphs_cov.txt` renders each plot with `SNAP` and pins a
 SHA-256 of the bitmap, so the grapher, the fonts and the blitter are covered.
 Every other display path - register lines, the status bar, the softmenus, matrix
 rendering - carries no assertion at all.
+
+**It also barely runs whole programs.** `PGM=` is the directive that drives a
+program end to end through `fnExecute`, and it appears in three files -
+`programs.txt`, `nested_cov.txt`, `graphs_cov.txt` - for 26 cases in total.
+`programs.txt` itself is three fixture programs (`Prime`, `Fact`, `SPIRAL`) over
+five cases. Everything else calls a function directly, so the pass count is weak
+evidence about the step decoder, the label walk and the program engine: a change
+to any of those needs a case that runs a program, not a green run. Re-derive
+rather than trusting the figure:
+
+```bash
+grep -c 'PGM=' src/testSuite/tests/*.txt | grep -v ':0$'
+```
 
 **Asserting the screen does not need a GUI.** The test HAL renders into a real
 1bpp frame buffer (`src/testSuite/hal/lcd.c`) with the same row stride as the
@@ -142,6 +157,17 @@ beside `tempConv.txt`.
   `abortTest()` before this case's `Out:` has re-armed the counters, so it debits
   the *previous* case's pass. When a case you did not touch turns red, read the
   two lines above it before reading the case itself.
+- **`Func:` and `Item:` charge their rejection to their own case; `In:` does
+  not.** A rejected `Func:` or `Item:` sets `caseSetupFailed` and returns rather
+  than aborting, and the flag is spent by whichever comes first: this case's own
+  `Out:`, the next setup line, or the end of the file
+  (`countUnreportedSetupFailure()`, `testSuite.c`). Both also leave the pending
+  function `fnNop`, so an `Out:` behind a rejected setup line scores nothing
+  instead of re-running the previous case's function. A rejected setup line
+  therefore fails one case whether or not an `Out:` follows it, and a file whose
+  last line is a misspelled `Func:` exits non-zero. **A malformed `In:` is
+  outside that scheme** - `setParameter` calls `abortTest()` inline - which is
+  what the misattribution above is about.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
   (`testSuite.c:92-671`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
 - `Item:` (`itemToCall`, `testSuite.c:5373`) drives the **real dispatch chain**
@@ -455,6 +481,33 @@ the test needs the stack.
   `@k 07`=RCL(32), `@k 12`=ENTER(41), `@k 14`=CHS(43), `@k 16`=BACKSPACE(45),
   `@k 27`=fg(71), `@k 32`=EXIT1(81), `@k 35`=R/S(84), `@k 36`=ADD(85).
 
+**`menu` then `press F1`..`F6` executes a softkey, and for some items it is the
+only route.** `menu` opens a softmenu by name and the softkey runs whatever that
+menu drew in the slot, through `btnFnClicked()` - the same entry a finger takes.
+It is not only for rendering a menu to `snap`:
+
+```bash
+./t47 --reset --exec 'nim 12; menu "Temp:"; press F1; puts "F=[reg X]"'   # -> F=53.6
+```
+
+That matters because **a `CAT_NONE` item has no DSL command name at all.**
+`registerCatFn` registers `CAT_FNCT` entries, and every unit conversion is
+`CAT_NONE` (the `UNIT_CONV` macro, `items.c`), so neither a bare command nor
+`catfn` reaches one: `catfn` answers `not in the function catalog`, and no
+conversion appears in the `t47-op-commands.txt` that `--dslcommands` writes. The
+softkey above and a program step are what is left. There is no name to fall back
+on, which is the narrow case `item <n>` exists for
+([10-writing.md](10-writing.md)). Measured at `dbc5cb45b`; upstream states it in
+`res/SCRIPTS/cli_automation_examples.txt`.
+
+**Take the same care in the other direction: find the caller before claiming a
+softkey path is the one that matters.** The custom conversion-pair round trip
+runs the item twice, and that second execution lives in `executeFunction()`
+(`keyboard.c`), which only `btnFnClicked()` reaches. A physical key, including a
+USER-mode assignment, goes through `btnPressed`/`processKeyAction` and never
+gets there. A claim about what a menu item computes is a claim about one of
+those two paths, not both.
+
 ## 4. Programs and `.p47`
 
 `.p47` is **plain ASCII**, one decimal byte value per line after a six-line
@@ -493,6 +546,22 @@ comment claims - the tool removes the step where that goes wrong. The
 ./t47 --reset --exec 'readp res/PROGRAMS/SPIRALk.p47; xeq SPIRALk; puts "X=[reg X]"'
 ./t47 --reset --exec 'readp ./docs/appnotes/sources/AN0022b_programs/func.p47; xeq PLTROOT'
 ```
+
+**A program a script drives must carry a *global* label**, which is the
+quoted-name form - `LBL 'A'`, `LBL '01'`. A bare `LBL 01` is a *local* label,
+reachable only from inside the program that defines it, and `xeq` resolves
+global names (`findNamedLabel`), so a repro built on one runs nothing. The name
+being digits does not make it local; the quotes are what decide. Measured at
+`dbc5cb45b`, assembling `LBL '01' / LIT 7 / ADD / RTN / END`:
+
+```bash
+./t47 --reset --exec "readp glob.p47; nim 5; xeq 01; puts \"X=[reg X]\""   # -> X=12
+```
+
+`p47asm.py` will not let you write the local form by accident: a bare integer
+operand is its numbered-register encoding, so `LBL 01` is rejected as
+`unsupported operand '01' for ITM_LBL` rather than assembled into something that
+loads and never runs.
 
 `readp` -> `setReadpFilenameOverride` (`dsl.c:77`) mirrors the UI resolution:
 use the path as-is if it exists; else if it has no `/`, try `PROGRAMS/<name>`;
@@ -646,6 +715,14 @@ Watch for mode-dependent readings: `fnGetType` folds the operand angular/polar
 mode into the pushed code's fraction (a complex reads `2.000` in RECT but `2.300`
 under an inherited degree mode), so pin `CM=RECT`.
 
+**Clean the shared accumulator on entry, not only on exit.** Restoring what you
+set protects the files after you; it does nothing about the file before you,
+which may not have. A histogram driver that omits a leading `CL` of the
+statistical accumulator histograms the points an earlier file left plus its own -
+it asserts three points and gets five, and the assertion that catches it is the
+one nobody wrote. Where a case reads a shared accumulator, a mode or a solver
+status, clear it in the case rather than assuming the producer did.
+
 ### 6.7 Differential testing against an independent oracle
 
 For numeric code, do not hand-assert transcendental values - generate them from a
@@ -717,6 +794,35 @@ program). Before staking a new name, grep `testSuite.c` for
 `STRING_LABEL_VARIABLE` stakes and `fnExecute`/`findNamedLabel` uses; the
 single letters are nearly exhausted (S, T, U, C, E, G, H, P, Q and more), so
 prefer two-character names.
+
+### 6.12 A driver whose setup fails must fail the test, not return
+
+A `*Cov` driver usually sets something up before it calls the function under
+test - writes a program file, resolves a global label, seeds registers. When
+that setup fails, a bare `return` leaves `lastErrorCode` at `ERROR_NONE`, and a
+case asserting `Out: EC=0` **passes on a driver that did nothing**. It is rule
+6.1's failure with the body still in place: the test proves the setup did not
+error, not that the function ran.
+
+Print the cause and call `abortTest()` on every setup failure - a refused
+`fopen`, an `INVALID_VARIABLE` from a label lookup, a dimension that did not
+take. `abortTest()` counts one failure and continues, so it costs the run
+nothing and turns a silent pass into a named one. Name the thing that was
+missing (`Unknown global label S`) rather than printing that setup failed:
+the case that reads it is the one that has to find the fixture.
+
+### 6.13 Assert a getter against a value the same case set
+
+A file that runs every getter first and every setter after asserts each getter
+against whatever the default happens to be, so **a broken getter and a no-op
+setter both pass**. Order it the other way: set the value, then read it back
+with the getter and assert the value you set. Rule 6.2 applies to the value -
+make each one non-default (integer sign mode 1, hide 12, denMax 50), or the
+pair still passes with both halves dead.
+
+The same shape catches a setter whose effect a later getter depends on. Where
+one configuration item stores what another recalls, the storing case runs first
+or the recall fails every run with its error swallowed by an `EC=0` assertion.
 
 ## 7. Method discipline
 
@@ -829,4 +935,31 @@ Corollaries:
 
   Checking those is what makes "every copy is covered" believable.
 
----
+### 7.9 Know what a case costs the run, because two files already dominate it
+
+Corpus wall clock is not spread evenly across 300-odd files - it sits in a
+handful of numeric ones, and a case added beside them is charged to every lane
+that runs the corpus, including the coverage and Valgrind lanes that run it
+under instrumentation. Measured at `dbc5cb45b` on an x86-64 host, one run, by
+timestamping the suite's own per-file headers: **`matrix.txt` 154 s and
+`slvp.txt` 82 s of a 305 s run** - two files, three quarters of it. Everything
+else is under 12 s and most files are under one.
+
+Measure before you argue about it; the distribution moves whenever upstream adds
+a solver case:
+
+```bash
+./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt 2>&1 \
+  | grep --line-buffered '^Performing tests from file' \
+  | while read -r l; do printf '%s\t%s\n' "$(date +%s.%N)" "$l"; done
+```
+
+Then subtract adjacent timestamps. `stdbuf -oL` on the binary keeps the headers
+from arriving in blocks.
+
+An expensive case must not be the only cover for what it tests. Give the
+mechanism a **fast twin** beside the slow case - reduced precision, easier
+operands - so the mechanism stays gated when the accuracy case is the one being
+argued about, and leave the setting the twin changes exactly as it was found
+(rule 6.6). Nothing lets a lane skip the slow set: every lane that runs the
+corpus runs all of it.
