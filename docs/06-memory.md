@@ -12,6 +12,11 @@ memory, which is the fact the page is built around.
 
 Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
+Two subjects are read against a **later** commit, `dbc5cb45b`, and say so where
+they appear: the second nesting gate in Section 5, and Section 8.1's account of
+upstream's on-hardware watermark tool and the run behind both gates. Nothing
+else on the page was re-read there.
+
 ## 1. Four arenas, and on the DM42 two of them are one
 
 C47 draws on four pools of memory. They fail differently, the one with no
@@ -216,6 +221,14 @@ combined** and is capped by `MAX_ENGINE_NESTING_DEPTH` in `src/c47/defines.h`:
 simulator. PLOT runs only as the outermost engine. Past the cap the program
 stops with `ERROR_NESTING_TOO_DEEP` rather than overflowing the C stack.
 
+**A second macro gates the plot case separately, and refuses it earlier.**
+`PLOT_NESTING_ALLOWED` (`defines.h`) is **0** on the DM42 and 1 everywhere else,
+and `solve.c` tests it beside the count: where it is 0, nothing runs inside a
+plot at all, whatever the depth. Neither value is a margin someone chose - the
+comment beside each macro carries the hardware measurement it is set from, and
+Section 8.1 is where those runs live. Quote the comment, not this page: a
+retuned macro takes its own justification with it.
+
 The counter is taken at each engine's own entry - `solver/integrate.c`,
 `solver/solve.c`, `solver/graph.c` - and reset in `config.c`, not at a single
 `execProgram` choke point. Sum/product and the differentiator are outside it.
@@ -358,6 +371,56 @@ The profiler keys functions by **address, never by name**: three GMP statics
 share a name inside one DM42 ELF, and a name-keyed walk merges their frames and
 their callees.
 
+### 8.1 Upstream measures the same thing dynamically, on the calculator
+
+Everything above is static: frames read out of a disassembly, summed along a
+chain. Upstream carries the other half - `tools/hwtest/stack-watermark` paints a
+marker over a stretch of the running stack, runs a case, and searches for the
+lowest place the marker is gone. That catches what a prologue sum cannot see,
+`alloca` and GMP's temporaries included, and it runs on the hardware rather than
+on a model of it. Its `README.txt` is the authority; what follows is what a
+reader of this page needs before trusting a figure of either kind.
+
+- It is **off by default** - `#define STACK_WATERMARK` in `defines.h` - and with
+  it on, every keystroke outside a running program repaints and re-searches the
+  whole stretch, so the calculator feels slow.
+- **A testSuite build switches it off again by itself**, under
+  `TESTSUITE_BUILD`, because the tool creates named variables and writes them at
+  every dispatch and would move the register state the corpus compares against.
+  The corpus therefore cannot be measured with it.
+- It exposes long-integer variables: `STCKHI` the figure, `STCKHWM` the deepest
+  since cleared, `STCKGO` to paint (1) or read (2), `STCKSPN` how far down to
+  paint, `STCKSPU` how far was painted, and **`STCKST`, which says whether the
+  figure means anything**. Only `STCKST 0` is a measurement; 1 means the marker
+  ran out below, 2 that nothing was disturbed, 3 that no fresh marker was laid.
+  A number comes out in all four cases, and a column of them reads as a result
+  when it is the tool failing to measure. Read `STCKST` on every line.
+- Painting deeper than the memory that is yours does not fail at the time: the
+  calculator hard faults on the **next reset** and needs reflashing.
+
+**Where the figures are, and what they say.** The captured runs live in
+`tools/hwtest/stack-watermark/results/` - eight PLOT, INT and SOLVE combinations
+ordered shallowest first, one column per machine. Read them there rather than
+from a copy here; the two facts on this page's subject are the ones that hold
+whatever the figures move to:
+
+- **The DM42 completes `INT` nesting `INT` and hangs on an engine inside a
+  plot.** That is what both gates in Section 5 are set from, and it is why the
+  cap and `PLOT_NESTING_ALLOWED` are set separately: the plot case fails a level
+  earlier than the count alone would refuse it. The DM42n completes all eight.
+- **Nothing there bounds the DM42's grant.** The runs report what a case used,
+  never what was available, and the DM42 never reached a case that would have
+  told you.
+
+Because the cases are ordered shallowest first and each output line is opened,
+written and closed, **where the file stops is itself a result**: a run that
+takes the machine down keeps every measurement it had already taken.
+
+Read these depths against the firmware's `main`, not against the arena
+arithmetic in Section 3: the two anchor differently and are not the same
+quantity. The simulator anchors wherever its first measurement lands, so its
+column carries an unknown constant and compares only with itself.
+
 ## 9. What is not established
 
 - **The size of the task stack a program actually gets.** This is now the
@@ -367,11 +430,15 @@ their callees.
   Section 5 is a per-level cost against a budget whose exact size is unmeasured.
 - **Which task, and whether one program runs on more than one.** The context
   switch is identified; the task layout is not.
-- **How much stack C47 actually uses.** Every number here is static. The dynamic
-  answer would also catch the `alloca` component no prologue sum sees, and it is
-  cheaper than it looks: the firmware already paints new task stacks with `0xA5`
-  (four `#165` immediates in the image), so a high-water mark can be read back
-  without painting anything first. Nothing in this repo does that yet.
+- **How much stack C47 actually uses, from a lane.** Every number this repo
+  produces is static. Upstream answers the dynamic half on hardware with
+  `tools/hwtest/stack-watermark` (Section 8.1), which catches the `alloca`
+  component no prologue sum sees - but it is a manual run on a calculator with a
+  purpose-built firmware, not something a lane can call, and it cannot be run
+  against the corpus at all. Nothing in this repo reads a high-water mark yet,
+  and it is cheaper than it looks on the host: the firmware already paints new
+  task stacks with `0xA5` (four `#165` immediates in the image), so the mark can
+  be read back without painting anything first.
 - **The three packages that do not link.** Their frames are unmeasured because
   no ELF exists to measure, and package 2 and 3 are the ones carrying the
   stack-heaviest functions. Whether the overflow is upstream's or this

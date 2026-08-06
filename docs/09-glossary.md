@@ -117,5 +117,6 @@ definition.
 | **register** | a lettered register, including the stack | a named variable, in a wholly separate ID space |
 | **corpus** | the testSuite regression files | a libFuzzer seed corpus |
 | **ratchet** | the coverage floors | the leak scanner's high-water bound |
+| **high-water** | the leak scanner's pool and GMP extremes, in this repo | the stack depth upstream's `tools/hwtest/stack-watermark` reads back off a painted marker, on the calculator ([06-memory.md](06-memory.md) Section 8.1). Different tree, different resource, and one of them is not a lane |
 | **driver** | one of the three ways to write a test | `--keyscan`, the state-machine driver |
 | **guard** | the `POOL_GUARD` canary | the `build.guard` build directory, and ordinary "guarded by" prose |
