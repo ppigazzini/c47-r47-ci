@@ -155,8 +155,8 @@ exactly that way, in the session that changed it.
 | [05-debugging.md](05-debugging.md) | the detectors and the false-pass catalogue | hot - tracks this repo |
 | [06-memory.md](06-memory.md) | the per-target memory map, which stack is which, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
 | [07-ci.md](07-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
-| [08-references.md](08-references.md) | external links | cold |
-| [09-glossary.md](09-glossary.md) | what the words mean, product and harness | mixed - see below |
+| [08-references.md](08-references.md) | external links, and the verification literature the oracle map argues from | cold |
+| [09-glossary.md](09-glossary.md) | what the words mean: product, harness, and the testing field | mixed - see below |
 | [10-writing.md](10-writing.md) | the rules | hot - tracks upstream |
 
 The hot rows split by what they track, and the distinction matters: rows 0-3

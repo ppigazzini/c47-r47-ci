@@ -37,6 +37,92 @@ this repository are additional, not a replacement.
 
 These age on the field's clock, not the repo's.
 
+### Knowing whether a result is right: the oracle literature
+
+Everything else on this page is about *building* the product or about
+*detecting* that it broke. This group answers the prior question: what tells you
+a result is correct, and how much a given check is therefore worth. It is here
+because this harness runs many checks whose strengths differ by orders of
+magnitude, and the field has a name for each of them.
+
+The frame is the four-way split (Barr, Harman, McMinn, Shahbaz and Yoo):
+
+- a **specified oracle** reads correctness off a specification;
+- a **derived oracle** reads it off another artifact - a second implementation,
+  generated vectors, an earlier version;
+- an **implicit oracle** needs no reference, because some outcomes are wrong on
+  their face: a crash, a sanitizer report, a leaked block;
+- **no oracle** is where a human decides, one case at a time.
+
+[04-testing.md](04-testing.md) Section 8 maps every check this harness runs onto
+those four, and names the three that are worth nothing or worse. What each
+source is *for* here:
+
+- **Barr, Harman, McMinn, Shahbaz and Yoo, "The Oracle Problem in Software
+  Testing: A Survey" (IEEE TSE 41(5), 2015)** - the canonical survey and the
+  source of the split above. It is what stops "we have a test" being read as a
+  statement about strength.
+- **McKeeman, "Differential Testing for Software" (1998)** - the name for what
+  Section 6.7 does: drive two implementations with one input and diff. Older
+  than this harness, with its failure modes already written down.
+- **Knight and Leveson, "An Experimental Evaluation of the Assumption of
+  Independence in Multiversion Programming" (IEEE TSE 12(1), 1986)** - 27
+  independently written versions from one specification, one million inputs,
+  common-mode failures far above what independence predicts. A differential
+  test's power comes entirely from the two sides failing *independently*, and a
+  hand-typed expected value shares its author, its sources and its misreadings
+  with the code under test, so correlated failure is the expected case rather
+  than a risk. That is the argument for taking `numeric_diff_cov.txt`'s vectors
+  from mpmath instead of from someone reading the kernel.
+- **Segura, Fraser, Sanchez and Ruiz-Cortes, "A Survey on Metamorphic Testing"
+  (IEEE TSE 42(9), 2016)** - a relation between two runs is a full-strength
+  oracle, not a consolation prize for having no reference. `fnStateRoundtrip` in
+  `serialize_state_cov.txt` is one: save, load, and require six typed registers
+  to survive.
+- **Jia and Harman, "An Analysis and Survey of the Development of Mutation
+  Testing" (IEEE TSE 37(5), 2011)** - the field's name for the negative-control
+  rule in [AGENTS.md](../AGENTS.md), and the two assumptions that make a single
+  hand-written mutant worth running: the *competent programmer hypothesis* (a
+  real defect sits close to correct code) and the *coupling effect* (a check
+  that catches a small mutation catches the larger defect it stands in for).
+  They are the answer when someone asks why one mutant is enough.
+- **Feathers, *Working Effectively with Legacy Code* (2004)** - two chapters,
+  both load-bearing here. **Ch. 13, characterization tests**: a test that pins
+  *current* behaviour is explicitly not a correctness claim; it exists to make
+  change safe. Every `*-baseline.txt` under `scripts/test/` is one, and so is
+  the bitmap hash in `graphs_cov.txt`. **Ch. 4, the seam model**: a
+  *preprocessing seam* lets the code under test differ from the code that ships,
+  and he warns that such seams belong in a tree sparingly and visibly. The
+  testSuite host build has several, `TESTSUITE_BUILD` and the 159-digit solver
+  options among them, which is the reason a green corpus is not evidence about
+  the DM42 package that ships ([04-testing.md](04-testing.md) Section 8).
+- **Meszaros, *xUnit Test Patterns* (2007)** - likewise two. **Fake Object**: a
+  double with a working implementation and a shortcut, whose stated liability is
+  that *the test then measures the fake*. The simulator is one, and
+  [06-memory.md](06-memory.md) is the long form of that liability. **Lost
+  Test**, from the smell catalogue: a test that exists and is in no suite the
+  build runs. He files it under causes of production bugs, because it counts in
+  a coverage discussion and never executes - which is exactly what a corpus file
+  missing from `testSuiteList.txt` does ([04-testing.md](04-testing.md)
+  Section 1).
+- **Winters, Manshreck and Wright, *Software Engineering at Google* (2020),
+  ch. 23** - a check's value is realised by the system that runs it
+  continuously. The local reading: a lane script no workflow calls, and a corpus
+  file in no list, are both worth zero however well they are written.
+
+**Do not widen this group casually.** It is recorded so that nobody searches for
+it twice. A source is admitted only if **both** hold:
+
+1. it names a technique this harness **already runs**, not one it might adopt -
+   the group is a calibration for what exists, not a reading list;
+2. a decision was made **without it**, and having it would have changed that
+   decision.
+
+Before searching outward, re-read what is already here for the chapter you did
+not admit it for. Feathers and Meszaros each appear twice above, and in both
+cases the second entry came from re-reading a source already in the list rather
+than from finding a new one.
+
 ### The consensus shape of a memory-debugging toolchain
 
 The current consensus for memory-correctness testing of a C codebase is a
@@ -133,6 +219,27 @@ this class comes up again:
   relocation as a separate improvement, sized against the measured stack grant.
 
 ## Reference list
+
+Test oracles and verification (the group above; books carry no canonical URL):
+
+- Barr, Harman, McMinn, Shahbaz, Yoo, "The Oracle Problem in Software Testing:
+  A Survey" - https://doi.org/10.1109/TSE.2014.2372785
+- McKeeman, "Differential Testing for Software" -
+  https://www.cs.tufts.edu/comp/150FP/archive/bill-mckeeman/DifferentailTesting.pdf
+- Knight and Leveson, "An Experimental Evaluation of the Assumption of
+  Independence in Multiversion Programming" -
+  https://www.csc.kth.se/utbildning/kth/kurser/DA2210/vettig13/Seminarier/KnightLeveson.pdf
+- Segura, Fraser, Sanchez, Ruiz-Cortes, "A Survey on Metamorphic Testing" -
+  https://eprints.whiterose.ac.uk/id/eprint/110335/1/segura16-tse.pdf
+- Jia and Harman, "An Analysis and Survey of the Development of Mutation
+  Testing" - https://doi.org/10.1109/TSE.2010.62
+- Meszaros, *xUnit Test Patterns*: Fake Object -
+  http://xunitpatterns.com/Fake%20Object.html ; Lost Test, in the
+  production-bugs smell catalogue - http://xunitpatterns.com/Production%20Bugs.html
+- Winters, Manshreck, Wright, *Software Engineering at Google*, ch. 23
+  "Continuous Integration" - https://abseil.io/resources/swe-book/html/ch23.html
+- Feathers, *Working Effectively with Legacy Code* (book, no canonical URL):
+  ch. 13 characterization tests, ch. 4 the seam model
 
 Compiler hardening and warnings:
 

@@ -2,14 +2,17 @@
 
 Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
 
-The words the rest of this set uses without stopping to define them, in two
-tiers that must not be confused:
+The words the rest of this set uses without stopping to define them, in tiers
+that must not be confused:
 
 - **Section 1 is the calculator's vocabulary.** Upstream owns it. If a
   definition here disagrees with the c43 source, the source wins and this page
   is the bug.
 - **Section 2 is this repository's vocabulary.** We invented it. None of it
   appears in the product, and upstream is not obliged to agree with any of it.
+- **Section 4 is the testing field's vocabulary.** Neither tree owns it; it is
+  defined by published literature, which is exactly what makes it worth using.
+  A term there is searchable outside both repositories, and a lane name is not.
 
 A reader who cannot tell which tier a word is in will look for `lane` in the c43
 source and not find it. That is the failure this split exists to prevent.
@@ -120,3 +123,26 @@ definition.
 | **high-water** | the leak scanner's pool and GMP extremes, in this repo | the stack depth upstream's `tools/hwtest/stack-watermark` reads back off a painted marker, on the calculator ([06-memory.md](06-memory.md) Section 8.1). Different tree, different resource, and one of them is not a lane |
 | **driver** | one of the three ways to write a test | `--keyscan`, the state-machine driver |
 | **guard** | the `POOL_GUARD` canary | the `build.guard` build directory, and ordinary "guarded by" prose |
+
+## 4. The testing field's terms
+
+No file in either tree defines these; the literature in
+[08-references.md](08-references.md) does, and
+[04-testing.md](04-testing.md) Section 8 says which check here is which. They
+are worth learning as names rather than descriptions: each one is the handle for
+a known failure mode, and two of them describe checks that are worse than
+absent.
+
+| term | what it means | what it is here |
+|---|---|---|
+| **oracle** | whatever decides that an observed result is correct | the `Out:` value, the mpmath vector, the round trip, or nothing at all |
+| **specified oracle** | correctness read off a specification | a case whose expected value comes from the decimal-arithmetic spec or from exact mathematics |
+| **derived oracle** | correctness read off another artifact | `numeric_diff_cov.txt`, whose vectors come from mpmath |
+| **implicit oracle** | needs no reference: some outcomes are wrong on their face | a crash, a sanitizer report, the end-of-run GMP balance |
+| **differential testing** | drive two implementations with one input and diff | rule 6.7 |
+| **metamorphic relation** | a property relating two runs, rather than a pinned value | `fnStateRoundtrip`: save, load, registers survive |
+| **characterization test** | pins *current* behaviour; explicitly not a correctness claim | every `*-baseline.txt`, and the bitmap hash in `graphs_cov.txt` |
+| **mutation testing** | inject a defect, require the check to go red | the negative-control rule (rule 7.7) |
+| **lost test** | a test that exists and is in no suite the build runs | a corpus file named in no `testSuiteList.txt` entry |
+| **preprocessing seam** | a compile-time switch that makes the code under test differ from the code that ships | `TESTSUITE_BUILD`, and the 159-digit solver options the host defines and the firmware does not |
+| **fake** | a double with a working implementation and a shortcut; the test then measures the double | the simulator, whose memory model is not the DM42's ([06-memory.md](06-memory.md)) |

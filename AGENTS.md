@@ -150,6 +150,13 @@ catalogue. Read it before trusting any lane result.
 - **`make test` passes clean**, so any failure is a real regression rather than a
   known baseline to compare against. Read the summary the run prints; the count
   moves with upstream, so do not trust one written down here.
+- **A green `make test` is not evidence about the shipped firmware.** The host
+  build compiles the 159-digit cubic and eigenvalue solvers; the one DM42 package
+  that fits in flash compiles the 75-digit twins instead, and no corpus case
+  reaches them. That is one row of a larger table: every check in this repo
+  compares the calculator against *something*, three of them compare it against
+  nothing while looking green, and
+  [docs/04-testing.md](docs/04-testing.md) Section 8 says which is which.
 - **`src/generated/` in the c43 clone is gitignored** and populated by `make`'s
   `install -C` step, yet it sits on the include path *ahead of* the build dir.
   A stale copy silently shadows a freshly generated header.

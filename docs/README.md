@@ -37,8 +37,8 @@ The repository holds three things:
 | [05-debugging.md](05-debugging.md) | Anyone chasing a bug | The detectors: pool and GMP leak scanning, the pool canary, coverage, fuzzing, Valgrind - and the false-pass catalogue |
 | [06-memory.md](06-memory.md) | Anyone allocating, recursing or sizing a buffer | The machine under the pool, per platform: the limits matrix for both hardware targets and the simulator, the SRAM map, which stack a program actually runs on and what bounds it, what a nested engine level costs - and why a simulator run cannot answer a DM42 question |
 | [07-ci.md](07-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
-| [08-references.md](08-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references |
-| [09-glossary.md](09-glossary.md) | Anyone reading any of the above | Two tiers of vocabulary: the calculator's own terms, which upstream owns, and the harness terms this repo invented |
+| [08-references.md](08-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references, plus the verification literature: what an oracle is and what each kind is worth |
+| [09-glossary.md](09-glossary.md) | Anyone reading any of the above | Three tiers of vocabulary: the calculator's own terms, which upstream owns; the harness terms this repo invented; and the testing field's terms, which neither tree owns |
 | [10-writing.md](10-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
@@ -57,6 +57,7 @@ looking for. This one is keyed by what brought you here.
 | understand why the code is shaped the way it is, or argue it should change | [00-architecture.md](00-architecture.md) |
 | build the simulator, or work out why a build is stale | [03-build.md](03-build.md) |
 | write a test, or drive the calculator headlessly | [04-testing.md](04-testing.md) |
+| work out what a green run actually proves | [04-testing.md](04-testing.md) - Section 8 |
 | chase a leak, a crash or an overrun | [05-debugging.md](05-debugging.md) |
 | work out whether something fits in the firmware's memory, or why it crashed on hardware and not the simulator | [06-memory.md](06-memory.md) |
 | find out what a platform's limits are, or whether the simulator can reproduce a hardware failure at all | [06-memory.md](06-memory.md) - Section 2 |

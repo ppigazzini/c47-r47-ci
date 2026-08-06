@@ -735,6 +735,17 @@ matches mpmath to 30+ digits. The generator is RNG-free and byte-reproducible:
 python3 scripts/test/tooling/numeric-vectors.py | diff - <(python3 scripts/test/tooling/numeric-vectors.py)
 ```
 
+**The independence is the whole point, and it is what a hand-typed value throws
+away.** A differential test has power only where the two sides fail
+*independently*; an expected value typed by whoever just read the kernel shares
+that reader's sources and misreadings with the code under test, so the two agree
+about the same mistake and the case passes. Knight and Leveson measured this
+directly - 27 versions written independently from one specification still failed
+together far more often than independence predicts, and a reader and the code
+they just read are not independent to begin with. Take the number from something
+that shares no code with c47, or say in the case comment where it came from.
+[08-references.md](08-references.md) carries the source.
+
 ### 6.8 The pool + GMP gate is an invariant every test preserves
 
 The suite's end-of-run assertion "the memory owned by GMP should be 0 bytes" is
@@ -904,7 +915,34 @@ known-issue marker from a regression.
 inject the fault it is meant to catch and confirm it reports: an `item=999`
 leak, a growth case, a sector drop below the floor, an `Invalid read` at a known
 line, a deliberately broken patch. A matcher that never fires because its own
-trigger is wrong passes everything silently (05-debugging Section 12).
+trigger is wrong passes everything silently (05-debugging Section 12). The field
+name for this is **mutation testing**, and it carries the two assumptions that
+make one hand-written mutant worth the rebuild: a real defect sits close to
+correct code, and a check that catches a small mutation catches the larger
+defect it stands in for ([08-references.md](08-references.md)).
+
+Three rules make the exercise honest:
+
+**One mutant per instrument class, not per gate.** The classes here are the
+corpus value assertion, the invariant that needs no reference (the pool and GMP
+accounting), the characterization baseline, the structural lint, and the
+detector that reads a real execution (Valgrind, ASan, the canary). A sixth
+mutant aimed at a gate in a class already covered buys a rebuild and little
+else; a class with no mutant is the gap worth closing.
+
+**Perturb a value; never remove a bound.** A mutant aimed at a solver
+tolerance, an iteration cap or a convergence test must leave the loop a ceiling,
+or the experiment cannot end - and a gate that never returns has not failed, it
+has hung. The corpus already spends most of its wall clock in two numeric files
+(Section 7.9), so an unbounded mutant there costs a run and answers nothing.
+
+**A rig that can lie must refuse, not score itself.** Four conditions turn a
+negative control into fiction, and each has to end the run with no verdict
+rather than a pass or a fail: the pattern it greps for has rotted and matches
+nothing; the mutated run outruns its time bound; the gate was already red before
+the mutation went in; the tree is not clean again afterwards. Every one of them
+otherwise reads as "the gate did not detect its mutation", which is the same
+sentence a real hole produces.
 
 ### 7.8 Fixes get copy-pasted - grep the class
 
@@ -963,3 +1001,95 @@ operands - so the mechanism stays gated when the accuracy case is the one being
 argued about, and leave the setting the twin changes exactly as it was found
 (rule 6.6). Nothing lets a lane skip the slow set: every lane that runs the
 corpus runs all of it.
+
+## 8. What each check here is worth
+
+Every check in this repository answers "is this right?" by comparing the
+calculator against **something**, and the strength of the check is the strength
+of that something. The something has a name in the literature for each case
+below, and three of them are worth **nothing or worse**: they produce evidence
+of correctness where none exists, and a passing check is not visible in a
+coverage discussion the way a missing one is.
+
+The four kinds - specified, derived, implicit, and no oracle at all - and the
+sources are in [08-references.md](08-references.md). Read the third column
+first; it is the only question that decides how much a green run means.
+
+| check | its name | what it compares against | strength |
+|---|---|---|---|
+| the corpus run unmodified (`make test`) | specified or derived oracle, per case | the `Out:` value in the case, and wherever that number came from | full where the number has a source; see below |
+| `numeric_diff_cov.txt` against the mpmath vectors (6.7) | derived oracle, differential | a second implementation sharing no code with c47 | full, and independent |
+| `fnStateRoundtrip` in `serialize_state_cov.txt` | metamorphic relation | nothing - it relates two runs of the same build | full, and independent |
+| the pool and GMP end-of-run accounting (6.8) | implicit oracle | nothing - a non-zero balance is wrong on its face | weak per case, and mandatory |
+| ASan, UBSan, Valgrind, the three fuzz lanes, the pool canary | implicit oracle | nothing | weak per case, and free to run |
+| `fnHashBmpCov` in `graphs_cov.txt` | characterization test | a bitmap photographed earlier | change detector; it cannot say the plot is right |
+| every `*-baseline.txt` under `scripts/test/` | characterization test, ratcheted | a finding list photographed earlier | change detector |
+| the coverage floors and the sector gate | not an oracle at all | nothing about correctness | measures reach only |
+| a `.t47` script under the UI lane | implicit oracle, plus whatever the script asserts | its own `check` calls; the lane reads only the exit status | as strong as those calls - a script asserting nothing passes |
+| a case asserting a default (6.2), or that a fresh cell is zero | no oracle | the allocator, not the code under test | **none** - it passes with the code deleted |
+| a corpus file named in no `testSuiteList.txt` entry | lost test | nothing, because it never runs | **none**, and it reads as coverage |
+| the host build's `TESTSUITE_BUILD`, and its 159-digit solver options | preprocessing seam | possibly a perfect reference | **negative** for the DM42 - it proves things about a program that does not ship |
+
+### The corpus is not one instrument
+
+A case's `Out:` is only as strong as the provenance of the number in it, and the
+file format records no provenance. A value derived from the decimal-arithmetic
+specification, from an independent implementation, or from an exact result the
+test author could compute by hand is a real oracle. A value pasted from a run of
+the code under test is a **characterization test** wearing the same syntax: it
+pins today's behaviour and will keep passing if today's behaviour is wrong. Both
+look identical in the file, so rule 6.1 is what separates them - assert a value
+a broken implementation would get wrong, and if the number's origin is not
+obvious, say where it came from in the case comment.
+
+### The three that cost more than they give
+
+**A corpus file in no list.** The suite runs `testSuiteList.txt`, which names
+files as bare basenames, one per line. A file beside it that no line names is
+never opened, and the suite still passes; nothing in upstream reports the
+difference. Cross-check any file you add, and confirm the run's own case count
+moves:
+
+```bash
+cd <c43-clone>
+for f in src/testSuite/tests/*.txt; do b=$(basename "$f" .txt); [ "$b" = testSuiteList ] && continue
+  grep -qxE "[[:space:]]*$b[[:space:]]*" src/testSuite/tests/testSuiteList.txt || echo "not run: $b"; done
+```
+
+That command reports five files at upstream `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`.
+Whether each is deliberate is a per-file question; that none of them runs is
+not.
+
+**A case whose reference is the allocator.** The pool hands back zeroed blocks,
+so a case asserting that a fresh cell reads zero passes whether or not the code
+meant to zero it ever executes. The same shape covers rule 6.2's no-op bypass: a
+case that asserts a default asserts the absence of your change.
+
+**A host build that is not the shipped build.** `TESTSUITE_BUILD` and the
+159-digit solver options make the corpus exercise code the firmware does not
+contain. The host defines `OPTION_CUBIC_159` and `OPTION_EIGEN_159`
+(`src/c47/defines.h:33` and `:35`, read at `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`),
+so every corpus case that solves a cubic or an eigenproblem runs the 159-digit
+implementation. DMCP package 4 - the Makefile default, and the only package that
+fits in flash - undefines all three (`:277-279`), and packages 1 and 2 lose
+`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:297-300`). The shipped binary
+therefore runs the 75-digit twins, which the corpus never reaches, and a green
+run is a true statement about a program nobody ships. This is a seam rather than
+a bug; the discipline is to keep it visible. When the claim is about the
+firmware, name the build that produced it and re-run with the defines that build
+uses ([06-memory.md](06-memory.md)).
+
+### What this changes about reading a green run
+
+A green `make test` is a strong statement about the paths with a real reference
+behind them and a weak one everywhere else. Before quoting one as evidence, ask
+which row above the check sits in. The productive move when a subsystem has
+nothing but change detectors on it is to add a reference it does not already
+share - an independent implementation, or a round trip - rather than another
+case pinned to the current output.
+
+A test can also carry its own guard against becoming vacuous, and the UI lane's
+script is the worked example: it presses a key and asserts the result before it
+asserts anything else, because if `press` stops reaching the calculator every
+check after it passes on an unchanged screen. Where a whole file depends on one
+mechanism working, assert that mechanism first.
