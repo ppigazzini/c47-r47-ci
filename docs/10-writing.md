@@ -243,6 +243,13 @@ merges.
 a check that is not there - `run-docs-lint.sh` says why it does not hold a bare
 filename, so nobody "fixes" it into a false-positive machine.
 
+**Delete the commented-out code your change replaces.** A disabled block left
+sitting above the live version is a copy that nothing updates and no test
+covers, and the next reader has to work out which of the two is real. If it was
+disabled for a reason, that reason belongs in the commit that re-enables it -
+and re-enabling it means answering the reason, not restoring the block and
+leaving the old one there as a second stale answer.
+
 **Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:259` is
 checkable against a sha; "upstream does this too" is not.
 
@@ -305,8 +312,41 @@ that admits a second reading starts the review from the wrong one.
 **One defect per MR.** A finding turned up while fixing something else is
 flagged, not folded in. Flagging costs a paragraph; folding costs the review.
 
+**Carry a recipe the reviewer can run, and run it yourself first.** A defect
+report is read by someone who wants to see the fault before they read the patch,
+and a reviewer who cannot reach it will say so - *"too many words and too little
+fact"* is the standing form of that rejection. Give the shortest sequence that
+shows it, as a `t47` script or as keys on the simulator, and run it before you
+post it: a recipe assembled from plausible-looking steps costs the reviewer the
+time it takes to find out it never could have run. The step that cannot exist is
+the usual failure - a local label where `xeq` needs a global one, a name that is
+not a command ([04-testing.md](04-testing.md) Sections 3 and 4). Prefer the
+shortest driver that reaches the path: one `--exec` line beats a program.
+
+**When the fault is invisible, say that, and say what makes it visible.** Some
+real defects have no user-visible symptom: an index corrected inside a loop that
+the display geometry never enters, an out-of-bounds read a sanitizer sees and a
+screenshot does not. Claiming a symptom you cannot produce is what burns the
+review - the honest report is that the code is reached (with the backtrace or
+the sanitizer trace that shows it), that the fix changes output at one call site
+only, and that the site is unreachable at the shipped geometry. That is a
+mergeable finding. An invented reproducer is not.
+
 **State the landing order when two MRs touch the same code**: which lands first,
 why, and what the corpus reads with both applied.
+
+**The branch is shared, so fetch before you force-push.** Upstream review here
+answers an MR by **pushing commits to a branch of the same name in the upstream
+project**, not by leaving a change request - so the reviewed branch and yours
+diverge without a notification you will necessarily read. A rebase-and-force from
+a stale local copy discards their work silently. Check `git branch -r` and the
+MR's own commit list before every force-push, and when their version supersedes
+yours, say so and take theirs rather than reinstating your own. Rebase onto
+current master before asking for a merge, too: an MR inserting at the same
+anchor as a merged one hands the reviewer a conflict to resolve by hand, and a
+line lost in that resolution fails nothing - a corpus file that loses its
+`testSuiteList.txt` line still ships, and its gate stops running silently
+([04-testing.md](04-testing.md) Section 1).
 
 **Give a line number only beside the commit it was read at.** These citations rot
 faster than anything else here, so lead with the symbol or the quoted source
