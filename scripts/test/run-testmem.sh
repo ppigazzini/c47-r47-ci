@@ -99,8 +99,14 @@ main() {
     new="$(LC_ALL=C comm -13 "$base_sorted" "$LOG_DIR/testmem-growth.txt")"
     missing="$(LC_ALL=C comm -23 "$base_sorted" "$LOG_DIR/testmem-growth.txt")"
 
+    # A case drops out of the growth set for two reasons the diff cannot tell
+    # apart: the residue stopped, or it moved. The high-water is a whole-run
+    # ratchet, so a one-shot allocation is charged to whichever case reaches it
+    # first, and a new test earlier in testSuiteList.txt takes that charge while
+    # the residue itself continues. Pin UPSTREAM_COMMIT and vary only the test
+    # list to separate an engine fix from an attribution move.
     if [[ -n "$missing" ]]; then
-        harness_log "baseline growth cases no longer present (likely fixed - update the baseline):"
+        harness_log "baseline growth cases not reported by this run (a fix, or an attribution move - root-cause before removing):"
         printf ' %s\n' "$missing"
     fi
     if [[ -n "$new" ]]; then

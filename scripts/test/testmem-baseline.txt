@@ -70,9 +70,47 @@
 # growth stopped in the engine, not in the tests. Which single commit retired
 # graphs_cov FARG=0 and FARG=1 is a window here, not a point - stated rather than
 # rounded to a guess.
+#
+# Reconciled against upstream master dbc5cb45b. The lane was green at 2e4871624
+# and red at dbc5cb45b with only docs commits here, so the 102 upstream commits
+# between those two pins are what moved; UPSTREAM_COMMIT either side is what
+# separates an upstream change from a local one.
+#
+# Added, 1 case: cpxslv_cov.txt is a new corpus file upstream, added by d981a44d9
+# (complex solver and huge-angle reduction coverage) inside that window, and
+# given its current case identity by c5e73e427, which prefixed FL_ASLIFT=0 to
+# every In: line. The case cannot predate its own file. The residue is pool-only
+# (+16 blocks, gmp=+0) and one-shot: a run with cpxslv_cov listed twice produces a
+# growth set identical to a run listing it once, so the second pass adds nothing.
+# Only 1 of the file's 12 cases grows, which the ratchet cannot fake - it records
+# the least free RAM seen, so a second leaking call would land below the bar the
+# first one set and be reported too.
+#
+# The +16 is the first complexSolver() call in a run, not the file: with
+# cpxslv_cov dropped from testSuiteList.txt, eqslv_cov FARG=1 grows the same +16
+# instead, and EQ_CPXSOLVE_LU is that file's only arm reaching the complex solver.
+# Which allocation is retained is NOT identified here. The working reals
+# complexSolver takes with REAL_T_ALLOC are freed through freeWork, and
+# SREG_STARTX0/STARTX1 name nothing outside that function's own comment.
+#
+# Removed, 1 case: deriv_mvar_cov.txt FARG=5. It was not fixed. Holding upstream
+# at dbc5cb45b and varying only the test list, over all four combinations of the
+# two new solver-coverage files (cpxslv_cov d981a44d9, eqslv_cov 838b920fa):
+#
+#   cpxslv  eqslv   +16 charged to   deriv_mvar FARG=5
+#   in      in      cpxslv           absent
+#   out     in      eqslv            absent
+#   in      out     cpxslv           absent
+#   out     out     -                +36, reported
+#
+# Either new file alone suppresses it. The engine is byte-identical across all
+# four runs - only the corpus composition differs - so this is an attribution
+# move, not a fix: the high-water is a whole-run ratchet, and a one-shot object is
+# charged to whichever case reaches it first. The residue still happens. Read the
+# lane's missing-case line as a question, not as a finding.
+cpxslv_cov.txt|IN: FL_ASLIFT=0 FARG=0 RY=REAL:"1" RX=REAL:"5"
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 deriv_mvar_cov.txt|IN: FARG=0
-deriv_mvar_cov.txt|IN: FARG=5 RX=REAL:"2"
 deriv_mvar_cov.txt|IN: FARG=8 RX=REAL:"3"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"

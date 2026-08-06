@@ -883,6 +883,19 @@ Every one of these has silently passed a broken thing at least once.
     ("this affects only the PC simulator not the HW firmware"). Read the
     region count printed on the same line - at the cap, the message is about the
     table, not the block.
+29. **A `--testmem` baseline entry can stop being reported without being
+    fixed.** The high-water is a whole-run ratchet, so a one-shot allocation is
+    charged to whichever case reaches it first: a **new test earlier in
+    `testSuiteList.txt`** takes that charge, and the case that carried it drops
+    out of the growth set while its residue continues. Measured: holding
+    upstream fixed and changing only the test list, `deriv_mvar_cov` FARG=5
+    returns at +36 as soon as both new solver-coverage files are dropped, and
+    either one alone suppresses it. The same ratchet moves the *reported* case
+    between files: with `cpxslv_cov` dropped, `eqslv_cov` FARG=1 grows the
+    identical +16, both being the first `complexSolver()` call in their run.
+    Pin `UPSTREAM_COMMIT` and vary only the corpus to tell an engine fix from an
+    attribution move. Note the asymmetry with item 12: doubling a file proves a
+    case one-shot, but says nothing about a case that vanished.
 
 ## 13. Current gaps
 
