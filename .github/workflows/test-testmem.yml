@@ -7,7 +7,13 @@ name: Per-Test Memory Gate
 on:
   workflow_dispatch:
   push:
+    paths:
+      - 'scripts/test/**'
+      - '.github/workflows/**'
   pull_request:
+    paths:
+      - 'scripts/test/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: read

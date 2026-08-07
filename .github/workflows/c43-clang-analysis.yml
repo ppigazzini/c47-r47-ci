@@ -2,8 +2,11 @@ name: c43 Clang Analysis
 
 on:
   workflow_dispatch:
-  push:
-  pull_request:
+  schedule:
+    # 20m on a green run. What turns this lane red is upstream
+    # drift, which lands with no commit here, so a clock is a better
+    # trigger than a push. Run it on demand for a change of your own.
+    - cron: '0 3 * * *'
 
 permissions:
   contents: read
