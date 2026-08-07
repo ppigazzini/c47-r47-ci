@@ -57,6 +57,36 @@ debugs a product whose source lives somewhere else.
 6. **Do not run destructive git commands** unless asked. In particular
    `git stash drop`, `git reflog expire`, `git gc --prune` and force-pushes.
 
+## How to work here
+
+The sections above are what this repo is. This is how to work in it; each line
+is here because the other behaviour costs something measurable in this tree.
+
+1. **Deliver what was asked, at the scope asked.** Make routine judgment calls
+   yourself, and check in only where two readings of the request lead to
+   materially different work. If the request looks wrong, say so in a sentence
+   and build it anyway rather than quietly narrowing, widening or transforming
+   it.
+2. **Finish, or name what you did not finish.** Report completion only when
+   every part is done. A part silently left out is the one failure no gate here
+   catches: the lanes check the tree, never the request.
+3. **Add nothing nobody asked for.** No abstraction for a one-time operation, no
+   error handling for a case that cannot arise, no refactor riding along with a
+   fix. A lane script is read by whoever is staring at a red run, and every
+   extra line is one they have to rule out first.
+4. **Delegate rarely, and never delegate verification.** A subagent
+   re-establishes context, re-explores, reports back, and then you re-read the
+   report. Hand off a wide multi-file investigation or two genuinely independent
+   tracks; do not hand off a handful of tool calls. The verification discipline
+   below is the part you run yourself - a second agent agreeing with you is not
+   a negative control.
+5. **Lead with the outcome.** First sentence: what happened, or what you found.
+   Evidence after it. Between tool calls, write when you find something, change
+   direction or hit a blocker, not to announce the next call.
+6. **Correct only what changes a decision.** If an earlier statement would
+   change the reader's code, conclusion or next step, fix it plainly and carry
+   on. A slip that changes nothing gets fixed, not announced.
+
 ## Read this first
 
 | you want to | read |
@@ -78,11 +108,11 @@ debugs a product whose source lives somewhere else.
 `AGENTS.md` is the cross-tool convention (stewarded by the Agentic AI Foundation
 under the Linux Foundation; read natively by Codex, Cursor, Aider, Jules and
 others). **Claude Code does not read it** - it reads `CLAUDE.md` only. The root
-`CLAUDE.md` therefore carries nothing but a pointer and an `@AGENTS.md` import,
-the syntax Anthropic documents for exactly this case; the sibling zfish repo
-uses the same shape. It is not a duplicate: edit this file, never that one. A
-symlink would also work but breaks on Windows without Developer Mode, and this
-repo ships Windows packages.
+`CLAUDE.md` is therefore one line, the `@AGENTS.md` import Anthropic documents
+for exactly this case; the sibling zfish repo uses the same shape. Prose beside
+that line is a second copy of this file that nothing updates, so there is none:
+edit this file, never that one. A symlink would also work but breaks on Windows
+without Developer Mode, and this repo ships Windows packages.
 
 ## The short version of the workflow
 
@@ -221,3 +251,6 @@ catalogue. Read it before trusting any lane result.
 - Upstream target names and artifact names are preserved exactly.
 - Residual risks are explicit.
 - Tracked docs are ASCII and do not reference `__DEV/`.
+- Every part of the request is done, or the part that is not is named.
+- The report opens with the outcome and runs as long as the evidence, no
+  longer.

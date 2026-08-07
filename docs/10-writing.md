@@ -106,7 +106,11 @@ hand-edit it - hunk headers count lines, so apply it to a clean tree, edit there
 and `git diff` back" does not.
 
 **Cut anything that does not help implement or verify.** Length is not
-thoroughness; it is where rot hides.
+thoroughness; it is where rot hides. A page is as long as its claims and no
+longer: no filler section, no summary that repeats the section above it, no
+preamble restating the title. That holds for a commit body and an MR too - a
+paragraph that carries no fact a reader can act on is a paragraph someone has
+to read before finding the one that does.
 
 ## Doc pages
 
@@ -129,9 +133,9 @@ sentence is about. A reader who cannot tell will look for `run-leakscan.sh` in
 the product tree and not find it.
 
 `../AGENTS.md` is the committed agent contract and the short form of all of it.
-It carries the commands, the traps and the definition of done, and it points here
-rather than restating. Keep the duplication at zero: a rule lives in exactly one
-of the two.
+It carries the commands, the traps, how to work here and the definition of done,
+and it points here rather than restating. Keep the duplication at zero: a rule
+lives in exactly one of the two.
 
 ### Hot and cold
 
