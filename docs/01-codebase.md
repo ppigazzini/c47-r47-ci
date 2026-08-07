@@ -220,7 +220,7 @@ concept and each has several files. Grouped by the concept they belong to:
 
 The four hottest files in the repository - `items.c`, `softmenus.c`,
 `keyboard.c`, `screen.c` - are all here, and all are dispatch, input or
-presentation. See [00-architecture.md](00-architecture.md) s7 for the churn measurement.
+presentation. See [00-architecture.md](00-architecture.md) s8 for the churn measurement.
 
 `src/index spreadsheet/` (note the space in the name) holds design sources as
 binary `.xlsx`: keyboard layouts, CONFIG defaults, unit conversions, item
@@ -361,7 +361,7 @@ include it, and for most it is the only project header they include. Every
 translation unit therefore sees every declaration. The consequences - no
 encapsulation, no compiler-checkable layering, no unit-test isolation, and why
 the god header is load-bearing rather than merely untidy - are measured in
-[00-architecture.md](00-architecture.md) s3 and s8.
+[00-architecture.md](00-architecture.md) s3 and s9.
 
 **`indexOfItems[]` is the command set.** `item_t` (`typeDefinitions.h:603-615`)
 carries a function pointer, a parameter, a catalogue name, a softmenu name, a
@@ -370,7 +370,7 @@ TAM argument range and packed status bits. `LAST_ITEM` is 2870
 and the corpus all address commands by item number: `softmenus.c` never names a
 maths function, it names item numbers. This is the codebase's best structural
 idea, and because `func` is a function pointer it is also the edge that makes
-every file reachable from every other ([00-architecture.md](00-architecture.md) s4, s8.3).
+every file reachable from every other ([00-architecture.md](00-architecture.md) s4, s9.3).
 
 The `status` field packs six independent concerns into one `uint16_t`
 (`defines.h:1040-1096`): stack lift after execution (`SLS_*`), undo behaviour
@@ -1084,9 +1084,9 @@ so the fan-out returns. And the base services call upward: `flags.c` and
 `error.c` notify the UI directly, so the bottom of the graph reaches the top.
 
 The resulting dependency graph - one strongly connected component of 222 of 228
-link units - is measured in [00-architecture.md](00-architecture.md) s8, which also
+link units - is measured in [00-architecture.md](00-architecture.md) s9, which also
 sets out which edges close the cycle and what each would cost to cut. Read it
-before proposing any structural change - but note that its Sections 9 to 11 are
+before proposing any structural change - but note that its Sections 10 to 12 are
 assessment and an unadopted proposal, not an upstream plan.
 
 ## 12. Runtime resources

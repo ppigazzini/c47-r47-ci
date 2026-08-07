@@ -61,7 +61,7 @@ debugs a product whose source lives somewhere else.
 
 | you want to | read |
 |---|---|
-| understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-8 only; 9-11 are an unadopted proposal |
+| understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-9 only; 10-12 are an unadopted proposal |
 | find your way around the c43 source tree | [docs/01-codebase.md](docs/01-codebase.md) |
 | identify the high-level module you are touching, and the literature to search for it | [docs/02-modules.md](docs/02-modules.md) |
 | build the simulator or the firmware | [docs/03-build.md](docs/03-build.md) |
@@ -153,9 +153,12 @@ catalogue. Read it before trusting any lane result.
 - **A green `make test` is not evidence about the shipped firmware.** The host
   build compiles the 159-digit cubic and eigenvalue solvers; the one DM42 package
   that fits in flash compiles the 75-digit twins instead, and no corpus case
-  reaches them. That is one row of a larger table: every check in this repo
-  compares the calculator against *something*, three of them compare it against
-  nothing while looking green, and
+  reaches them. Passing the package number to a host build does not fix that:
+  the `OPTION_*` profile lives inside `#if defined(DMCP_BUILD)`, so
+  `-DDMCP_PACKAGE=n` on a `PC_BUILD` changes one macro and no option
+  ([docs/00-architecture.md](docs/00-architecture.md) s7.2). That is one row of
+  a larger table: every check in this repo compares the calculator against
+  *something*, three of them compare it against nothing while looking green, and
   [docs/04-testing.md](docs/04-testing.md) Section 8 says which is which.
 - **`src/generated/` in the c43 clone is gitignored** and populated by `make`'s
   `install -C` step, yet it sits on the include path *ahead of* the build dir.

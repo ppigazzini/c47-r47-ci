@@ -29,7 +29,7 @@ The repository holds three things:
 
 | Document | Audience | Description |
 |---|---|---|
-| [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, and the measured dependency graph. Sections 1-8 are fact; 9-11 are assessment and an **unadopted** proposal |
+| [00-architecture.md](00-architecture.md) | All contributors | What C47 is: the god header, the item table, the HAL, the measured dependency graph, and the build's configuration axis - one tree, several calculators. Sections 1-9 are fact; 10-12 are assessment and an **unadopted** proposal |
 | [01-codebase.md](01-codebase.md) | All contributors | The source tree: every module, the register file and memory model, the calculator's state, control flow from a key press to a screen |
 | [02-modules.md](02-modules.md) | Anyone working on a subsystem | The high-level module inventory: the five language surfaces, the numeric/interaction/presentation/persistence machines, each named by its literature term |
 | [03-build.md](03-build.md) | All contributors | The `make` targets, the Meson graph, the generators, cross-compilation, packaging and the upstream CI surface |
@@ -56,6 +56,7 @@ looking for. This one is keyed by what brought you here.
 | find where something lives in the c43 tree | [01-codebase.md](01-codebase.md) |
 | understand why the code is shaped the way it is, or argue it should change | [00-architecture.md](00-architecture.md) |
 | build the simulator, or work out why a build is stale | [03-build.md](03-build.md) |
+| work out which calculator a build directory actually contains | [00-architecture.md](00-architecture.md) - Section 7 |
 | write a test, or drive the calculator headlessly | [04-testing.md](04-testing.md) |
 | work out what a green run actually proves | [04-testing.md](04-testing.md) - Section 8 |
 | chase a leak, a crash or an overrun | [05-debugging.md](05-debugging.md) |

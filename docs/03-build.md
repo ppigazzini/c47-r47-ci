@@ -42,6 +42,19 @@ packages it, and `dmcp_pkgs_all` / `dist_dmcp_pkgs_all` sweep 1 to 3;
 `dist_dmcp_pkg$(DMCP_PACKAGE)`. Which packages link is a memory question, not a
 build one - see [06-memory.md](06-memory.md).
 
+What a package number selects is an `OPTION_*` profile in `src/c47/defines.h`,
+and **it is reachable only from a DMCP build**. `Makefile:24` supplies the
+default 4; meson forwards `-DDMCP_PACKAGE` only when `DMCPVERSION` is `dmcp`
+(`meson.build:42-45`), and the ladder that reads it sits inside
+`#if defined(DMCP_BUILD)`. So `meson setup build.sim -DDMCP_PACKAGE=1` is
+accepted and changes no option, and no target in the table above builds a
+shipping DM42 feature set on the host. Two consequences bite here rather than in
+`06`: `make test` runs the simulator's profile whatever package you last built,
+and a package number outside 1 to 4 - including none at all, the meson option's
+default being empty - reaches no block and builds a configuration nobody ships.
+[00-architecture.md](00-architecture.md) s7 owns the measurement and what it
+costs.
+
 Notes that cost time if you do not know them:
 
 - **`make t47` alone resolves to `t47: simr47`**, so `./t47` is the R47 build.
@@ -61,6 +74,13 @@ by `make`'s `install -C` step rather than by ninja, and sits on the include path
 **ahead of** the build directory. A stale copy silently shadows a freshly
 generated header, producing errors that make no sense against a correct build
 dir. Refresh it after any upstream constant or catalog change.
+
+The directory is one per clone and the build directories are one per
+configuration, so what it shadows is not only an older header but **another
+configuration's**: `make sim` installs the simulator's copies, and a firmware or
+package build afterwards compiles against them. `make clean` removes them
+(`Makefile:47`); do that between configurations, or build each in a clone of its
+own.
 
 
 ## The make targets in detail

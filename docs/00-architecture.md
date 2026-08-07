@@ -14,7 +14,9 @@ the tree.
 This page and [01-codebase.md](01-codebase.md) both describe the god header, the
 item table and the HAL, and they are not saying the same thing about them: this
 page owns what those structures **cost**, 01 owns what they **are** and where
-they live. Anything below is someone else's, and is not re-derived here.
+they live. The build divides the same way: 03 owns how to run it, s7 owns what
+its configuration axis costs. Anything below is someone else's, and is not
+re-derived here.
 
 | subject | owner |
 |---|---|
@@ -29,15 +31,15 @@ Subject: `https://gitlab.com/rpncalculators/c43.git` (the repository keeps the
 older `c43` name; the application it builds is C47). The audit basis above is
 the commit behind every figure measured from git
 objects. The `nm` link-graph metrics come from a full object build of that same
-commit, so s8.2's headline and s11's before-column are now one measurement
+commit, so s9.2's headline and s12's before-column are now one measurement
 rather than two. The method for each figure is stated with it, and every
 load-bearing claim is indexed in Annex C. Line counts are blob lines, not SLOC:
 an upper bound, used for relative scale only.
 
 ## Read this before quoting a number
 
-**Sections 1 to 8 and Annex A are measured fact.** Sections 9, 10 and 11 are
-**assessment and an unadopted proposal** - see the warning before Section 9.
+**Sections 1 to 9 and Annex A are measured fact.** Sections 10, 11 and 12 are
+**assessment and an unadopted proposal** - see the warning before Section 10.
 
 **The structural conclusions hold; the fine-grained counts drift with upstream.**
 Measured at the audit basis:
@@ -56,10 +58,14 @@ Measured at the audit basis:
 | `src` `.c`/`.h` files / lines | 525 / 182425 |
 | DMCP / DMCP5 hal adapters | 4 each |
 | commits | 14098 |
+| `OPTION_*` names in `defines.h` / sites elsewhere | 39 / 598 in 66 files |
+| `OPTION_*` defined: sim, DM42 pkg 1-4, DM42n | 37, 27/24/25/18, 36 |
+| `savedspace()` lines / `case` labels | 238 / 173 |
 
 The conclusions do not move - one god header, one large single cycle, a
-preprocessor-based portability layer - but **re-measure before quoting any
-specific count**; that is what the counts are for. Annex A gives the method for
+preprocessor-based portability layer, one feature profile per shipped
+configuration - but **re-measure before quoting any specific count**; that is
+what the counts are for. Annex A gives the method for
 each. The quick ones:
 
 ```bash
@@ -69,7 +75,7 @@ grep -rl '#include "c47.h"' src/c47 --include=*.c | wc -l
 grep -rho '\bPC_BUILD\b' src/c47 --include=*.c --include=*.h | wc -l
 ```
 
-The `nm` link-graph metrics in Section 8 and Annex A (edge count, the SCC size,
+The `nm` link-graph metrics in Section 9 and Annex A (edge count, the SCC size,
 CCD/ACD/NCCD, the degree tables) need a full object build, and were re-derived at
 the audit basis. Re-run the Annex A method against a fresh build before quoting
 them: they move with any change to who calls whom.
@@ -283,12 +289,12 @@ Every translation unit sees every declaration. Consequences:
    write any of the 314 globals. Who mutates `calcMode`, `lastFunc` or
    `systemFlags` is answerable only by repository-wide grep.
 2. **Every header edit rebuilds the library.** `defines.h` takes 396 commits a
-   year (s7); each invalidates all 228 TUs.
+   year (s8); each invalidates all 228 TUs.
 3. **Unit-test isolation is impossible by construction.** A leaf function's header
-   drags in `c47.h`, which links the world. The end-to-end test strategy (s7) is a
+   drags in `c47.h`, which links the world. The end-to-end test strategy (s8) is a
    rational response to this, not an oversight.
 4. **No layering is compiler-checkable.** `mathematics/` may call `screen.c` and
-   nothing stops it. It does (s8.3).
+   nothing stops it. It does (s9.3).
 
 `c47.h` is not a public API header. It is a bundle: 134 includes so nobody has to
 decide which one they need. That is a real ergonomic benefit purchased with the
@@ -350,7 +356,7 @@ with it.
   save DM42 flash. The packing is undocumented at the type and spread across
   `CAT_*`, `SLS_*`, `US_*`, `EIM_*`, `PTP_*`, `HG_*` in `defines.h`.
 - **`func` is a function pointer, so linking the table links the calculator.** This
-  is the dominant structural fact of the codebase (s8).
+  is the dominant structural fact of the codebase (s9).
 
 ### 4.1 The 887 stubs
 
@@ -492,10 +498,150 @@ strings so the DM42 firmware fits in flash. It is a flash-budget switch expresse
 as preprocessor noise in 36% of the source files.
 
 Only one branch is compiled at a time, so the other is never type-checked by that
-build. CI compiling every target (s7) is the correct mitigation and is
+build. CI compiling every target (s8) is the correct mitigation and is
 load-bearing.
 
-## 7. Tests, CI and change
+## 7. The build system: one tree, several calculators
+
+[03-build.md](03-build.md) owns the targets and how to run them, and
+[01-codebase.md](01-codebase.md) Section 4 owns the generator DAG. What is here
+is what the build's shape costs: **the tree does not build one program**, the
+switch choosing which program it builds is nested inside the switch choosing the
+platform, and the generated code is shared across both.
+
+### 7.1 Three switches choose the calculator
+
+| switch | values | where |
+|---|---|---|
+| `CALCMODEL` | `USER_C47`, `USER_R47` | `defines.h:29`; read at 37 sites in 10 files |
+| the platform | `PC_BUILD`; `DMCP_BUILD`; `DMCP_BUILD` + `NEW_HW` | `meson.build:12,40` |
+| `DMCP_PACKAGE` | 1 to 4 | `Makefile:24`, `meson.build:42-45`, ladder at `defines.h:143-150` |
+
+The third changes the calculator most. `defines.h` declares **39 `OPTION_*`
+names**, read at 598 further sites in 66 files, and each package `#define`s and
+`#undef`s a subset. Measured at the audit basis:
+
+| configuration | `OPTION_*` defined |
+|---|---|
+| simulator (`PC_BUILD`), and `TESTSUITE_BUILD` | 37, identical to each other |
+| DM42 package 1 / 2 / 3 / 4 | 27 / 24 / 25 / 18 |
+| DM42n, DM32 (`NEW_HW`) | 36 |
+
+```bash
+echo '#include "defines.h"' | gcc -E -dM -Isrc/c47 -DPC_BUILD -DLINUX -DOS64BIT -x c - | grep -c '^#define OPTION_'
+echo '#include "defines.h"' | gcc -E -dM -Isrc/c47 -DDMCP_BUILD -DOS32BIT -DDMCP_PACKAGE=1 -x c - | grep -c '^#define OPTION_'
+```
+
+Two readings of that table. **The reductions belong to the old DM42 alone**: the
+DMCP5 targets take the full profile less `OPTION_SAMPLEPGMS`, so "DM42" and
+"DM42n" are not one configuration and a package number does not describe either
+of them. And **the corpus's option set is the simulator's**, macro for macro -
+the seam [04-testing.md](04-testing.md) Section 8 scores as negative evidence
+for the DM42.
+
+### 7.2 The feature profile is nested inside the platform
+
+The package ladder sits inside `#if defined(TWO_FILE_PGM)` (`defines.h:136`)
+inside `#if defined(DMCP_BUILD)` (`:74`), and meson adds `-DDMCP_PACKAGE` only
+when `DMCPVERSION` is `dmcp` (`meson.build:42-45`). Both gates are the platform,
+so **the profile is unreachable from a host build**: handing one the flag
+changes exactly one macro, `DMCP_PACKAGE` itself, and no `OPTION_*`.
+
+```bash
+diff <(echo '#include "defines.h"' | gcc -E -dM -Isrc/c47 -DPC_BUILD -DLINUX -DOS64BIT              -x c - | grep '^#define OPTION_' | sort) \
+     <(echo '#include "defines.h"' | gcc -E -dM -Isrc/c47 -DPC_BUILD -DLINUX -DOS64BIT -DDMCP_PACKAGE=1 -x c - | grep '^#define OPTION_' | sort)
+```
+
+Run the same comparison across two DMCP packages and it reports differences, so
+it can see one.
+
+Every binary this harness can run - `c47`, `r47`, `t47`, the testSuite, every
+lane in [07-ci.md](07-ci.md) - therefore carries the profile with the most code
+in it, and no shipping DM42 profile has a behavioural test. That is a **gap, not
+a scope decision**, and it does not stop at which functions exist: four switches
+change what a function that does exist computes.
+
+| switch | sim | pkg 1 | pkg 2 | pkg 3 | pkg 4 | what it changes |
+|---|---|---|---|---|---|---|
+| `OPTION_CUBIC_159` | yes | no | no | no | no | `mathematics/slvc.c` works at 159 digits, not 75 |
+| `OPTION_EIGEN_159` | yes | no | no | no | no | the same for `matrix.c`, `slvq.c`, `squareRoot.c`, `cubeRoot.c` |
+| `OPTION_TVM_FORMULAS` | yes | yes | no | yes | no | `solver/tvm.c` uses the analytical formula rather than the solver |
+| `OPTION_TVM_NEWTON` | yes | yes | no | yes | no | `solver/tvm.c` adds Newton-Raphson to the Brent solver |
+
+A case carrying one `Out:` value cannot be right for both columns. Testing a
+package is therefore **not a subset of the corpus**; it is the same inputs with
+a second expected value, and the corpus format has nowhere to put one.
+
+**The ladder has no default arm.** A `DMCP_PACKAGE` outside 1 to 4 - or absent,
+which is what a bare `meson setup` gives, the meson option defaulting to the
+empty string - reaches none of the four blocks and compiles the common
+`TWO_FILE_PGM` reductions alone: a fifth configuration nobody ships, 30
+`OPTION_*` at the audit basis. `Makefile:24` is the only thing that supplies the
+number.
+
+### 7.3 What an option removes, and what survives it
+
+Three places have to agree before a feature disappears, and all three are
+maintained by hand:
+
+1. the profile in `defines.h` decides the macro;
+2. an `#if` in the owning file compiles the **body** away - `elec.c:91-114`
+   wraps the body of `fnDeltaToStar`, not its definition;
+3. `savedspace()` (`softmenus.c:2713`, 238 lines, 173 `case` labels under 17
+   option names) strikes the items out of the menus and catalogues
+   (`softmenus.c:2978`, `:2990`).
+
+The invariant that follows is that **the item row and the function symbol always
+survive**. `items.c` carries four option conditionals in the whole file, so
+`indexOfItems[]` is the same table in every package; dispatch still reaches a
+removed command and runs a function whose body is empty - nothing computed,
+nothing reported. Presence in the item table is not evidence that a feature is
+compiled in, the strike-out list is the only thing hiding it, and nothing checks
+the three lists against each other.
+
+### 7.4 The generated code is shared across configurations
+
+Every generator is `native: true`, so the host compiler builds it even in a
+cross build, and `add_project_arguments` hands `-DPC_BUILD` to native targets
+(`meson.build:12`) and `-DDMCP_BUILD` / `-DDMCP_PACKAGE` to the cross ones
+(`:40,:44`). In a package build directory the generator, and the `items.c` it
+links, get neither:
+
+```bash
+meson setup build.dmcp.p1 --cross-file=src/c47-dmcp/cross_arm_gcc.build -DDMCPVERSION=dmcp -DDMCP_PACKAGE=1
+python3 -c 'import json
+for e in json.load(open("build.dmcp.p1/compile_commands.json")):
+  if e["file"].endswith("generateCatalogs/generateCatalogs.c"):
+    print(e["command"].split()[0], sorted(f for f in e["command"].split() if f.startswith("-D")))'
+```
+
+At the audit basis that prints `cc`, with `-DGENERATE_CATALOGS -DLINUX
+-DOS64BIT -DPC_BUILD` among its `-D`s. Run it for `src/c47/items.c` instead and
+the firmware entry beside it is `arm-none-eabi-gcc` with `-DDMCP_BUILD
+-DDMCP_PACKAGE=1 -DOLD_HW -DOS32BIT`: two compilers, two option sets, in one
+build directory.
+**`softmenuCatalogs.h` is generated from the full option set whichever package
+includes it**, which is why `savedspace()` has to exist at all: the strike-out
+is applied to a catalogue that was never reduced.
+
+The second sharing edge is the source tree. `c47_inc` is
+`include_directories('.', '../generated')` (`src/c47/meson.build:245`), and in
+the same compile line `-I../src/generated` precedes `-Isrc/generateCatalogs` and
+`-Isrc/generateConstants`, the build directories holding the freshly generated
+headers. `make sim` installs the simulator's copies into that source directory
+(`Makefile:118-122`), outside ninja's dependency graph. A build of any other
+configuration therefore compiles against whichever configuration last ran `make
+sim`, and reports nothing. Print the `-I` order from the same
+`compile_commands.json` to see it:
+
+```bash
+python3 -c 'import json
+for e in json.load(open("build.dmcp.p1/compile_commands.json")):
+  if e["file"].endswith("src/c47/items.c") and "arm" in e["command"].split()[0]:
+    print([f for f in e["command"].split() if f.startswith("-I")]); break'
+```
+
+## 8. Tests, CI and change
 
 **The corpus is data-driven and this is a genuine strength.** `src/testSuite` is
 331 files: **322 `.txt`** tests, 6 `.c`, a `.py`, a header, a `meson.build`. Tests
@@ -513,7 +659,9 @@ the right shape.
 
 **CI builds every target.** `.gitlab-ci.yml` (170 lines): stages
 build/test/upload/release; jobs for macOS, Linux, Windows (msys2), dmcp, dmcp5,
-dmcp5r47, `testSuite:` (`make test`) and `codeDocs:`.
+dmcp5r47, `testSuite:` (`make test`) and `codeDocs:`. Every target, not every
+configuration: the `dmcp` job runs `make dist_dmcp`, which is `DMCP_PACKAGE=4`
+(s7.1), so packages 1 to 3 are built by nothing and tested by nothing.
 
 **The corpus asserts the screen in one file.** `graphs_cov.txt` renders plots
 through `SNAP` and pins a SHA-256 of the resulting bitmap, which covers the
@@ -554,9 +702,9 @@ window: 77% of files saw at least one non-sweep commit. Both may be true of
 different windows; the original method was not reproduced here, so do not rely
 on "92% cold" without one.
 
-## 8. Physical structure
+## 9. Physical structure
 
-### 8.1 The header graph is not levelizable
+### 9.1 The header graph is not levelizable
 
 Over all 243 headers in `src/c47` (243 edges), one strongly-connected component of
 size > 1:
@@ -570,7 +718,7 @@ it. Guards suppress the symptom, not the cycle. One cycle of three is small in
 count and total in effect: nothing below it can be compiled, tested or reasoned
 about in isolation, because the bottom of the graph includes the top.
 
-### 8.2 The link graph: 97% of the library is one cycle
+### 9.2 The link graph: 97% of the library is one cycle
 
 C47 has **no object partition**: meson emits one `.o` per `.c`. The `c47` target
 links `build.sim/src/c47-gtk/c47.p/` = 246 objects, of which **228 are from
@@ -609,7 +757,7 @@ per-component headers are not merely neglected -- they are unwritable: any
 component header would need the declarations of the components that call back into
 it. **`c47.h` is not the disease. It is what makes the disease survivable.**
 
-### 8.3 What closes the cycle
+### 9.3 What closes the cycle
 
 **`item_t.func` is the dominant edge.** `items.c` dispatches to **211 of the 228
 link units**. The table touches 90% of the library, and every command calls back into
@@ -845,21 +993,21 @@ downward-to-upward call.**
 > **Everything from here to Annex A is assessment and proposal, not fact, and
 > not a plan of record.**
 >
-> Sections 1 to 8 measure what the code *is*. Sections 9 to 11 judge it against
+> Sections 1 to 9 measure what the code *is*. Sections 10 to 12 judge it against
 > external practice and sketch what changing it would cost. That analysis was
 > produced as an audit input for a separate port project, **not** in agreement
 > with the upstream c43 maintainers.
 >
-> **Nothing in Section 11 is scheduled, accepted, or endorsed by upstream.** Do
+> **Nothing in Section 12 is scheduled, accepted, or endorsed by upstream.** Do
 > not start splitting `item_t` because a document in a CI repository lists it as
 > step 1. Any structural change to c43 goes through upstream review as a merge
 > request, on its own merits.
 >
-> Read Sections 9 to 11 for one thing only: if you are about to touch this
+> Read Sections 10 to 12 for one thing only: if you are about to touch this
 > architecture, they tell you which edges are load-bearing and roughly what a
 > cut would cost. That is useful. It is not a mandate.
 
-## 9. Measured against 2026 best practice
+## 10. Measured against 2026 best practice
 
 References in Annex B. This is a judgement against external criteria, not a
 measurement of c43.
@@ -873,6 +1021,8 @@ measurement of c43.
 | Dependency inversion | the app defines the port | the port IS `dmcp.h`; other targets emulate the DM42 | **FAIL** |
 | Application layer hardware-agnostic | no toolkit types above the HAL | `gboolean`/`GtkWidget*`/`cairo_t*` in 12 library files | **FAIL** |
 | Features not switched at compile time | runtime flags / plugins | 2781 conditionals; but see below - this one is the product, not a defect | **N/A** |
+| Feature profile independent of the platform | pick the feature set and the target separately | the package ladder is nested inside `#if defined(DMCP_BUILD)`, so no host build carries one (s7.2) | **FAIL** |
+| Every shipped configuration built, and tested | each one has a lane | `dist_dmcp` builds `DMCP_PACKAGE=4` only, and the corpus runs the simulator's profile (s7.1) | **FAIL** |
 | Build-input provenance diffable | text sources | keyboard layout + CONFIG defaults in binary `.xlsx` | **FAIL** |
 | Table-driven dispatch | data, not switch forests | `indexOfItems[]`, 2871 slots | **PASS**, exemplary |
 | Tests as data | corpus over code | 322 `.txt` vs 6 `.c` runner | **PASS**, exemplary |
@@ -880,23 +1030,28 @@ measurement of c43.
 | Generated artefacts reproducible | one source of truth | generators are targets, but outputs are also checked in and nothing diffs them; some inputs are `.xlsx` | **WEAK** |
 
 **The compile-time switching is the product, and scoring it FAIL is a category
-error.** C47 ships *different calculators* from one tree. `Makefile:17` sets
-`DMCP_PACKAGE = 4`; `defines.h:144-148` defines `PACKAGE1_NOBESSEL_NOORTHO`,
-`PACKAGE2_NODISTR` and `PACKAGE3_NOBESSEL_NOORTHO_NOFBR`. Above them sit 73
-`OPTION_*` switches (`defines.h:32-61`), each commented with the *user-visible
-functions* it adds or removes - `OPTION_FACTOR` is "FACTORS, M.FACT, EULPHI,
-SIGMA, NumTh menu". `BUILD.md` exposes it: `make DMCP_PACKAGE=1 dist_dmcp`.
+error.** C47 ships *different calculators* from one tree. `Makefile:24` sets
+`DMCP_PACKAGE = 4`; the ladder at `defines.h:143-150` turns that number into
+`DMCP_PACKAGE1` to `DMCP_PACKAGE4_NOOPT`, each selecting one block of the 39
+`OPTION_*` switches declared above it (`defines.h:32-71`), and each switch is
+commented with the *user-visible functions* it adds or removes - `OPTION_FACTOR`
+is "FACTORS, M.FACT, EULPHI, SIGMA, NumTh menu". `BUILD.md:53-56` exposes it:
+`make DMCP_PACKAGE=1 dist_dmcp`.
 
 A runtime flag cannot do this job. On a DM42 the code must not be *linked*, not
 merely not executed - the flash is the constraint, which is also what
 `EXTRA_INFO_ON_CALC_ERROR` in 172 files is buying. Removing a feature is not
-deleting code either: it strikes the item out of the catalog and the menus, so
-the user never finds a softkey that does nothing.
+deleting code either: `savedspace()` strikes the item out of the menus and
+catalogues so the user never finds a softkey that does nothing, while the row
+and the symbol stay (s7.3).
 
-7 fail, 3 pass, 1 weak, 1 not applicable. The three passes are what most projects get wrong and C47
-gets right. Every failure traces to one root.
+What the two new FAIL rows score is not the switching. It is that the switch is
+reachable from one platform and the test corpus from the other.
 
-## 10. Verdict
+9 fail, 3 pass, 1 weak, 1 not applicable. The three passes are what most projects get wrong and C47
+gets right. Every failure but the last two traces to one root.
+
+## 11. Verdict
 
 **C47's physical architecture is a single 222-file cycle, and the edge that closes
 it is the function pointer inside its best design decision.** The item table is
@@ -915,7 +1070,7 @@ The ledger is better than that sounds: the chokepoints are six files, the cheape
 cut is one line, and the fix does not touch the good idea. The table stays one
 table. Dispatch stays data-driven. `func` moves to a parallel array.
 
-## 11. What a fix would cost (proposal, not a plan)
+## 12. What a fix would cost (proposal, not a plan)
 
 **Unadopted.** No upstream maintainer has agreed to any of this. It is recorded
 because the measurements behind it are useful when weighing a change, and
@@ -1000,7 +1155,7 @@ chosen per target -- a full one for PC/testSuite, a `(void)` stub for DMCP. 1800
 `#if` sites become one component and a link choice, and the flash saving is kept.
 
 Deliberately NOT proposed: the item table stays one table; `items.c`/`screen.c`/
-`softmenus.c` stay whole files (they are the hot set, s7 -- splitting them buys
+`softmenus.c` stay whole files (they are the hot set, s8 -- splitting them buys
 nothing and costs every future merge); the corpus stays `.txt`; the generators stay
 build targets; meson stays.
 
@@ -1036,7 +1191,9 @@ Two rules for reading them:
 | **the meson build dir** | the authoritative object list -- never guess it | the target's `.p` directory, `build.sim/src/c47-gtk/c47.p/`. **Do not glob it with `*.o`:** meson names a library object after its relative path, so all 228 from `src/c47` begin `.._c47_` and a shell glob skips them as dotfiles - `*.o` matches 10 of 246. Use `find <dir> -name '*.o'`. |
 | **clang analyzer** | AST call graph per TU; validates one file precisely | `clang -Xclang -analyze -Xclang -analyzer-checker=debug.DumpCallGraph -Isrc/c47 -Isrc/c47/hal -Idep/decNumberICU -Isrc/generated $(pkg-config --cflags gtk+-3.0) -DPC_BUILD=1 -DLINUX=1 -DOS64BIT=1 <file.c>` |
 | **Tarjan SCC** | cycles in any graph above | ~30 lines; it is the whole diagnosis |
-| [`tooling/linkgraph.py`](../scripts/test/tooling/linkgraph.py) | all of the above in one run: edges, SCCs, CCD/ACD/NCCD, the files outside the cycle, and s11's dispatch-split effect | `make simc47` first, then `python3 scripts/test/tooling/linkgraph.py <clone>/build.sim/src/c47-gtk/c47.p`. It encodes both traps: the dotfile glob, and the `.._c47_` vertex set |
+| [`tooling/linkgraph.py`](../scripts/test/tooling/linkgraph.py) | all of the above in one run: edges, SCCs, CCD/ACD/NCCD, the files outside the cycle, and s12's dispatch-split effect | `make simc47` first, then `python3 scripts/test/tooling/linkgraph.py <clone>/build.sim/src/c47-gtk/c47.p`. It encodes both traps: the dotfile glob, and the `.._c47_` vertex set |
+| **`gcc -E -dM`** | **the option set a configuration actually compiles. The only honest way to compare two packages** | `echo '#include "defines.h"' \| gcc -E -dM -Isrc/c47 -DPC_BUILD -DLINUX -DOS64BIT -x c -`, then `grep '^#define OPTION_' \| sort`. Swap in `-DDMCP_BUILD -DOS32BIT -DDMCP_PACKAGE=<n>` for a package, add `-DNEW_HW` for DMCP5 |
+| **`compile_commands.json`** | which compiler and which `-D`s a translation unit really got, and the `-I` order | meson writes it into every build dir; a `native: true` generator and the cross TU beside it appear as separate entries (s7.4) |
 | **`git log --since --name-only`** | churn | exclude sweep commits (>100 files) |
 | `objdump`, `readelf` | relocations, sections | when `nm` is not enough |
 | `include-what-you-use` | header hygiene | would flag `c47.h`'s 134-include bundle directly |
@@ -1059,6 +1216,8 @@ inventing a metric. The gap is that no one runs them.
 | **A filename test to infer obligation** | a split sub-file has no same-named `.c` yet inherits every edge | "71% of the cycle is not upstream's" -- false |
 | **`nm --defined-only` counting all symbols** | local symbols dominate and are not the object's surface | a 38-line owner appears to define 3084 symbols |
 | **The `#include` graph alone** | include guards mask cycles; the graph looks nearly acyclic | 1 header cycle visible; the 222-file link cycle invisible |
+| **Counting `OPTION_*` switches by reading `defines.h`** | a name is written several times - declared, then `#define`d or `#undef`ed again in each package block - and the count a build sees is the preprocessor's, not the file's | 151 `#define`/`#undef` lines over 39 distinct names; expand with `gcc -E -dM` (A.2) |
+| **Assuming a cross build cross-compiles everything in it** | the generators are `native: true`, so a package build dir holds two compilers and two option sets | `softmenuCatalogs.h` inside `build.dmcp.p1` is built by `cc -DPC_BUILD` (s7.4) |
 | **Churn without excluding sweep commits** | a 455-file "Header files centralization" touches everything | 0% cold vs the real 23% |
 | **File size as a signal** | the megafiles are the hot files; size is upstream's shape, not the defect | `screen.c` at 6623 lines is not the problem; the cycle is |
 | **ACD across differently-sized codebases** | it scales with N | use NCCD |
@@ -1122,5 +1281,12 @@ document came from reconstructing something the build had already computed.
 | corpus | `src/testSuite`: 331 `.txt`, 6 `.c` |
 | CI | `.gitlab-ci.yml` 170 lines; jobs macOS/Linux/Windows/dmcp/dmcp5/dmcp5r47/testSuite/codeDocs |
 | build | 15 `meson.build`; `Makefile` (62 targets) wraps `meson`/`ninja` |
+| the three configuration switches | `CALCMODEL` `defines.h:29` (37 sites, 10 files); `-DPC_BUILD` / `-DDMCP_BUILD` `meson.build:12,40`; `DMCP_PACKAGE` `Makefile:24`, `meson.build:42-45`, ladder `defines.h:143-150` |
+| the option sets | `gcc -E -dM` per configuration (A.2): sim and `TESTSUITE_BUILD` 37 and identical; DM42 packages 27/24/25/18; `NEW_HW` 36; an out-of-range or absent `DMCP_PACKAGE` 30 |
+| the profile is platform-gated | ladder inside `defines.h:136` inside `:74`; `meson.build:42` gates on `DMCPVERSION`; `-DDMCP_PACKAGE=1` on a host build adds one macro and no `OPTION_*` |
+| four switches change results, not presence | `OPTION_CUBIC_159`, `OPTION_EIGEN_159` (`slvc.c`, `slvq.c`, `matrix.c`, `squareRoot.c`, `cubeRoot.c`); `OPTION_TVM_FORMULAS`, `OPTION_TVM_NEWTON` (`solver/tvm.c`) |
+| three lists remove a feature | `defines.h` profile; `#if` in the owning file, e.g. `elec.c:91-114` around the body of `fnDeltaToStar`; `savedspace()` `softmenus.c:2713` (238 lines, 173 `case`, 17 option names), called at `:2978`, `:2990`; `items.c` has 4 option conditionals |
+| generators are native | `compile_commands.json` in `build.dmcp.p1`: `generateCatalogs.c` under `cc -DPC_BUILD`, `src/c47/items.c` under `arm-none-eabi-gcc -DDMCP_BUILD -DDMCP_PACKAGE=1` |
+| `src/generated/` shadows the build dir | `src/c47/meson.build:245` `include_directories('.', '../generated')`; in the same compile line `-I../src/generated` precedes `-Isrc/generateCatalogs` and `-Isrc/generateConstants`; `Makefile:118-122` installs the simulator's copies there |
 | xlsx build inputs | `.gitlab-ci.yml:38-39` builds `xlsxio` to convert `sortingOrder.xlsx`; `src/index spreadsheet/` (16 files, spaces in the name) |
 | scale | `git rev-list --count` = 13804; `git shortlog -sn` = 35 authors; first commit 2018-12-23 |
