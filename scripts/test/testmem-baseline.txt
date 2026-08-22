@@ -108,10 +108,69 @@
 # move, not a fix: the high-water is a whole-run ratchet, and a one-shot object is
 # charged to whichever case reaches it first. The residue still happens. Read the
 # lane's missing-case line as a question, not as a finding.
+#
+# Reconciled against upstream master 9af328a87. The lane was green at dd448f0a1
+# and red at 9af328a87. The only change here between those two runs is the
+# leakscan.patch move to upstream's MVAR derivative entry points, and that edits
+# the --keyscan branch of main(), which --testmem does not take, so the 277
+# upstream commits between the pins are what moved.
+#
+# All five differences pin to one upstream merge, 169dda9dc
+# "Change-derivative-menus-to-be-standard-MVAR-form" - the merge that also
+# removed fn1stDeriv/fn2ndDeriv. Running the lane at 97f5925c3, the master commit
+# before it, and at 169dda9dc itself:
+#
+#   97f5925c3   19 growth cases, identical to the set this file listed before
+#   169dda9dc   22 growth cases: the four below added, deriv_mvar FARG=8 gone
+#   9af328a87   22 growth cases, identical to 169dda9dc
+#
+# The roughly 100 commits after the merge move nothing, and the pre pin
+# reproducing the previous list exactly is the negative control for the whole
+# comparison. A doubled test list (each of the 335 files run twice in one
+# process) yields a growth set identical to the single pass, so every case here
+# is one-shot retention rather than per-iteration growth.
+#
+# Removed, 1 case: deriv_mvar_cov.txt FARG=8 RX=REAL:"3". The test is gone, not
+# fixed. 7753197c1 deletes the line In:  FARG=8 RX=Real:"3" from the corpus file
+# in the same commit that removes the old deriv functions the case drove, so
+# there is no residue to account for and no attribution move to chase.
+#
+# Added, 4 cases, all pool-only (gmp=+0) with the whole-run Pool/GMP leak gate
+# green on the same commit - the distinction between retained state and a leak:
+#
+#   deriv_accuracy.txt  a new corpus file upstream (9bad26b8d, extended by
+#                     19d33b570) listed in testSuiteList.txt by the same branch,
+#                     so neither case predates its own file. FARG=0 is
+#                     fnDerivAccPgm appending the 21 programs Ka..Kg, Xa..Xg and
+#                     Ya..Yg (+1036, the loader class nested_cov FARG=0 already
+#                     carries at +1504); PGM="Xa" is the first derivative run in
+#                     the file (+36).
+#   pgm_solve_cov     FARG=1 RX=REAL:"3" is the engine, not the corpus. The file
+#                     is unchanged across the window, and the case is
+#                     fnDerivPgmCov driving the program derivative that the merge
+#                     rewrote: the old derivativeCommon called calcDeriv, and
+#                     derivativeVariable also stores the point into the variable
+#                     and takes a register snapshot around the sampling. Holding
+#                     upstream at 9af328a87 and dropping deriv_accuracy from the
+#                     list leaves it growing the same +36, so the new file is not
+#                     what charges it.
+#   clearvars_cov     FARG=9877 is the corpus, not the engine. The same
+#                     list-varying run at 9af328a87 has the +4 present with
+#                     deriv_accuracy listed and absent without it, while
+#                     pgm_solve_cov FARG=1 is unmoved either way: the residue
+#                     deriv_accuracy retains is what carries a later case past
+#                     the high-water. Two cases in the file share this key -
+#                     fnClearAllVariables and fnDeleteAllVariables both read as
+#                     IN: FARG=9877, because the normalize keys on the IN line
+#                     and not on Func. Which allocation the +4 is is NOT
+#                     identified here.
+#
+clearvars_cov.txt|IN: FARG=9877
 cpxslv_cov.txt|IN: FL_ASLIFT=0 FARG=0 RY=REAL:"1" RX=REAL:"5"
+deriv_accuracy.txt|IN: FARG=0
+deriv_accuracy.txt|IN: FL_ASLIFT=1 RX=REAL:"1" PGM="Xa"
 deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 deriv_mvar_cov.txt|IN: FARG=0
-deriv_mvar_cov.txt|IN: FARG=8 RX=REAL:"3"
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
 eq_cov.txt|IN: FARG=2 RX=REAL:"0"
@@ -126,4 +185,5 @@ nested_cov.txt|IN: FL_ASLIFT=1 PGM="PLTINT3"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="SLVSLV"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
+pgm_solve_cov.txt|IN: FARG=1 RX=REAL:"3"
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
