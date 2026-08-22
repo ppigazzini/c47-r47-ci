@@ -55,19 +55,31 @@
 # 1704 -> 1713 -> 1714 -> 1727 across four upstream commits, failing the lane
 # each time, while naming a file that never allocated the block. Ownership is
 # read from the allocating frame now, so the drift cannot recur.
+# Re-keyed at upstream master daada38417 from the runner's own valgrind-found.txt
+# (run 32546139136), not from a local memcheck pass. saveRestoreBackup.c
+# 194 -> 197: the sprintf in the hexDump ASCII column is byte-identical at both
+# commits and sits three lines lower. The five display.c entries and
+# matrixEditor.c:1031 are dropped rather than re-keyed - the runner found none of
+# them at aef442e4d, the last green commit, and the only display.c site at
+# daada38417 is 654, in the same real34ToDisplayString2. Both keys still hold at
+# master 9af328a87: saveRestoreBackup.c is untouched since daada38417, and every
+# display.c hunk since is past line 3000.
 #
-# Known upstream uninitialised-value reads in c47 display/formatting paths.
-# Display-only: every math test passes and no memory is corrupted. To be filed
-# upstream.
-#   - matrixEditor.c:1031         displayVectorAngle, via showRealMatrix redraw
-#   - display.c:572/573/579/596/599  real34ToDisplayString2, via register-line
-#                                    refresh and real/eigenvalue formatting
-Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:1031
-Conditional jump or move depends on uninitialised value(s) @ display.c:572
-Conditional jump or move depends on uninitialised value(s) @ display.c:573
-Conditional jump or move depends on uninitialised value(s) @ display.c:579
-Conditional jump or move depends on uninitialised value(s) @ display.c:596
-Conditional jump or move depends on uninitialised value(s) @ display.c:599
+# Known upstream uninitialised-value read in the c47 real formatter.
+# real34ToDisplayString2 explodes the value into a bcd digit buffer and scans it
+# for the first significant digit; that scan is the flagged jump. The reaching
+# path is the matrix editor's column-width pass - getRealMatrixColumnWidths and
+# getComplexMatrixColumnWidths format every element - and memcheck attributes the
+# value to the frames of insColComplexMatrix and delColRealMatrix, which the
+# mateditscroll_cov reshape cases drive.
+#
+# Unlike every other entry here, this one is NOT established as harmless. The
+# corpus case that drives the path asserts the scroll offset, not the rendered
+# glyphs, so its pass says nothing about the digits. It is listed so the gate
+# keeps reporting genuinely new sites, and it needs an upstream report and a
+# verdict on whether a displayed digit can change.
+#   - display.c:654   real34ToDisplayString2, via the matrix editor column widths
+Conditional jump or move depends on uninitialised value(s) @ display.c:654
 
 # Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
 # global-register and free-region arrays (globalRegister, freeMemoryRegions in
@@ -76,4 +88,4 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:599
 # Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
-Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:194
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:197
