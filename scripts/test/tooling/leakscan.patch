@@ -157,7 +157,7 @@ index 0611796f2..2e2518fbb 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -5774,6 +5887,340 @@ int main(int argc, char* argv[]) {
+@@ -5774,6 +5887,341 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
@@ -438,12 +438,13 @@ index 0611796f2..2e2518fbb 100644
 +            fnPgmSlv(lbl);
 +            lastErrorCode = 0;
 +            fnSolve(findNamedVariable("SLV"));
-+            // X now holds the root; take the numerical first and second derivatives
-+            // of the same program there, which runs solver/differentiate.c.
++            // The root is in X. PGMDRV names the same program, and f' and f" differentiate
++            // it there with respect to SLV, which runs solver/differentiate.c.
++            fnPgmDrv(lbl);
 +            lastErrorCode = 0;
-+            fn1stDeriv(lbl);
++            fn1stDerivVar(findNamedVariable("SLV"));
 +            lastErrorCode = 0;
-+            fn2ndDeriv(lbl);
++            fn2ndDerivVar(findNamedVariable("SLV"));
 +          }
 +          if(seqs[s].tvm) {
 +            // Seed the four known TVM variables (N=10, I/yr=5, PV=1000, PMT=-100)
