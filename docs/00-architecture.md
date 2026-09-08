@@ -215,7 +215,7 @@ apart because that is the shape a split would take, not because the split exists
 **Three components are fused in the source, and each fusion is a finding.**
 
 - **Number entry and alpha entry are one component.** They share a buffer, and
-  `c47.c:124` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
+  `c47.c:121` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
   `addItemToBuffer` routes AIM, TAM, NIM and MIM from one if/else chain
   (`bufferize.c:456`).
 - **The matrix type and the matrix editor are one component.**
@@ -469,7 +469,7 @@ covers file I/O, audio, printing and LCD primitives. It does not cover the event
 loop or the drawing surface, which the library reaches directly.
 
 **5.4 The testSuite is display-less, not GTK-less.** `src/testSuite/meson.build`
-links `gtk_dep`; `testSuite.c:30` declares `GtkWidget *screen;`. The harness must
+links `gtk_dep`; `testSuite.c:35` declares `GtkWidget *screen;`. The harness must
 define a GTK object to satisfy the library's own references. This is 5.3 charging
 rent: because the library defines GTK callbacks, every target that links the
 library links GTK -- including the one whose purpose is not to have a GUI.

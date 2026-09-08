@@ -338,7 +338,7 @@ too.
 
 | term | what it is |
 |---|---|
-| **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:916`). X is what you see and what commands consume. |
+| **stack** | the RPN working registers X Y Z T, or X..D when `FLAG_SSIZE8` is set (`defines.h:940`). X is what you see and what commands consume. |
 | **stack lift** | entering a number normally pushes the stack up first. `FLAG_ASLIFT` (`defines.h:951`) says whether the *next* entry lifts; ENTER and CLx clear it so the next number replaces X instead of pushing. Every item declares its effect in `status & SLS_*`. |
 | **LastX** | register `L`. Commands that consume X save it there first (`saveLastX`, called from 87 files), so the user can recover the operand. A new command that forgets this is a user-visible regression. |
 | **f / g** | the two shift keys. The DM42 has one physical shift, so C47 cycles it - that single constraint is why this fork exists. |
@@ -451,7 +451,7 @@ repository and exists purely to satisfy a linker.
 pointer in `item_t` makes it unavoidable.
 
 **`calcMode` is the input state machine.** One global selects who owns the
-keyboard (`defines.h:1684-1702`):
+keyboard (`defines.h:1717-1735`):
 
 ```
   CM_NORMAL 0   CM_AIM 1    CM_NIM 2      CM_PEM 3     CM_ASSIGN 4
@@ -541,7 +541,7 @@ documented at `defines.h:1229-1252` and defined in the enum below it:
 ```
 
 The RPN stack is the first four or eight lettered registers:
-`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2260`). In
+`getStackTop()` is `SSIZE8 ? REGISTER_D : REGISTER_T` (`defines.h:2299`). In
 4-level mode A-D are ordinary user registers; in 8-level mode they are stack.
 Code that walks the stack must use `getStackTop()`, never `REGISTER_T`.
 
@@ -561,7 +561,7 @@ keystroke encoding:
 | stat M-S, spare E-W | 112-125 | 211-224 |
 
 The two agree only for 0-111. The bridge is branchless arithmetic:
-`regKStoC()` (`defines.h:1463`) and `regCtoKS()` (`defines.h:1471`).
+`regKStoC()` (`defines.h:1493`) and `regCtoKS()` (`defines.h:1501`).
 Anything that reads or writes a program byte must convert; anything that touches
 `globalRegister[]` must not.
 
@@ -611,8 +611,8 @@ free-region allocator with no compaction.
 
 The reserved-variable area is not allocated: its block offsets are baked into
 the `const` table `allReservedVariables[]` (`registers.c:61-109`), and the pool
-base is computed from the last of them (`config.c:1598-1599`). Program memory
-starts at the last block (`config.c:1631`) and `resizeProgramMemory`
+base is computed from the last of them (`config.c:1610`). Program memory
+starts at the last block (`config.c:1643`) and `resizeProgramMemory`
 (`memory.c:158-209`) grows it downward by shrinking the topmost free region,
 which works only because the region array is address-sorted.
 
@@ -635,7 +635,7 @@ and then calls libc `malloc`; the `freeListAlloc` call is commented out
 heap that the pool's own accounting cannot see.
 
 **Types dispatch through 10x10 tables.**
-`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1609`). The four
+`NUMBER_OF_DATA_TYPES_FOR_CALCULATIONS` is 10 (`defines.h:1644`). The four
 arithmetic operations are matrices of function pointers indexed by the types of
 X and Y, declared in `c47.h:276-279` and defined in
 `mathematics/addition.c:10` and its siblings, marked `TO_QSPI` so they land in
@@ -647,7 +647,7 @@ switch forest.
 The pool stores no allocation header, so **the caller is the authority on size**:
 `freeC47Blocks(ptr, sizeInBlocks)` trusts the size it is handed
 (`memory.c:116`), and `freeRegisterData` recomputes that size from the register's
-*current* header (`defines.h:2258`). Change a register's type, string length or
+*current* header (`defines.h:2300`). Change a register's type, string length or
 matrix dimensions before freeing it and the wrong number of blocks is returned.
 The mismatch detector is compiled out on the DM42, so on hardware the free list
 is corrupted silently.
@@ -797,7 +797,7 @@ parameter.
 |---|---|---|
 | the mode | `calcMode` | `c47.h:418` |
 | shift | `shiftF`, `shiftG` (+ `lastshiftF`/`lastshiftG` snapshots) | `c47.c:44-47` |
-| the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:335` |
+| the menu stack | `softmenuStack[SOFTMENU_STACK_SIZE]`, depth 8, no stack pointer | `c47.h:339` |
 | pending argument | `tam` (a `tamState_t`; `tam.mode != 0` means TAM is active) | `c47.h:453` |
 | the input buffer | `aimBuffer` - **NIM and AIM share it** | `c47.h:377` |
 | user key layout | `kbd_usr[37]` (persisted); `kbd_std` is a `calcModel` macro over `const` tables | `c47.h:345` |
