@@ -504,12 +504,12 @@ Interactive editors need a key context.
 
 The exit criterion is "every corpus-reachable math line covered, every residual
 classified", **not** a flat percentage. Line coverage is not use-case coverage:
-~2870 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
+~3350 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
 contexts x path classes
-is ~2.7M coarse cases - line coverage alone is not enough for a calculator.
+is ~3.2M coarse cases - line coverage alone is not enough for a calculator.
 
 Per-file lifts beat sector deltas when a big file was already partly covered:
-`matrix.c` is 4157 gcovr-countable lines (9542 physical) = 21% of its sector and
+`matrix.c` is 4159 gcovr-countable lines (9544 physical) = 21% of its sector and
 was already ~67%, so new cases
 overlap. Clean wins are files genuinely cold: `iteration.c` 0->79,
 `saveRestoreBackup.c` 0->80, `compare.c` 21->51.

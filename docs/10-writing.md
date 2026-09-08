@@ -1,6 +1,6 @@
 # Writing
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 The rules for everything this repo writes for a reader: the **doc pages**, the
 **code comments**, the **corpus comments**, the **commit messages** and the

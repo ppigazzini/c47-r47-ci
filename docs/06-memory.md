@@ -10,7 +10,7 @@ that pool - the SRAM it is carved out of, the stack a program runs on, and the
 firmware or host that hands out both. On the DM42 those last two are the same
 memory, which is the fact the page is built around.
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 Two subjects are read against a **later** commit, `dbc5cb45b`, and say so where
 they appear: the second nesting gate in Section 5, and Section 8.1's account of
