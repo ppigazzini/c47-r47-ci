@@ -2,31 +2,45 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-# Regenerated against upstream master a361b6797. All findings benign: printf int/uint
-# width nits, two nullPointer false positives (verifySqrtMatrix), two
-# identicalInnerCondition redundant-but-correct guards in graphs.c, and the
-# decNumber macro parse limits. Unchanged from 9c9ac6549 (the merges since then
-# did not touch the analysed lines).
+# Regenerated against upstream master d4d575a0e, cppcheck 2.17.1. All findings
+# benign: printf int/uint width nits, two nullPointer false positives
+# (verifySqrtMatrix), two identicalInnerCondition redundant-but-correct guards in
+# graphs.c, and the decNumber macro parse limits. Counted per file and check id,
+# two groups move against the a361b6797 set, 23 findings to 23:
+#
+#   +2  mathematics/prime.c uninitvar   cc3cc7ce3 routes fnIsPrime and
+#       fnNextPrime through a new static getIntArg(), and cppcheck cannot see the
+#       initialisation through it. getRegisterAsLongIntQuiet initialises val on
+#       every path it returns on, the error returns included, so the
+#       longIntegerFree on the abort label frees an initialised value. False
+#       positive.
+#   -1  solver/graph.c                  c4a48ab49 comments out
+#       invalidPrintfArgType_uint       #define VERBOSE_SOLVER_ITERDATA. The
+#       printf it guards is untouched and still at graph.c:2405; uncommenting the
+#       define on this same tree brings the finding back, so nothing about the
+#       call was fixed - the configuration it lives in is switched off.
+#
 
-src/c47/c47Extensions/graphs.c:1099: identicalInnerCondition
-src/c47/c47Extensions/graphs.c:1116: identicalInnerCondition
-src/c47/core/freeList.c:128: invalidPrintfArgType_sint
-src/c47/core/freeList.c:237: invalidPrintfArgType_sint
-src/c47/defines.h:2376: preprocessorErrorDirective
-src/c47/mathematics/matrix.c:4362: nullPointer
-src/c47/mathematics/matrix.c:4363: nullPointer
-src/c47/mathematics/matrix.c:447: invalidPrintfArgType_sint
-src/c47/mathematics/matrix.c:497: invalidPrintfArgType_sint
-src/c47/mathematics/matrix.c:502: invalidPrintfArgType_sint
-src/c47/programming/input.c:477: invalidPrintfArgType_uint
-src/c47/programming/input.c:484: invalidPrintfArgType_uint
-src/c47/programming/input.c:490: invalidPrintfArgType_uint
-src/c47/programming/input.c:496: invalidPrintfArgType_uint
-src/c47/programming/input.c:502: invalidPrintfArgType_uint
-src/c47/programming/input.c:508: invalidPrintfArgType_uint
-src/c47/programming/input.c:514: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2258: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2277: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2299: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2329: invalidPrintfArgType_uint
-src/c47/solver/integrate.c:918: syntaxError
+src/c47/c47Extensions/graphs.c:1123: identicalInnerCondition
+src/c47/c47Extensions/graphs.c:1140: identicalInnerCondition
+src/c47/core/freeList.c:135: invalidPrintfArgType_sint
+src/c47/core/freeList.c:244: invalidPrintfArgType_sint
+src/c47/defines.h:2498: preprocessorErrorDirective
+src/c47/mathematics/matrix.c:4378: nullPointer
+src/c47/mathematics/matrix.c:4379: nullPointer
+src/c47/mathematics/matrix.c:456: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:506: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:511: invalidPrintfArgType_sint
+src/c47/mathematics/prime.c:231: uninitvar
+src/c47/mathematics/prime.c:270: uninitvar
+src/c47/programming/input.c:491: invalidPrintfArgType_uint
+src/c47/programming/input.c:498: invalidPrintfArgType_uint
+src/c47/programming/input.c:504: invalidPrintfArgType_uint
+src/c47/programming/input.c:510: invalidPrintfArgType_uint
+src/c47/programming/input.c:516: invalidPrintfArgType_uint
+src/c47/programming/input.c:522: invalidPrintfArgType_uint
+src/c47/programming/input.c:528: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2327: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2353: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2375: invalidPrintfArgType_uint
+src/c47/solver/integrate.c:902: syntaxError

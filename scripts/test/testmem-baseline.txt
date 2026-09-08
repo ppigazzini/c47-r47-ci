@@ -165,6 +165,26 @@
 #                     and not on Func. Which allocation the +4 is is NOT
 #                     identified here.
 #
+# Reconciled against upstream master d4d575a0e. Nothing here stops appearing;
+# two cases are added, both in vtoeq.txt, a corpus file the V->EQ branch
+# (e6db4a526) adds and lists in the same merge, so neither case predates its own
+# file. Both are Func: fnVecToEqnRtCov, the round trip that renders a coefficient
+# vector as polynomial text and evaluates the stored formula: covVecToEqnRoundTrip
+# in testSuite.c calls fnEqNew when no formula exists, posts the text into the
+# formula store through the programmed X.SWAP, and stores the eval point into the
+# named variable x. Formula slot, text and named variable are all state the
+# per-test In: reset does not clear - the class the eq_cov/deriv_cov/solve_cov
+# entries above already carry - and both cases are pool-only (gmp=+0) with the
+# whole-run leak gate green on the same commit.
+#
+# The split between the two is the store, not a per-case residue. Running vtoeq
+# alone reproduces +52 then +4. Swapping the two cases in the file and running it
+# alone gives ONE growth case, the E-notation one first at +56, and no growth at
+# all for the other: the first case through pays for the slot, the variable and
+# its text, and the only thing the second can add is the four bytes by which the
+# longer text outgrows the shorter. Whichever runs first pays; the other is free.
+#
+
 clearvars_cov.txt|IN: FARG=9877
 cpxslv_cov.txt|IN: FL_ASLIFT=0 FARG=0 RY=REAL:"1" RX=REAL:"5"
 deriv_accuracy.txt|IN: FARG=0
@@ -187,3 +207,5 @@ nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
 pgm_solve_cov.txt|IN: FARG=1 RX=REAL:"3"
 solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
+vtoeq.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REAL:"3" RX=REMA:"M1,3[1,-2,-4]"
+vtoeq.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REAL:"5" RX=REMA:"M1,3[1E+2,0,-0.04]"
