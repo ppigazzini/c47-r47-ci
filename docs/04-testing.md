@@ -1,6 +1,6 @@
 # Testing c43
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 Every citation and count was re-read against that commit, and the behavioural
 claims were re-run on a build of it: `make test` (passes clean, GMP owns 0
@@ -112,10 +112,10 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size at the audit basis: **330 test files in
-`src/testSuite/tests/`, 326 listed** in `testSuiteList.txt`. Count test files,
+Corpus size at the audit basis: **342 test files in
+`src/testSuite/tests/`, 338 listed** in `testSuiteList.txt`. Count test files,
 not `.txt` blobs: the directory also holds `testSuiteList.txt` itself and
-`validate_tvm.py`, so a raw `ls` counts 332. (All three move; re-count rather
+`validate_tvm.py`, so a raw `ls` counts 344. (All three move; re-count rather
 than quoting this line.)
 
 **Count with `git ls-files`, not `ls`.** Running the suite drops a gitignored
