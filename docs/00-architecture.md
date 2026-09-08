@@ -1,6 +1,6 @@
 # C47 Architecture
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 A measured architecture analysis of the upstream C47 calculator application:
 what shape the code is in, why, and what that costs anyone changing it.
@@ -46,21 +46,21 @@ Measured at the audit basis:
 
 | figure | value |
 |---|---|
-| `c47.h` lines / `#include`s | 643 / 134 |
-| `.c` files including `c47.h` | 228 of 229 |
-| `LAST_ITEM` | 2870 |
-| `extern` declarations in `c47.h` | 343 |
-| `DMCP_BUILD` uses / files | 401 / 45 |
-| `EXTRA_INFO_ON_CALC_ERROR` uses / files | 1812 / 172 |
-| headers in `src/c47` | 243 |
-| `PC_BUILD` uses | 800 |
-| `#if`/`#ifdef`/`#ifndef`/`#elif` | 2804 |
-| `src` `.c`/`.h` files / lines | 525 / 182425 |
+| `c47.h` lines / `#include`s | 646 / 133 |
+| `.c` files including `c47.h` | 230 of 231 |
+| `LAST_ITEM` | 3349 |
+| `extern` declarations in `c47.h` | 348 |
+| `DMCP_BUILD` uses / files | 406 / 45 |
+| `EXTRA_INFO_ON_CALC_ERROR` uses / files | 1870 / 174 |
+| headers in `src/c47` | 245 |
+| `PC_BUILD` uses | 806 |
+| `#if`/`#ifdef`/`#ifndef`/`#elif` | 2943 |
+| `src` `.c`/`.h` files / lines | 529 / 189152 |
 | DMCP / DMCP5 hal adapters | 4 each |
-| commits | 14098 |
-| `OPTION_*` names in `defines.h` / sites elsewhere | 39 / 598 in 66 files |
-| `OPTION_*` defined: sim, DM42 pkg 1-4, DM42n | 37, 27/24/25/18, 36 |
-| `savedspace()` lines / `case` labels | 238 / 173 |
+| commits | 14743 |
+| `OPTION_*` names in `defines.h` / sites elsewhere | 43 / 777 in 89 files |
+| `OPTION_*` defined: sim, DM42 pkg 1-4, DM42n | 41, 28/25/26/19, 40 |
+| `savedspace()` lines / `case` labels | 268 / 185 |
 
 The conclusions do not move - one god header, one large single cycle, a
 preprocessor-based portability layer, one feature profile per shipped
@@ -87,8 +87,8 @@ This document describes the upstream product. It is not a plan of record for it.
 A high-precision RPN scientific calculator descended from WP43, targeting the
 SwissMicros DM42 family. One library, several targets.
 
-Repository: 14098 commits since 2018-12-23, 36 contributors, of whom the top five
-account for 11821 -- a small-core project with a long tail.
+Repository: 14743 commits since 2018-12-23, 37 contributors, of whom the top five
+account for 12341 -- a small-core project with a long tail.
 
 | target | what it is |
 |---|---|
@@ -107,41 +107,41 @@ meson is the build; the 62-target `Makefile` wraps `meson setup` / `ninja`. 15
 ## 2. Repository map
 
 ```
-  902 src        193 res       105 docs       38 dep
-   14 PROGRAMS    61 tools        3 subprojects
+  918 src        193 res       222 docs       38 dep
+   14 PROGRAMS    81 tools        3 subprojects
 ```
 
-`src` .c/.h only: 525 files / 182425 lines.
+`src` .c/.h only: 529 files / 189152 lines.
 
 ```
   area                             files    lines
-  src/c47/(root)                      81    72014   <- 46% of the library
-  src/c47/mathematics                257    44327
-  src/c47/solver                      18    10489
-  src/c47/c47Extensions               19     9788
-  src/c47-gtk                         10     8241
-  src/c47/programming                 15     5836
-  src/testSuite                        7     6127
+  src/c47/(root)                      81    74321   <- 46% of the library
+  src/c47/mathematics                259    45487
+  src/c47/solver                      18    11060
+  src/c47/c47Extensions               19     9810
+  src/c47-gtk                         10     8268
+  src/c47/programming                 17     7687
+  src/testSuite                        7     6742
   src/generateTestPgms                 1     4245
-  src/c47/distributions               33     4237
-  src/t47                             14     3956
-  src/c47/ui                           6     3544
-  src/c47/printing                     4     3409
-  src/c47/browsers                     9     1083
+  src/c47/distributions               33     4220
+  src/t47                             14     4007
+  src/c47/ui                           6     3632
+  src/c47/printing                     4     3413
+  src/c47/browsers                     9     1084
   src/c47/logicalOps                  23     1080
-  src/generateConstants                1      960
+  src/generateConstants                1      990
   src/c47-dmcp5                        8      729
   src/c47-dmcp                         8      711
-  src/ttf2RasterFonts                  2      536
+  src/ttf2RasterFonts                  2      541
   src/c47/hal                          5      548
   src/c47/core                         2      400
-  src/generateCatalogs                 1      134
+  src/generateCatalogs                 1      146
   src/generated                        1       31
 ```
 
-The library `src/c47` is 472 files / 156755 lines, of which 229 are `.c`.
+The library `src/c47` is 476 files / 162742 lines, of which 231 are `.c`.
 
-377 of the 902 `src` files are not `.c`/`.h`: 334 `.txt` (mostly the corpus), 14
+389 of the 918 `src` files are not `.c`/`.h`: 346 `.txt` (mostly the corpus), 14
 `.xlsx`, 11 `meson.build`, 4 `.py`, and assorted `.rc`/`.md`/`.ld`/`.in`.
 
 Three directory names do not describe their contents:
@@ -149,8 +149,8 @@ Three directory names do not describe their contents:
 - **`core/` is 400 lines**: `freeList.c` (334) + `freeList.h` (66). An allocator,
   not a core.
 - **`ui/` is 6 files**: `matrixEditor.c` (1916), `tam.c` (1401), `tone.c` (38) and
-  headers. The user interface -- `screen.c` (6674), `display.c` (4012),
-  `keyboard.c` (4982), `softmenus.c` (4444), `statusBar.c` (1110) -- is in the
+  headers. The user interface -- `screen.c` (6789), `display.c` (4016),
+  `keyboard.c` (5011), `softmenus.c` (4554), `statusBar.c` (1139) -- is in the
   root.
 - **`hal/` is 5 headers and zero `.c`**. That one is deliberate (s5).
 
@@ -160,14 +160,14 @@ in an 81-file flat root with no subdirectory for display, input, persistence or
 state, though each exists as a concept and each has several files.
 
 ```
-  6674 screen.c        2580 defines.h       1308 charString.c
-  4982 keyboard.c      2489 registers.c     1257 conversionUnits.c
-  4745 items.c         2266 config.c        1258 c47.c
-  4444 softmenus.c     2152 plotstat.c      1228 dateTime.c
-  4012 display.c       1628 registerValueConversions.c
-  3048 items.h         1540 saveRestoreBackup.c
-  2787 bufferize.c     1483 stringFuncs.c
-  2959 saveRestoreCalcState.c              1346 curveFitting.c
+  6789 screen.c        2641 defines.h       1354 curveFitting.c
+  5284 items.c         2520 registers.c     1335 charString.c
+  5011 keyboard.c      2308 config.c        1320 assign.c
+  4554 softmenus.c     2135 plotstat.c      1299 conversionUnits.c
+  4016 display.c       1732 registerValueConversions.c
+  3549 items.h         1584 saveRestoreBackup.c
+  3248 saveRestoreCalcState.c              1483 stringFuncs.c
+  2801 bufferize.c
 ```
 
 `src/index spreadsheet/` (16 files, a space in the directory name) holds the
@@ -268,35 +268,35 @@ Two consequences belong here, with the dependency evidence:
 
 ## 3. The god header and the global state
 
-- `src/c47/c47.h`: **639 lines, 134 `#include` directives.**
-- **Every compiled library file includes it**: 228 of the 229 `.c` under
+- `src/c47/c47.h`: **646 lines, 133 `#include` directives.**
+- **Every compiled library file includes it**: 230 of the 231 `.c` under
   `src/c47`; the one that does not, `reservedRegisterLookupGenerator.c`, is not in
-  `src/c47/meson.build`. The real figure is 228 of 228.
+  `src/c47/meson.build`. The real figure is 230 of 230.
 - For most of those files it is the only project header they include:
 
 ```
-  228 c47.h        1 version.h        1 softmenuCatalogs.h        1 reservedRegisterLookup.h
+  230 c47.h        1 version.h        1 softmenuCatalogs.h        1 reservedRegisterLookup.h
 ```
 
-- `c47.h` declares **345 `extern` symbols, of which 314 are mutable globals**;
-  the other 31 are `* const` (the function-pointer tables `addition`,
+- `c47.h` declares **348 `extern` symbols, of which 318 are mutable globals**;
+  the other 30 are `* const` (the function-pointer tables `addition`,
   `subtraction`, `multiplication`, `division`, ...), not counted as mutable.
 
 The library has exactly one module boundary and it encloses the whole library.
 Every translation unit sees every declaration. Consequences:
 
 1. **No encapsulation exists to violate.** Any function in any file may read or
-   write any of the 314 globals. Who mutates `calcMode`, `lastFunc` or
+   write any of the 318 globals. Who mutates `calcMode`, `lastFunc` or
    `systemFlags` is answerable only by repository-wide grep.
-2. **Every header edit rebuilds the library.** `defines.h` takes 396 commits a
-   year (s8); each invalidates all 228 TUs.
+2. **Every header edit rebuilds the library.** `defines.h` takes 254 commits a
+   year (s8); each invalidates all 230 TUs.
 3. **Unit-test isolation is impossible by construction.** A leaf function's header
    drags in `c47.h`, which links the world. The end-to-end test strategy (s8) is a
    rational response to this, not an oversight.
 4. **No layering is compiler-checkable.** `mathematics/` may call `screen.c` and
    nothing stops it. It does (s9.3).
 
-`c47.h` is not a public API header. It is a bundle: 134 includes so nobody has to
+`c47.h` is not a public API header. It is a bundle: 133 includes so nobody has to
 decide which one they need. That is a real ergonomic benefit purchased with the
 entire dependency structure of the project.
 
@@ -315,9 +315,9 @@ entire dependency structure of the project.
   } item_t;
 ```
 
-`indexOfItems[]` (`items.c:1775-4734`) is indexed by item number. `LAST_ITEM` is
-2870 (`items.h:2989`), so the table has **2871 slots**. 2587 rows are
-brace-initialised at source level; 2870 carry a `/* N */` index comment.
+`indexOfItems[]` (`items.c:1841-5284`) is indexed by item number. `LAST_ITEM` is
+3349 (`items.h:3489`), so the table has **3350 slots**. 3054 rows are
+brace-initialised at source level; 3349 carry a `/* N */` index comment.
 
 Every command is a row: a function pointer, a parameter, catalogue and menu names,
 a TAM argument range, status bits. Keys, menus, catalogues, programs and the
@@ -358,14 +358,14 @@ with it.
 - **`func` is a function pointer, so linking the table links the calculator.** This
   is the dominant structural fact of the codebase (s9).
 
-### 4.1 The 887 stubs
+### 4.1 The 916 stubs
 
-`items.c` is 4734 lines:
+`items.c` is 5284 lines:
 
 ```
-  2960  the table literal    (62%)
-   893  generator stubs      (19%)
-   881  actual code          (19%)
+  3444  the table literal    (65%)
+   922  generator stubs      (17%)
+   918  actual code          (17%)
 ```
 
 `items.c:797-1718`:
@@ -374,7 +374,7 @@ with it.
   #if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)
       void fnAsnViewer  (uint16_t unusedButMandatoryParameter) {}
       void fnLnBeta     (uint16_t unusedButMandatoryParameter) {}
-      ... x887
+      ... x916
   #endif
 ```
 
@@ -384,7 +384,7 @@ The generators need only the table's DATA -- names, params, status -- to emit
 catalogues. Because `item_t` holds a function pointer, linking the data drags in
 every command implementation, which drags in the calculator. With no component
 boundary there is no way to link the table alone, so every command is defined as
-an empty stub. **893 dead lines, 19% of the hottest file in the repository, exist
+an empty stub. **922 dead lines, 17% of the hottest file in the repository, exist
 to satisfy a linker.**
 
 ## 5. The HAL
@@ -392,7 +392,7 @@ to satisfy a linker.**
 `src/c47/hal/` is 5 headers and no implementation:
 
 ```
-  audio.h 68   gui.h 19   io.h 236   lcd.h 144   print_ir.h 30      (497 lines)
+  audio.h 119  gui.h 19   io.h 236   lcd.h 144   print_ir.h 30      (548 lines)
 ```
 
 Four adapter sets implement them:
@@ -479,23 +479,23 @@ library links GTK -- including the one whose purpose is not to have a GUI.
 Measured over `src/c47`:
 
 ```
-  #if / #ifdef / #ifndef / #elif directives        2781      (~1 per 56 lines)
-  PC_BUILD                     800 uses in  59 files
-  DMCP_BUILD                   414 uses in  45 files
-    -> union 67 distinct files; 37 contain BOTH
-  EXTRA_INFO_ON_CALC_ERROR    1800 uses in 172 files   (36% of the library)
-  TESTSUITE_BUILD               28 uses in   9 files
+  #if / #ifdef / #ifndef / #elif directives        2943      (~1 per 55 lines)
+  PC_BUILD                     806 uses in  61 files
+  DMCP_BUILD                   406 uses in  45 files
+    -> union 69 distinct files; 37 contain BOTH
+  EXTRA_INFO_ON_CALC_ERROR    1870 uses in 174 files   (37% of the library)
+  TESTSUITE_BUILD               41 uses in  12 files
   SIMULATOR_ON_SCREEN_KEYBOARD  12 uses in   2 files
   HARDWARE_MODEL                 9 uses in   4 files
 ```
 
-`PC_BUILD` + `DMCP_BUILD` = 1214 conditionals across 67 files, against a 497-line
+`PC_BUILD` + `DMCP_BUILD` = 1212 conditionals across 69 files, against a 548-line
 HAL. That is the real portability layer. The 37 dual-branch files are where a
 reader must hold two targets at once.
 
 `EXTRA_INFO_ON_CALC_ERROR` is a different mechanism: it gates verbose error
 strings so the DM42 firmware fits in flash. It is a flash-budget switch expressed
-as preprocessor noise in 36% of the source files.
+as preprocessor noise in 37% of the source files.
 
 Only one branch is compiled at a time, so the other is never type-checked by that
 build. CI compiling every target (s8) is the correct mitigation and is
@@ -517,15 +517,15 @@ platform, and the generated code is shared across both.
 | the platform | `PC_BUILD`; `DMCP_BUILD`; `DMCP_BUILD` + `NEW_HW` | `meson.build:12,40` |
 | `DMCP_PACKAGE` | 1 to 4 | `Makefile:24`, `meson.build:42-45`, ladder at `defines.h:149-156` |
 
-The third changes the calculator most. `defines.h` declares **39 `OPTION_*`
-names**, read at 598 further sites in 66 files, and each package `#define`s and
+The third changes the calculator most. `defines.h` declares **43 `OPTION_*`
+names**, read at 777 further sites in 89 files, and each package `#define`s and
 `#undef`s a subset. Measured at the audit basis:
 
 | configuration | `OPTION_*` defined |
 |---|---|
-| simulator (`PC_BUILD`), and `TESTSUITE_BUILD` | 37, identical to each other |
-| DM42 package 1 / 2 / 3 / 4 | 27 / 24 / 25 / 18 |
-| DM42n, DM32 (`NEW_HW`) | 36 |
+| simulator (`PC_BUILD`), and `TESTSUITE_BUILD` | 41, identical to each other |
+| DM42 package 1 / 2 / 3 / 4 | 28 / 25 / 26 / 19 |
+| DM42n, DM32 (`NEW_HW`) | 40 |
 
 ```bash
 echo '#include "defines.h"' | gcc -E -dM -Isrc/c47 -DPC_BUILD -DLINUX -DOS64BIT -x c - | grep -c '^#define OPTION_'
@@ -587,12 +587,12 @@ maintained by hand:
 1. the profile in `defines.h` decides the macro;
 2. an `#if` in the owning file compiles the **body** away - `elec.c:91-114`
    wraps the body of `fnDeltaToStar`, not its definition;
-3. `savedspace()` (`softmenus.c:2713`, 238 lines, 173 `case` labels under 17
+3. `savedspace()` (`softmenus.c:2763`, 268 lines, 185 `case` labels under 25
    option names) strikes the items out of the menus and catalogues
    (`softmenus.c:3058`, `:3070`).
 
 The invariant that follows is that **the item row and the function symbol always
-survive**. `items.c` carries four option conditionals in the whole file, so
+survive**. `items.c` carries five option conditionals in the whole file, so
 `indexOfItems[]` is the same table in every package; dispatch still reaches a
 removed command and runs a function whose body is empty - nothing computed,
 nothing reported. Presence in the item table is not evidence that a feature is
@@ -625,7 +625,7 @@ includes it**, which is why `savedspace()` has to exist at all: the strike-out
 is applied to a catalogue that was never reduced.
 
 The second sharing edge is the source tree. `c47_inc` is
-`include_directories('.', '../generated')` (`src/c47/meson.build:245`), and in
+`include_directories('.', '../generated')` (`src/c47/meson.build:247`), and in
 the same compile line `-I../src/generated` precedes `-Isrc/generateCatalogs` and
 `-Isrc/generateConstants`, the build directories holding the freshly generated
 headers. `make sim` installs the simulator's copies into that source directory
@@ -667,33 +667,35 @@ configuration: the `dmcp` job runs `make dist_dmcp`, which is `DMCP_PACKAGE=4`
 through `SNAP` and pins a SHA-256 of the resulting bitmap, which covers the
 grapher, the fonts and the blitter. There is no other golden-image or LCD-buffer
 assertion: the rest of what is reached through `screen.c` / `display.c` /
-`statusBar.c` / `softmenus.c` -- 16161 lines, all hot -- is verified by human
+`statusBar.c` / `softmenus.c` -- 16498 lines, all hot -- is verified by human
 inspection alone.
 
-**Churn** (12-month window, existing paths only, five mass-sweep commits excluded:
-a 455-file "Header files centralization", a 407-file licence sweep, two "White
-space changes" of 157 and 176, a 105-file "import master"):
+**Churn** (12-month window; `git log --name-only`, so a merge contributes nothing
+of its own; the 476 `src/c47` `.c`/`.h` files as the denominator; five mass-sweep
+commits over 100 files excluded: two "White space changes" of 185 and 163, a
+121-file "import master", a 107-file "Appnote renames and re-arrangement", a
+102-file "Save bytes in flash"):
 
 ```
-  commits touching src/c47      2421   (5 sweeps)
-  file-touches, sweeps excluded  6763
-  cold (0 non-sweep commits)  111 of 472 = 23%
-    hottest  5% of files (23) = 57% of churn
-    hottest  8% of files (37) = 67% of churn
-    hottest 20% of files (94) = 85% of churn
+  commits touching src/c47      1536   (5 sweeps)
+  file-touches, sweeps excluded  4448
+  cold (0 non-sweep commits)  154 of 476 = 32%
+    hottest  5% of files (24) = 55% of churn
+    hottest  8% of files (38) = 66% of churn
+    hottest 20% of files (95) = 86% of churn
 
-  535 items.c        224 keyboard.c              157 config.c
-  410 softmenus.c    194 c47Extensions/addons.c  141 display.c
-  396 defines.h      173 mathematics/matrix.c
-  331 screen.c       247 items.h
+  302 items.c        152 items.h                 96 config.c
+  280 softmenus.c    134 mathematics/matrix.c    93 keyboard.c
+  254 defines.h      114 saveRestoreCalcState.c  88 solver/graph.c
+  177 screen.c
 ```
 
-The threshold is not load-bearing: at >50 files the answer is 27%/71%, at >200 and
->400 it is 23%/64%. Only "no exclusion" gives 0%, which is the artefact. Read it
-as: roughly a quarter cold, hot 8% carries about two thirds.
+The threshold is not load-bearing: the sweep cut-off can move between 100 and 400
+files without changing the shape. Only "no exclusion" gives 0% cold, which is the
+artefact. Read it as: roughly a third cold, hot 8% carries about two thirds.
 
 Churn concentrates in the catalogue of what the calculator can do and its
-presentation. The mathematics (257 files, 44230 lines) is comparatively stable;
+presentation. The mathematics (259 files, 45487 lines) is comparatively stable;
 only `matrix.c` reaches the top ten.
 
 **A caution on the "92% cold" figure** sometimes quoted for this codebase. The
@@ -706,11 +708,11 @@ on "92% cold" without one.
 
 ### 9.1 The header graph is not levelizable
 
-Over all 243 headers in `src/c47` (243 edges), one strongly-connected component of
+Over all 245 headers in `src/c47` (245 edges), one strongly-connected component of
 size > 1:
 
 ```
-  c47.h:120,165  ->  solver/solver.h:12  ->  solver/finite_differences.h:5  ->  c47.h
+  c47.h:118,163  ->  solver/solver.h:12  ->  solver/finite_differences.h:5  ->  c47.h
 ```
 
 The cycle runs through the god header and compiles only because include guards mask
@@ -721,35 +723,35 @@ about in isolation, because the bottom of the graph includes the top.
 ### 9.2 The link graph: 97% of the library is one cycle
 
 C47 has **no object partition**: meson emits one `.o` per `.c`. The `c47` target
-links `build.sim/src/c47-gtk/c47.p/` = 246 objects, of which **228 are from
+links `build.sim/src/c47-gtk/c47.p/` = 248 objects, of which **230 are from
 `src/c47`** -- one per compiled source. **For C47 the file graph IS the link
 graph**; there is no coarser structure to analyse.
 
-`nm` over those 228 objects (undefined symbols resolved against the object that
+`nm` over those 230 objects (undefined symbols resolved against the object that
 defines them) gives whole-program truth:
 
 ```
-  link units                            228
-  edges                                2421
-  files trapped in cycles         222 = 97%      one SCC
-  CCD                                 50624
-  ACD                                 222.0      (97% of the library)
-  NCCD                                32.10
-  globals defined by >1 object       0 of 3040
+  link units                            230
+  edges                                2472
+  files trapped in cycles         224 = 97%      one SCC
+  CCD                                 51528
+  ACD                                 224.0      (97% of the library)
+  NCCD                                32.35
+  globals defined by >1 object       0 of 3114
 ```
 
-**C47 is one cycle of 222 files.** ACD 222.0 means the average file transitively
-depends on 222 of 228. NCCD 32.10 is thirty-two times a balanced binary tree of the
+**C47 is one cycle of 224 files.** ACD 224.0 means the average file transitively
+depends on 224 of 230. NCCD 32.35 is thirty-two times a balanced binary tree of the
 same size -- the signature of one dominant cycle, not of untidiness.
 
-The symbol space is clean: 3040 globals, none defined twice. C47's problem is not
+The symbol space is clean: 3114 globals, none defined twice. C47's problem is not
 ambiguity about who owns what; it is that everyone can reach everyone.
 
 The six files outside the cycle are the proof rather than the exception:
 `fonts.c`, `printing/martelFonts.c`, `printing/printerFont8.c` (font data),
 `mathematics/pcg_basic.c` (a vendored PRNG), `c47Extensions/inlineTest.c`, and
 `c47.c` - which is outside only because it is where the globals are *defined*:
-out-degree 0, in-degree 201. **No part of C47's own logic is outside the
+out-degree 0, in-degree 203. **No part of C47's own logic is outside the
 cycle.**
 
 This inverts the obvious reading of s3. With a mutual-recursion knot of this size,
@@ -759,7 +761,7 @@ it. **`c47.h` is not the disease. It is what makes the disease survivable.**
 
 ### 9.3 What closes the cycle
 
-**`item_t.func` is the dominant edge.** `items.c` dispatches to **211 of the 228
+**`item_t.func` is the dominant edge.** `items.c` dispatches to **213 of the 230
 link units**. The table touches 90% of the library, and every command calls back into
 `items.c`, `registers.c`, `flags.c` and `error.c`.
 
@@ -773,7 +775,7 @@ three:
 ```
 
 The broader claim needs no illustration: `addition.c` and every high-level
-feature file are in the same 222-file SCC, so each reaches the other by
+feature file are in the same 224-file SCC, so each reaches the other by
 definition. Re-derive against a current build (Annex A) before quoting any
 specific edge - this one replaced a three-hop cycle through `stack.c` and
 `solver/graph.c` that no longer exists.
@@ -786,13 +788,13 @@ surface (`lcd_fill_rect`, `showString`/`showGlyph`, `showSoftmenu`,
   distributions/   0/16   files touch UI    CLEAN
   logicalOps/      0/11   files touch UI    CLEAN
   core/            0/1    files touch UI    CLEAN
-  mathematics/     6/128  files touch UI    95.3% CLEAN
+  mathematics/     6/129  files touch UI    95.3% CLEAN
   ---------------------------------------------------
-  solver/ 6/8    programming/ 5/7    browsers/ 4/4    ui/ 3/3
+  solver/ 7/8    programming/ 5/8    browsers/ 4/4    ui/ 3/3
 ```
 
-**150 of the 156 `.c` files in mathematics/distributions/logicalOps/core never
-touch the UI** (33717 of the 46371 `.c` lines in those four directories; blob
+**151 of the 157 `.c` files in mathematics/distributions/logicalOps/core never
+touch the UI** (34753 of the 47424 `.c` lines in those four directories; blob
 lines, `.c` only). Probe with the full render surface: a set that omits
 `refreshScreen`, `refreshRegisterLine` and `popSoftmenu` reports three files
 rather than six. The six:
@@ -1014,18 +1016,18 @@ measurement of c43.
 
 | practice | asks | C47 | verdict |
 |---|---|---|---|
-| Levelizable physical design (Lakos) | dependency graph acyclic | 222 of 228 in one SCC; NCCD 32.10 | **FAIL** |
-| Component = `.h`/`.c` with a narrow header | headers declare their own | one 639-line bundle in 228/228 files | **FAIL** |
-| Information hiding (Parnas) | modules hide their data | 314 mutable globals, all public | **FAIL** |
+| Levelizable physical design (Lakos) | dependency graph acyclic | 224 of 230 in one SCC; NCCD 32.35 | **FAIL** |
+| Component = `.h`/`.c` with a narrow header | headers declare their own | one 646-line bundle in 230/230 files | **FAIL** |
+| Information hiding (Parnas) | modules hide their data | 318 mutable globals, all public | **FAIL** |
 | HAL as function-pointer struct, link-time substitution | swap the adapter without recompiling | `#if DMCP_BUILD` forks inside `hal/gui.h`, `hal/lcd.h` | **FAIL** |
 | Dependency inversion | the app defines the port | the port IS `dmcp.h`; other targets emulate the DM42 | **FAIL** |
-| Application layer hardware-agnostic | no toolkit types above the HAL | `gboolean`/`GtkWidget*`/`cairo_t*` in 12 library files | **FAIL** |
-| Features not switched at compile time | runtime flags / plugins | 2781 conditionals; but see below - this one is the product, not a defect | **N/A** |
+| Application layer hardware-agnostic | no toolkit types above the HAL | `gboolean`/`GtkWidget*`/`cairo_t*` in 13 library files | **FAIL** |
+| Features not switched at compile time | runtime flags / plugins | 2943 conditionals; but see below - this one is the product, not a defect | **N/A** |
 | Feature profile independent of the platform | pick the feature set and the target separately | the package ladder is nested inside `#if defined(DMCP_BUILD)`, so no host build carries one (s7.2) | **FAIL** |
 | Every shipped configuration built, and tested | each one has a lane | `dist_dmcp` builds `DMCP_PACKAGE=4` only, and the corpus runs the simulator's profile (s7.1) | **FAIL** |
 | Build-input provenance diffable | text sources | keyboard layout + CONFIG defaults in binary `.xlsx` | **FAIL** |
-| Table-driven dispatch | data, not switch forests | `indexOfItems[]`, 2871 slots | **PASS**, exemplary |
-| Tests as data | corpus over code | 322 `.txt` vs 6 `.c` runner | **PASS**, exemplary |
+| Table-driven dispatch | data, not switch forests | `indexOfItems[]`, 3350 slots | **PASS**, exemplary |
+| Tests as data | corpus over code | 343 `.txt` vs 6 `.c` runner | **PASS**, exemplary |
 | Every target built in CI | no untested branch | macOS/Linux/Windows/dmcp/dmcp5/testSuite | **PASS** |
 | Generated artefacts reproducible | one source of truth | generators are targets, but outputs are also checked in and nothing diffs them; some inputs are `.xlsx` | **WEAK** |
 
@@ -1053,7 +1055,7 @@ gets right. Every failure but the last two traces to one root.
 
 ## 11. Verdict
 
-**C47's physical architecture is a single 222-file cycle, and the edge that closes
+**C47's physical architecture is a single 224-file cycle, and the edge that closes
 it is the function pointer inside its best design decision.** The item table is
 simultaneously what the project got most right -- one table, data-driven dispatch
 -- and the mechanism by which every file became reachable from every other. That is
@@ -1064,7 +1066,7 @@ The team's structural thinking is real and visible in the table and the corpus. 
 physical structure was never enforced, so it decayed into a knot, and the god
 header is what makes a knot survivable. Every other complaint here -- no unit
 tests, no isolation, `#if` portability, a taxonomy that misleads -- is a
-consequence of 222 files that cannot be compiled apart.
+consequence of 224 files that cannot be compiled apart.
 
 The ledger is better than that sounds: the chokepoints are six files, the cheapest
 cut is one line, and the fix does not touch the good idea. The table stays one
@@ -1084,11 +1086,11 @@ way a project of this size moves. Order is forced by dependency, not by cost.
   1. SPLIT item_t INTO items_data + items_bind.
        items_data.c  { param, itemCatalogName, itemSoftmenuName, tamMinMax, status }
                      pure data, no pointers. A LEAF. The generators link it ALONE
-                     and the 887 stubs (893 lines) delete themselves.
+                     and the 916 stubs (922 lines) delete themselves.
        items_bind.c  void (*itemFunc[LAST_ITEM+1])(uint16_t), parallel-indexed.
                      The only component holding dispatch edges.
-       Measured effect: 222 -> 111 files trapped; ACD 222.0 -> 108.4;
-       NCCD 32.10 -> 15.68.
+       Measured effect: 224 -> 112 files trapped; ACD 224.0 -> 109.4;
+       NCCD 32.35 -> 15.80.
        Everything below is second-order to this.
 
   2. INVERT the plot-from-compute edge (fnEqSolvGraph): the caller replots,
@@ -1167,19 +1169,19 @@ build targets; meson stays.
 
 | metric | definition | C47 today | healthy |
 |---|---|---|---|
-| **Files trapped in cycles** | vertices in any strongly-connected component of size > 1, over the link graph | **222 of 228 = 97%** | 0 |
-| **CCD** (cumulative component dependency) | sum over components of CD(v), where CD(v) = components reachable from v including v | **50624** | ~N log2 N |
-| **ACD** (average component dependency) | CCD / N. "the average file depends, directly or transitively, on ACD others" | **222.0** (97% of N) | ~log2(N) = ~8 |
-| **NCCD** (normalised CCD) | CCD / CCD(balanced binary tree of N nodes). The scale-free comparator | **32.10** | ~1.0; < 2 acceptable |
+| **Files trapped in cycles** | vertices in any strongly-connected component of size > 1, over the link graph | **224 of 230 = 97%** | 0 |
+| **CCD** (cumulative component dependency) | sum over components of CD(v), where CD(v) = components reachable from v including v | **51528** | ~N log2 N |
+| **ACD** (average component dependency) | CCD / N. "the average file depends, directly or transitively, on ACD others" | **224.0** (97% of N) | ~log2(N) = ~8 |
+| **NCCD** (normalised CCD) | CCD / CCD(balanced binary tree of N nodes). The scale-free comparator | **32.35** | ~1.0; < 2 acceptable |
 | **Levelizable** | is the `#include` graph acyclic (Lakos) | **NO** -- one 3-header cycle through `c47.h` | YES |
-| **Churn concentration** | share of file-touches in the hottest k% of files, 12mo, sweep commits excluded | hot 8% = 67% | informational; drives which files may be idiomatised |
-| **Cold share** | files with zero non-sweep commits in 12mo | 23% | informational |
+| **Churn concentration** | share of file-touches in the hottest k% of files, 12mo, sweep commits excluded | hot 8% = 66% | informational; drives which files may be idiomatised |
+| **Cold share** | files with zero non-sweep commits in 12mo | 32% | informational |
 
 Two rules for reading them:
 
 - **NCCD is the number to quote.** ACD scales with N, so it cannot be compared
   across projects or across a refactor that changes file count. NCCD can.
-- **A single large cycle dominates every one of them.** ACD 222 is not "lots of
+- **A single large cycle dominates every one of them.** ACD 224 is not "lots of
   small coupling"; it is the size of the SCC. Fixing coupling in a cyclic codebase
   means breaking the cycle, not reducing edges.
 
@@ -1188,7 +1190,7 @@ Two rules for reading them:
 | tool | for | invocation |
 |---|---|---|
 | **`nm`** | **THE link graph. Exact, whole-program, no inference. The primary instrument.** | `nm --defined-only <obj>` -- keep only globals (`T`/`D`/`B`/`R`/`W`); `nm -u <obj>` for undefined. Edge A->B iff A undefines a symbol B defines. |
-| **the meson build dir** | the authoritative object list -- never guess it | the target's `.p` directory, `build.sim/src/c47-gtk/c47.p/`. **Do not glob it with `*.o`:** meson names a library object after its relative path, so all 228 from `src/c47` begin `.._c47_` and a shell glob skips them as dotfiles - `*.o` matches 10 of 246. Use `find <dir> -name '*.o'`. |
+| **the meson build dir** | the authoritative object list -- never guess it | the target's `.p` directory, `build.sim/src/c47-gtk/c47.p/`. **Do not glob it with `*.o`:** meson names a library object after its relative path, so all 230 from `src/c47` begin `.._c47_` and a shell glob skips them as dotfiles - `*.o` matches 10 of 248. Use `find <dir> -name '*.o'`. |
 | **clang analyzer** | AST call graph per TU; validates one file precisely | `clang -Xclang -analyze -Xclang -analyzer-checker=debug.DumpCallGraph -Isrc/c47 -Isrc/c47/hal -Idep/decNumberICU -Isrc/generated $(pkg-config --cflags gtk+-3.0) -DPC_BUILD=1 -DLINUX=1 -DOS64BIT=1 <file.c>` |
 | **Tarjan SCC** | cycles in any graph above | ~30 lines; it is the whole diagnosis |
 | [`tooling/linkgraph.py`](../scripts/test/tooling/linkgraph.py) | all of the above in one run: edges, SCCs, CCD/ACD/NCCD, the files outside the cycle, and s12's dispatch-split effect | `make simc47` first, then `python3 scripts/test/tooling/linkgraph.py <clone>/build.sim/src/c47-gtk/c47.p`. It encodes both traps: the dotfile glob, and the `.._c47_` vertex set |
@@ -1211,15 +1213,15 @@ inventing a metric. The gap is that no one runs them.
 | do not | why | measured consequence |
 |---|---|---|
 | **A regex call-graph extractor** | it cannot see calls through function pointers, and C47 dispatches its whole command set through `indexOfItems[].func` | reports 42% of files in cycles; the truth is 97% |
-| **A regex definition extractor that does not exclude the stub block** | `items.c`'s 887 `void fnX(uint16_t ...) {}` lines are definitions AND match a call pattern | 815 of 825 command symbols silently dropped as ambiguous; `items.c` then appears to call 211 files |
+| **A regex definition extractor that does not exclude the stub block** | `items.c`'s 916 `void fnX(uint16_t ...) {}` lines are definitions AND match a call pattern | 815 of 825 command symbols silently dropped as ambiguous; `items.c` then appears to call 211 files |
 | **A glob over a build directory to find objects** | it picks up test artefacts and stale entries | wrong N, therefore wrong ACD and NCCD |
 | **A filename test to infer obligation** | a split sub-file has no same-named `.c` yet inherits every edge | "71% of the cycle is not upstream's" -- false |
 | **`nm --defined-only` counting all symbols** | local symbols dominate and are not the object's surface | a 38-line owner appears to define 3084 symbols |
-| **The `#include` graph alone** | include guards mask cycles; the graph looks nearly acyclic | 1 header cycle visible; the 222-file link cycle invisible |
-| **Counting `OPTION_*` switches by reading `defines.h`** | a name is written several times - declared, then `#define`d or `#undef`ed again in each package block - and the count a build sees is the preprocessor's, not the file's | 151 `#define`/`#undef` lines over 39 distinct names; expand with `gcc -E -dM` (A.2) |
+| **The `#include` graph alone** | include guards mask cycles; the graph looks nearly acyclic | 1 header cycle visible; the 224-file link cycle invisible |
+| **Counting `OPTION_*` switches by reading `defines.h`** | a name is written several times - declared, then `#define`d or `#undef`ed again in each package block - and the count a build sees is the preprocessor's, not the file's | 166 `#define`/`#undef` lines over 43 distinct names; expand with `gcc -E -dM` (A.2) |
 | **Assuming a cross build cross-compiles everything in it** | the generators are `native: true`, so a package build dir holds two compilers and two option sets | `softmenuCatalogs.h` inside `build.dmcp.p1` is built by `cc -DPC_BUILD` (s7.4) |
-| **Churn without excluding sweep commits** | a 455-file "Header files centralization" touches everything | 0% cold vs the real 23% |
-| **File size as a signal** | the megafiles are the hot files; size is upstream's shape, not the defect | `screen.c` at 6623 lines is not the problem; the cycle is |
+| **Churn without excluding sweep commits** | a 185-file "White space changes" touches everything | 0% cold vs the real 32% |
+| **File size as a signal** | the megafiles are the hot files; size is upstream's shape, not the defect | `screen.c` at 6789 lines is not the problem; the cycle is |
 | **ACD across differently-sized codebases** | it scales with N | use NCCD |
 
 **Rule: ask the build first.** Every wrong number produced while preparing this
@@ -1257,36 +1259,36 @@ document came from reconstructing something the build had already computed.
 
 | claim | evidence |
 |---|---|
-| god header | `src/c47/c47.h` 639 lines, 134 includes; 228 of 229 `.c` include it; the 229th is not in `src/c47/meson.build` |
-| 314 globals | `grep -E '^\s*extern ' src/c47/c47.h` = 345, minus `const` function-pointer tables = 314 |
-| `core/` is an allocator | `src/c47/core/freeList.{c,h}` = 393 lines |
-| hal contract | `src/c47/hal/{audio,gui,io,lcd,print_ir}.h` = 497 lines, no `.c` |
+| god header | `src/c47/c47.h` 646 lines, 133 includes; 230 of 231 `.c` include it; the 231st is not in `src/c47/meson.build` |
+| 318 globals | `grep -E '^\s*extern ' src/c47/c47.h` = 348, minus `const` function-pointer tables = 318 |
+| `core/` is an allocator | `src/c47/core/freeList.{c,h}` = 400 lines |
+| hal contract | `src/c47/hal/{audio,gui,io,lcd,print_ir}.h` = 548 lines, no `.c` |
 | hal adapters | `src/{c47-gtk,testSuite}/hal/*.c` (5 each); `src/c47-dmcp{,5}/hal/*.c` (4 each) |
 | hal is the DMCP API | `src/c47/hal/lcd.h:29-31` |
 | glib in the hal | `src/c47/hal/lcd.h:40` `extern gboolean ui_is_active;` |
-| gtk inside the library | 12 files; `c47.h`, `screen.c:124,492`, `screen.h`, `timer.c:104`, `timer.h`, `programming/input.c:76`, `hal/lcd.h`, `keyboard.c/.h`, `typeDefinitions.h:811`, `c47Extensions/keyboardTweak.c/.h` |
-| testSuite links gtk | `src/testSuite/meson.build` `dependencies: [gtk_dep, gmp_dep, m_dep]`; `testSuite.c:29` `GtkWidget *screen;` |
-| conditionals | `grep -rhoE '^\s*#\s*(if\|ifdef\|ifndef\|elif)' src/c47` = 2781; PC_BUILD/DMCP_BUILD union = 67 files, 37 both |
-| item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 2870` at `items.h:2989` = 2871 slots; table `items.c:1784-4743` |
-| the 887 stubs | `items.c:789-1681`, 893 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
-| dispatch reach | the table's `func` symbols resolve to 205 of 229 files |
-| header cycle | `c47.h:120,165` -> `solver/solver.h:12` -> `solver/finite_differences.h:5` -> `c47.h` |
-| link graph | `nm` over `build.sim/src/c47-gtk/c47.p/` (246 objects, the 228 named `.._c47_*.o`): 2421 edges; 222/228 in one SCC; CCD 50624; ACD 222.0; NCCD 32.10; 3023 globals, 0 duplicated |
-| no object partition | 228 objects for 229 `.c` -- one per compiled source |
+| gtk inside the library | 13 files; `c47.h`, `screen.c:141,524`, `screen.h`, `timer.c:104`, `timer.h`, `programming/input.c:87`, `hal/lcd.h`, `keyboard.c/.h`, `calcMode.c:27`, `typeDefinitions.h:836`, `c47Extensions/keyboardTweak.c/.h` |
+| testSuite links gtk | `src/testSuite/meson.build` `dependencies: [gtk_dep, gmp_dep, m_dep]`; `testSuite.c:35` `GtkWidget *screen;` |
+| conditionals | `grep -rhoE '^\s*#\s*(if\|ifdef\|ifndef\|elif)' src/c47` = 2946; PC_BUILD/DMCP_BUILD union = 69 files, 37 both |
+| item_t | `typeDefinitions.h:603-615`; `func` at `:604`; `LAST_ITEM 3349` at `items.h:3489` = 3350 slots; table `items.c:1841-5284` |
+| the 916 stubs | `items.c:797-1718`, 922 lines; guard `#if defined(GENERATE_CATALOGS) \|\| defined(GENERATE_TESTPGMS)`; `src/generateCatalogs/meson.build:4` passes `-DGENERATE_CATALOGS` |
+| dispatch reach | the table's `func` symbols resolve to 207 of 230 files |
+| header cycle | `c47.h:118,163` -> `solver/solver.h:12` -> `solver/finite_differences.h:5` -> `c47.h` |
+| link graph | `nm` over `build.sim/src/c47-gtk/c47.p/` (248 objects, the 230 named `.._c47_*.o`): 2472 edges; 224/230 in one SCC; CCD 51528; ACD 224.0; NCCD 32.35; 3114 globals, 0 duplicated |
+| no object partition | 230 objects for 231 `.c` -- one per compiled source |
 | the maths cycle | `addition.c --trimLeadingSpace--> stringFuncs.c --addition--> addition.c` (two edges, at the audit basis) |
-| compute is clean | 150 of 156 `.c` in mathematics/distributions/logicalOps/core touch no true-UI symbol; the six exceptions are `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` |
-| base traps | `charString.c` in=47 out=3; `error.c` in=171 out=9; `flags.c` in=140 out=10 |
-| split effect | removing the dispatch edges: 222 -> 111 trapped; ACD 222.0 -> 108.4; NCCD 32.10 -> 15.68 |
+| compute is clean | 151 of 157 `.c` in mathematics/distributions/logicalOps/core touch no true-UI symbol; the six exceptions are `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` |
+| base traps | `charString.c` in=47 out=4; `error.c` in=173 out=9; `flags.c` in=141 out=10 |
+| split effect | removing the dispatch edges: 224 -> 112 trapped; ACD 224.0 -> 109.4; NCCD 32.35 -> 15.80 |
 | churn | 12mo window, existing paths, 5 sweeps >100 files excluded; stable for thresholds 100-400 |
-| corpus | `src/testSuite`: 331 `.txt`, 6 `.c` |
+| corpus | `src/testSuite`: 343 `.txt`, 6 `.c` |
 | CI | `.gitlab-ci.yml` 170 lines; jobs macOS/Linux/Windows/dmcp/dmcp5/dmcp5r47/testSuite/codeDocs |
 | build | 15 `meson.build`; `Makefile` (62 targets) wraps `meson`/`ninja` |
-| the three configuration switches | `CALCMODEL` `defines.h:29` (37 sites, 10 files); `-DPC_BUILD` / `-DDMCP_BUILD` `meson.build:12,40`; `DMCP_PACKAGE` `Makefile:24`, `meson.build:42-45`, ladder `defines.h:143-150` |
-| the option sets | `gcc -E -dM` per configuration (A.2): sim and `TESTSUITE_BUILD` 37 and identical; DM42 packages 27/24/25/18; `NEW_HW` 36; an out-of-range or absent `DMCP_PACKAGE` 30 |
-| the profile is platform-gated | ladder inside `defines.h:136` inside `:74`; `meson.build:42` gates on `DMCPVERSION`; `-DDMCP_PACKAGE=1` on a host build adds one macro and no `OPTION_*` |
+| the three configuration switches | `CALCMODEL` `defines.h:30` (37 sites, 10 files); `-DPC_BUILD` / `-DDMCP_BUILD` `meson.build:12,40`; `DMCP_PACKAGE` `Makefile:24`, `meson.build:42-45`, ladder `defines.h:149-156` |
+| the option sets | `gcc -E -dM` per configuration (A.2): sim and `TESTSUITE_BUILD` 41 and identical; DM42 packages 28/25/26/19; `NEW_HW` 40; an out-of-range or absent `DMCP_PACKAGE` 31 |
+| the profile is platform-gated | ladder inside `defines.h:141` inside `:79`; `meson.build:42` gates on `DMCPVERSION`; `-DDMCP_PACKAGE=1` on a host build adds one macro and no `OPTION_*` |
 | four switches change results, not presence | `OPTION_CUBIC_159`, `OPTION_EIGEN_159` (`slvc.c`, `slvq.c`, `matrix.c`, `squareRoot.c`, `cubeRoot.c`); `OPTION_TVM_FORMULAS`, `OPTION_TVM_NEWTON` (`solver/tvm.c`) |
-| three lists remove a feature | `defines.h` profile; `#if` in the owning file, e.g. `elec.c:91-114` around the body of `fnDeltaToStar`; `savedspace()` `softmenus.c:2713` (238 lines, 173 `case`, 17 option names), called at `:2978`, `:2990`; `items.c` has 4 option conditionals |
+| three lists remove a feature | `defines.h` profile; `#if` in the owning file, e.g. `elec.c:91-114` around the body of `fnDeltaToStar`; `savedspace()` `softmenus.c:2763` (268 lines, 185 `case`, 25 option names), called at `:3058`, `:3070`; `items.c` has 5 option conditionals |
 | generators are native | `compile_commands.json` in `build.dmcp.p1`: `generateCatalogs.c` under `cc -DPC_BUILD`, `src/c47/items.c` under `arm-none-eabi-gcc -DDMCP_BUILD -DDMCP_PACKAGE=1` |
-| `src/generated/` shadows the build dir | `src/c47/meson.build:245` `include_directories('.', '../generated')`; in the same compile line `-I../src/generated` precedes `-Isrc/generateCatalogs` and `-Isrc/generateConstants`; `Makefile:118-122` installs the simulator's copies there |
+| `src/generated/` shadows the build dir | `src/c47/meson.build:247` `include_directories('.', '../generated')`; in the same compile line `-I../src/generated` precedes `-Isrc/generateCatalogs` and `-Isrc/generateConstants`; `Makefile:118-122` installs the simulator's copies there |
 | xlsx build inputs | `.gitlab-ci.yml:38-39` builds `xlsxio` to convert `sortingOrder.xlsx`; `src/index spreadsheet/` (16 files, spaces in the name) |
 | scale | `git rev-list --count` = 13804; `git shortlog -sn` = 35 authors; first commit 2018-12-23 |
