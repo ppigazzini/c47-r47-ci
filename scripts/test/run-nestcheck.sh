@@ -19,11 +19,15 @@
 # own control - if it fails, the runner or the build is broken, and the lane
 # dies rather than reporting anything about the probes.
 #
-# Report-only by default (NESTCHECK_GATE=0): upstream master currently CRASHES
-# on all five probes, and the lane's job is to say so on every run, loudly and
-# with a count, until the nesting budget merges. Flip NESTCHECK_GATE=1 once it
-# has: from then on any probe that stops surviving is a regression and fails
-# the lane.
+# Report-only by default (NESTCHECK_GATE=0). Upstream's engine budget -
+# engineNestingDepth, capped at MAX_ENGINE_NESTING_DEPTH and taken at the SOLVE,
+# INT and PLOT entries - bounds four of the five probes, which halt cleanly.
+# selfsum still crashes: sumprod.c and isumprod.c touch neither the counter nor
+# engineNestingRefused(), so a program that sums itself recurses until the C
+# stack dies. The lane's job is to say which probes the tree bounds, on every
+# run, loudly and with a count. Flip NESTCHECK_GATE=1 once every probe survives:
+# from then on any probe that stops surviving is a regression and fails the
+# lane.
 
 set -Eeuo pipefail
 

@@ -169,9 +169,13 @@ depth 1 (`solve.c:405`), and one shared counter caps PLOT, INT and SOLVE
 together, stopping a self-referential nest from overflowing the C stack
 (`defines.h`, `MAX_ENGINE_NESTING_DEPTH`; the escape analysis and the stack-budget
 question live in [08-references.md](08-references.md), "Recursion guards on
-an embedded C stack"). The grapher evaluates per pixel through
-`_executeSolverReal` (`graph.c:102`) - **outside any depth cap** at the audit
-basis: a gap, not a design.
+an embedded C stack"). The grapher takes one engine level for the whole sweep
+(`graph.c:2936`) and PLOT is refused at any nonzero depth (`graph.c:2759`), so
+the per-pixel evaluation through `_executeSolverReal` (`graph.c:102`) is inside
+the cap. **Sum/product is outside it**: `sumprod.c` and `isumprod.c` touch
+neither the counter nor `engineNestingRefused`, so a program that sums itself
+recurses until the C stack dies - a gap, not a design, and the one probe
+`run-nestcheck.sh` still reports as a crash.
 
 ## 3. The interaction machine
 
