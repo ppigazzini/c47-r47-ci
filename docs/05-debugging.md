@@ -464,7 +464,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:5926`). Unregistered functions return "cannot find the function to
+(`testSuite.c:5893`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -472,7 +472,7 @@ To find them: for each `src/c47/**/*.c`, list `^void fn...(uint16_t` entry
 points; a module where 0 are registered but >=2 are declared is a target.
 Registration rules, learned the hard way:
 
-- names must be **<= 24 chars** (`funcTest_t.name[25]`);
+- names must be **<= 26 chars** (`funcTest_t.name[27]`, `testSuite.h:16`);
 - register only real `void fn(uint16_t)` entry points, **never internal
   helpers** - a 4-arg helper will segfault;
 - header declaration names can differ from the `.c` definition; verify the decl
@@ -913,7 +913,7 @@ and their limits, and those move with the tree.
 | **Intra-pool OOB** | **POOL_GUARD, manual only** | **not wired into any lane (Section 14)** |
 | Fuzzing | 3 lanes (decode/equation/restore) | report-only; OSS-Fuzz never onboarded; state-import + NIM unfuzzed |
 | Static analysis | cppcheck lane, `cppcheck-baseline.txt` (23) | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
-| Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | solver/graph 26% is a real functional gap; ui/input/dmcp are host ceilings |
+| Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | the solver/graph and input/editor sectors carry no floor and are where the functional gap is; ui/input/dmcp are host ceilings. The lane prints every sector - read it there |
 | Differential numeric | `numeric-vectors.py`, 135 cases | single-argument only; no pow/atan2/logxy, no complex domain, no signed-zero/inf/NaN; no CI regeneration check |
 | Unit isolation | fork-per-item in the scans | the corpus itself is one monolithic binary |
 | **UI / keyboard** | `run-ui.sh`, hard gate | one test file (`ij-preservation.t47`); needs `xvfb-run`; a blocking GTK call fails only via `TEST_TIMEOUT` |
