@@ -1,6 +1,6 @@
 # Building c43
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 The `make` targets, the Meson graph underneath them, the generators, and how
 each platform package is produced. The product source is not in this
@@ -65,6 +65,12 @@ Notes that cost time if you do not know them:
 - **The zip filenames never carry the release tag.** The tag is appended by the
   upstream CI upload job, not by `make`.
 - **`make test` cleans first**, deliberately, to avoid ASan contamination.
+- **The DSL is conditional on the submodule.** `dep/jimtcl` is a submodule, so a
+  GitLab source archive arrives with it empty; the top-level `meson.build` tests
+  for `dep/jimtcl/jim.c` and, when it is missing, warns, declares an empty
+  `t47_dep` and leaves `HAVE_T47_DSL` undefined. The build succeeds and the
+  binary has no `--exec` / `--script` front end, which reads as a missing feature
+  rather than a missing checkout. Clone with `--recurse-submodules`.
 
 ## The generators, and the trap under them
 
