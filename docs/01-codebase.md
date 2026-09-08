@@ -10,7 +10,7 @@ The product source is not in this repository. Clone it first:
 git clone https://gitlab.com/rpncalculators/c43.git
 ```
 
-Audit basis: upstream `5697da16239b64ec28b2f7d504e743b8da9c0ab8`, 2026-07-31.
+Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
 
 Every count on this page was measured at that commit; re-measure before relying
 on one. Line counts are blob lines, not SLOC: an upper bound, useful for
@@ -99,8 +99,8 @@ Three consequences worth knowing before choosing a harness:
   `633afdc97`; what still wants a display server is `gtk_init`, not the keypress
   ([04-testing.md](04-testing.md) s3).
 
-Scale at the audit basis: 14098 commits; 525 tracked `.c`/`.h` files totalling
-182425 lines; 229 `.c` in the library; 15 `meson.build` files. The corpus count
+Scale at the audit basis: 14743 commits; 529 tracked `.c`/`.h` files totalling
+189152 lines; 231 `.c` in the library; 15 `meson.build` files. The corpus count
 is [04-testing.md](04-testing.md) s1.
 
 ## 3. Repository map
@@ -119,7 +119,7 @@ Top level:
   Makefile meson.build meson_options.txt .gitlab-ci.yml BUILD.md README.md
 ```
 
-`src` by area at `33328e4cc`, `.c`/`.h` only. **Each row counts that directory
+`src` by area at the audit basis, `.c`/`.h` only. **Each row counts that directory
 alone, not its subdirectories** - so `src/c47-gtk` excludes `src/c47-gtk/hal`,
 which has its own row. [00-architecture.md](00-architecture.md) s2 counts recursively, which is
 why its figures for those directories are larger; the facts agree, the method
@@ -127,28 +127,28 @@ differs.
 
 ```
   area                             files    lines
-  src/c47/(root)                      81    71003   <- 46% of the library
-  src/c47/mathematics                257    44230
-  src/c47/solver                      18    10180
-  src/c47/c47Extensions               19     9813
-  src/c47-gtk                          4     7415
-  src/c47/programming                 15     5877
-  src/testSuite                        2     4809
+  src/c47/(root)                      81    74321   <- 46% of the library
+  src/c47/mathematics                259    45487
+  src/c47/solver                      18    11060
+  src/c47/c47Extensions               19     9810
+  src/c47/programming                 17     7687
+  src/c47-gtk                          4     7442
+  src/testSuite                        2     6457
   src/generateTestPgms                 1     4245
-  src/c47/distributions               33     4237
-  src/c47/ui                           6     3544
-  src/c47/printing                     4     3409
-  src/t47                              8     2666
+  src/c47/distributions               33     4220
+  src/c47/ui                           6     3632
+  src/c47/printing                     4     3413
+  src/t47                              8     2771
   src/t47/jimgen                       6     1236
-  src/c47/browsers                     9     1083
-  src/c47/logicalOps                  23     1072
-  src/generateConstants                1      960
+  src/c47/browsers                     9     1084
+  src/c47/logicalOps                  23     1080
+  src/generateConstants                1      990
   src/c47-gtk/hal                      5      826
-  src/c47-dmcp/hal                     4      568
-  src/c47-dmcp5/hal                    4      568
-  src/ttf2RasterFonts                  2      536
-  src/c47/hal                          5      497
-  src/c47/core                         2      393
+  src/c47-dmcp/hal                     4      590
+  src/c47-dmcp5/hal                    4      582
+  src/c47/hal                          5      548
+  src/ttf2RasterFonts                  2      541
+  src/c47/core                         2      400
   src/testSuite/hal                    5      285
 ```
 
@@ -171,48 +171,48 @@ concept and each has several files. Grouped by the concept they belong to:
 | module | lines | what it is |
 |---|---|---|
 | **dispatch** | | |
-| `items.c` | 4734 | `indexOfItems[]`, `runFunction`, `reallyRunFunction`. The command set (Section 5) |
-| `calcMode.c` | 282 | mode transitions only, not the modes themselves |
+| `items.c` | 5284 | `indexOfItems[]`, `runFunction`, `reallyRunFunction`. The command set (Section 5) |
+| `calcMode.c` | 287 | mode transitions only, not the modes themselves |
 | **input** | | |
-| `keyboard.c` | 4987 | key resolution, shift state, `processKeyAction`, `executeFunction`, `fnKeyExit` |
-| `assign.c` | 1282 | `kbd_std_*[37]` layout tables per model, `kbd_usr[]`, ASSIGN mode |
-| `bufferize.c` | 2789 | the NIM/AIM buffer and the number-entry state machine, `closeNim` |
+| `keyboard.c` | 5011 | key resolution, shift state, `processKeyAction`, `executeFunction`, `fnKeyExit` |
+| `assign.c` | 1320 | `kbd_std_*[37]` layout tables per model, `kbd_usr[]`, ASSIGN mode |
+| `bufferize.c` | 2801 | the NIM/AIM buffer and the number-entry state machine, `closeNim` |
 | **display** | | |
-| `screen.c` | 6623 | `refreshScreen`, the per-mode refreshers, the GTK draw callback |
-| `display.c` | 4012 | formatting a value into a register line |
-| `softmenus.c` | 4428 | `softmenu[]`, the stack, static and dynamic menus |
-| `statusBar.c` | 1098 | the status bar |
+| `screen.c` | 6789 | `refreshScreen`, the per-mode refreshers, the GTK draw callback |
+| `display.c` | 4016 | formatting a value into a register line |
+| `softmenus.c` | 4554 | `softmenu[]`, the stack, static and dynamic menus |
+| `statusBar.c` | 1139 | the status bar |
 | `fonts.c` | 145 | glyph lookup; the raster data is generated |
 | `fractions.c` | 629 | fraction display mode |
 | **state** | | |
-| `c47.c` | 1258 | the globals live here, plus start-up |
-| `config.c` | 2228 | boot, reset, CONFIG, the `ram` allocation and pool seeding |
-| `registers.c` | 2416 | register accessors, `allReservedVariables[]`, local registers |
-| `registerValueConversions.c` | 1570 | the only sanctioned bridge between representations |
-| `realType.c` | 126 | `real_t` helpers over decNumber |
-| `stack.c` | 428 | the RPN stack, `liftStack`, `_Drop`, `saveForUndo`, `undo` |
-| `flags.c` | 862 | system and local flags |
-| `memory.c` | 209 | pool accounting over `core/freeList.c`; GMP hooks |
-| `error.c` | 397 | `displayCalcErrorMessage`, `errorMessages[]` |
+| `c47.c` | 1263 | the globals live here, plus start-up |
+| `config.c` | 2308 | boot, reset, CONFIG, the `ram` allocation and pool seeding |
+| `registers.c` | 2520 | register accessors, `allReservedVariables[]`, local registers |
+| `registerValueConversions.c` | 1732 | the only sanctioned bridge between representations |
+| `realType.c` | 136 | `real_t` helpers over decNumber |
+| `stack.c` | 429 | the RPN stack, `liftStack`, `_Drop`, `saveForUndo`, `undo` |
+| `flags.c` | 865 | system and local flags |
+| `memory.c` | 425 | pool accounting over `core/freeList.c`; GMP hooks |
+| `error.c` | 474 | `displayCalcErrorMessage`, `errorMessages[]` |
 | **values** | | |
-| `store.c` | 702 | the STO family, STOEL/STOIJ |
-| `recall.c` | 585 | the RCL family, RCLEL/RCLIJ |
+| `store.c` | 671 | the STO family, STOEL/STOIJ |
+| `recall.c` | 540 | the RCL family, RCLEL/RCLIJ |
 | `constants.c` | 59 | pushes a generated constant |
 | `integers.c` | 784 | short-integer operations |
-| `charString.c` | 1279 | UTF-8 string helpers |
+| `charString.c` | 1335 | UTF-8 string helpers |
 | `stringFuncs.c` | 1483 | user-facing string functions |
-| `sort.c` | 192 | sorting helpers |
-| `dateTime.c` | 1224 | date and time types |
-| `conversionUnits.c` | 1258 | unit conversion |
+| `sort.c` | 265 | sorting helpers |
+| `dateTime.c` | 1256 | date and time types |
+| `conversionUnits.c` | 1299 | unit conversion |
 | `conversionAngles.c` | 689 | angular conversion |
 | **statistics** | | |
-| `stats.c` | 1061 | the sigma sums |
-| `curveFitting.c` | 1346 | regression |
-| `plotstat.c` | 2147 | statistical plotting, `CM_PLOT_STAT`, `CM_LISTXY` |
+| `stats.c` | 1076 | the sigma sums |
+| `curveFitting.c` | 1354 | regression |
+| `plotstat.c` | 2135 | statistical plotting, `CM_PLOT_STAT`, `CM_LISTXY` |
 | **persistence** | | |
-| `saveRestoreCalcState.c` | 2793 | `.s47` state |
-| `saveRestoreBackup.c` | 1484 | `backup.cfg`, simulator only |
-| `saveRestorePrograms.c` | 602 | `.p47` programs |
+| `saveRestoreCalcState.c` | 3248 | `.s47` state |
+| `saveRestoreBackup.c` | 1584 | `backup.cfg`, simulator only |
+| `saveRestorePrograms.c` | 845 | `.p47` programs |
 | **other** | | |
 | `timer.c` | 819 | the timer application, `CM_TIMER` |
 | `debug.c` | 584 | debug helpers |
@@ -250,7 +250,7 @@ check that code and spreadsheet still agree.
 records only the mechanics needed to navigate the tree.
 
 The `Makefile` is the user-visible contract; meson and ninja are the machinery.
-The build directory is a variable, not a target property (`Makefile:11-12`),
+The build directory is a variable, not a target property (`Makefile:18`, `:27`),
 overridden per target:
 
 | make target | build dir | produces |
@@ -264,8 +264,8 @@ overridden per target:
 | `dist_dmcp` | `build.dmcp.p<N>` | `c47-dmcp-pkg<N>.zip` |
 | `dist_dmcp5`, `dist_dmcp5r47` | `build.dmcp5` | `c47-dmcp5.zip`, `r47-dmcp5.zip` |
 
-`make t47` alone resolves to `t47: simr47` (`Makefile:117`), so `./t47` is the
-R47 build. `T47` is consumed only at `src/c47/defines.h:421`, which `#undef`s the
+`make t47` alone resolves to `t47: simr47` (`Makefile:137`), so `./t47` is the
+R47 build. `T47` is consumed only at `src/c47/defines.h:456`, which `#undef`s the
 DM42/monitor/debug options: a quiet variant, not a separate program.
 
 ### The generator pipeline
@@ -311,10 +311,10 @@ source (`.gitlab-ci.yml:38-40`). A spreadsheet is a build input.
 
 ### src/generated is not what it looks like
 
-`src/generated/` is gitignored: `.gitignore:50` ignores `/src/generated/*` and
+`src/generated/` is gitignored: `.gitignore:56` ignores `/src/generated/*` and
 only `README.md`, `constantsVerification.txt` and `version.h` are tracked. The
 other files appear locally because `make sim` copies them out of the build dir
-(`Makefile:98-102`):
+(`Makefile:118-122`):
 
 ```
   install -C build.sim/src/generateCatalogs/softmenuCatalogs.h   src/generated/
@@ -322,7 +322,7 @@ other files appear locally because `make sim` copies them out of the build dir
   ...
 ```
 
-`src/c47/meson.build:245` sets
+`src/c47/meson.build:247` sets
 `c47_inc = include_directories('.', '../generated')`, so the source
 `src/generated/` is on the include path alongside the build-dir copies. A stale
 copy shadows a freshly generated header. [05-debugging.md](05-debugging.md) Section 12 records the
@@ -365,8 +365,8 @@ the god header is load-bearing rather than merely untidy - are measured in
 
 **`indexOfItems[]` is the command set.** `item_t` (`typeDefinitions.h:603-615`)
 carries a function pointer, a parameter, a catalogue name, a softmenu name, a
-TAM argument range and packed status bits. `LAST_ITEM` is 2870
-(`items.h:2989`), so the table has 2871 slots. Keys, menus, catalogues, programs
+TAM argument range and packed status bits. `LAST_ITEM` is 3349
+(`items.h:3489`), so the table has 3350 slots. Keys, menus, catalogues, programs
 and the corpus all address commands by item number: `softmenus.c` never names a
 maths function, it names item numbers. This is the codebase's best structural
 idea, and because `func` is a function pointer it is also the edge that makes
@@ -658,9 +658,10 @@ meets in this order:
 
 - **A linked matrix dies when its register is resized.** `linkTo*MatrixRegister`
   points `matrixElements` straight into the register's pool block. Anything that
-  calls `reallocateRegister` frees that block (`registers.c:2035`) and the
-  best-fit allocator hands it to the next caller immediately. `matrix.h:309-311`
-  warns about this for `redimMatrixRegister` and `appendRowAtMatrixRegister` -
+  calls `reallocateRegister` frees that block (`registers.c:2061`) and the
+  best-fit allocator hands it to the next caller immediately. `matrix.h:312-314`
+  warns about this for `redimMatrixRegister`, and `:336` for
+  `appendRowAtMatrixRegister` -
   but it is true of every path through `reallocateRegister`, including
   `initMatrixRegister`, `copySourceRegisterToDestRegister` and `clearRegister`.
 - **Owned and borrowed matrices look identical.** `realMatrixInit` allocates and
@@ -726,9 +727,12 @@ off the top.
 | solver | `currentSolverStatus` (a bitfield: formula vs program, ready flags) | `c47.h:538` |
 
 `lastErrorCode` is the error channel: functions return `void` and set the
-global. It is cleared not by the caller but by the **next refresh**, together
-with `temporaryInformation` (`screen.c:2150-2153`) - that coupling is the only
-normal path that resets it.
+global. It is cleared not by the caller but by **`showFunctionName()`**, in the
+one block that also takes `temporaryInformation` down (`screen.c:2178-2183`) -
+that coupling is the only normal path that resets it, and it runs only while a
+temporary screen is up. Every other write of zero is a special path: the
+`ERROR_RAM_FULL` undo fallback (`items.c:311`, `bufferize.c:1582`), a config
+reset, a state restore.
 
 ### The programming state
 
