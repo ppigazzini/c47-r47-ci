@@ -1033,7 +1033,8 @@ following digits overwrite X instead of pushing.
 a status. `displayCalcErrorMessage` sets `lastErrorCode`, and each layer tests it
 afterwards: `reallyRunFunction` undoes the operation (`items.c:593`), and
 `runProgram` breaks out of its loop without advancing the step
-(`lblGtoXeq.c:957`), which is why a stopped program rests on the offending line.
+(`lblGtoXeq.c:976-997`), which is why a stopped program rests on the offending
+line.
 
 **The next key press clears the error and executes.** Any item except EXIT and
 BACKSPACE zeroes `lastErrorCode` on the way in (`keyboard.c:2396`), so dismissing

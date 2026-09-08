@@ -38,7 +38,7 @@ Five distinct input languages, each with its own scanner or parser:
 
 A sixth, smaller surface: **programmable menus** - a running program can define
 the softmenu the user sees. Its record is `programmableMenu_t`
-(`typeDefinitions.h:660`): 18 item names and 21 item parameters where the
+(`typeDefinitions.h:652-656`): 18 item names and 21 item parameters where the
 **MSB set means XEQ and MSB clear means GTO** - the menu is literally a jump
 table into the user's program.
 
@@ -50,7 +50,7 @@ separated by `END`, the whole area terminated by the two-byte `.END.`;
 edit or load re-derives the symbol tables by a single forward scan,
 `scanLabelsAndPrograms()` (`manage.c:120`): `labelList_t` records
 `{program, step, labelPointer, instructionPointer}` where **`step < 0` marks a
-local label and `step > 0` a global one** (`typeDefinitions.h:660`), and
+local label and `step > 0` a global one** (`typeDefinitions.h:663-668`), and
 `programList_t` records each program's first step. The scan stops at the first
 step it cannot decode - so does the step walker (`nextStep.c:151`) - which means
 a corrupt byte silently truncates the visible program list rather than
