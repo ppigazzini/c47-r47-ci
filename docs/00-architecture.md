@@ -700,7 +700,7 @@ only `matrix.c` reaches the top ten.
 
 **A caution on the "92% cold" figure** sometimes quoted for this codebase. The
 8%-hot half is confirmed above. The 92%-cold half does not survive a 12-month
-window: 77% of files saw at least one non-sweep commit. Both may be true of
+window: 68% of files saw at least one non-sweep commit. Both may be true of
 different windows; the original method was not reproduced here, so do not rely
 on "92% cold" without one.
 
