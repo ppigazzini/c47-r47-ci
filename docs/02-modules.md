@@ -26,19 +26,19 @@ Five distinct input languages, each with its own scanner or parser:
 
 | surface | what it is, technically | components | literature term |
 |---|---|---|---|
-| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1411` | bytecode / VM instruction-set design |
-| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:661` | keystroke programming (HP-41/42 model) |
+| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1457` | bytecode / VM instruction-set design |
+| - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:666` | keystroke programming (HP-41/42 model) |
 | - its disassembler | byte-code back to listing text for the editor and browser | `programming/decode.c` | disassembly / listing generation |
-| - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:891`, `nextStep.c` | interpreter main loops; activation records / call frames |
-| - its symbol tables | global/local label scan (`labelList`, `programList`), named variables | `programming/manage.c:122` | symbol table management |
+| - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:929`, `nextStep.c` | interpreter main loops; activation records / call frames |
+| - its symbol tables | global/local label scan (`labelList`, `programList`), named variables | `programming/manage.c:120` | symbol table management |
 | the EQN formula language | infix expression entry, parsed and evaluated against the register model; feeds the solver, grapher and integrator; edited in EIM, stored in `allFormulae` | `solver/equation.c` | expression parsing and evaluation |
-| the number-entry lexer | NIM tokenizes keystrokes into typed literals - integer bases, exponents, fractions, complex parts, angles - sharing one buffer with alpha entry | `bufferize.c:445` | lexing / tokenization |
+| the number-entry lexer | NIM tokenizes keystrokes into typed literals - integer bases, exponents, fractions, complex parts, angles - sharing one buffer with alpha entry | `bufferize.c:456` | lexing / tokenization |
 | the automation DSL | the test binary embeds a **Jim Tcl interpreter**; calculator-specific commands (`readp`, `xeq`, `press`, `reg`, `snap`...) drive the machine headlessly | `dep/jimtcl`, `src/t47/dsl.c` | embedded extension languages (the Tcl model) |
 | the serialization formats | line-oriented text containers for programs (`.p47`), registers and full state, with a screening pass before anything is loaded | `saveRestorePrograms.c`, `saveRestoreBackup.c`, `saveRestoreCalcState.c` | serialization; parse-before-commit file screening |
 
 A sixth, smaller surface: **programmable menus** - a running program can define
 the softmenu the user sees. Its record is `programmableMenu_t`
-(`typeDefinitions.h:640`): 18 item names and 21 item parameters where the
+(`typeDefinitions.h:660`): 18 item names and 21 item parameters where the
 **MSB set means XEQ and MSB clear means GTO** - the menu is literally a jump
 table into the user's program.
 
@@ -48,9 +48,9 @@ table into the user's program.
 separated by `END`, the whole area terminated by the two-byte `.END.`;
 [01-codebase.md](01-codebase.md) Section 10 owns the byte-walk details. Every
 edit or load re-derives the symbol tables by a single forward scan,
-`scanLabelsAndPrograms()` (`manage.c:122`): `labelList_t` records
+`scanLabelsAndPrograms()` (`manage.c:120`): `labelList_t` records
 `{program, step, labelPointer, instructionPointer}` where **`step < 0` marks a
-local label and `step > 0` a global one** (`typeDefinitions.h:650`), and
+local label and `step > 0` a global one** (`typeDefinitions.h:660`), and
 `programList_t` records each program's first step. The scan stops at the first
 step it cannot decode - so does the step walker (`nextStep.c:151`) - which means
 a corrupt byte silently truncates the visible program list rather than
@@ -58,10 +58,10 @@ erroring.
 
 **The assembler.** PEM is not a text editor: each keystroke resolves to an
 item, and in PEM the dispatcher records the item as byte-code instead of
-running it (`items.c:661`, the `calcMode == CM_PEM` branch). Insert and delete
+running it (`items.c:666`, the `calcMode == CM_PEM` branch). Insert and delete
 shift the byte stream and re-scan.
 
-**The virtual machine.** `runProgram` (`lblGtoXeq.c:891`) is the
+**The virtual machine.** `runProgram` (`lblGtoXeq.c:929`) is the
 fetch-decode-execute loop: fetch at `currentStep`, widen two-byte opcodes,
 execute through the same `reallyRunFunction` dispatch the keyboard uses
 ([00-architecture.md](00-architecture.md) Section 4), then advance by the
@@ -90,9 +90,9 @@ the scanner).
 
 The parser (`equation.c`) is a **single-pass operator-precedence evaluator
 with an explicit operator stack** - the shunting-yard family - reducing
-through `_processOperator` (`equation.c:874`), with parenthesis and
+through `_processOperator` (`equation.c:993`), with parenthesis and
 absolute-value-bar matching and a hard operator-stack overflow check
-(`equation.c:1006`). It has exactly two modes (`equation.h:14`):
+(`equation.c:1125`). It has exactly two modes (`equation.h:14`):
 `EQUATION_PARSER_MVAR` scans the formula only to build the variable menu, and
 `EQUATION_PARSER_XEQ` evaluates it against the registers. Formulae live in the
 pool as `formulaHeader_t` records - a block pointer and a size
@@ -102,7 +102,7 @@ re-parses the text**, once per solver sample or plot point.
 ### 1.3 Structure: the automation DSL
 
 `t47` embeds Jim Tcl whole (`dep/jimtcl`) and registers the calculator
-commands in one table (`dsl.c:1307`): state (`reg`, `var`, `flag`,
+commands in one table (`dsl.c:1410`): state (`reg`, `var`, `flag`,
 `loadst`/`savest`), programs (`readp`, `xportp`, `xeq`), input (`press`,
 `nim`, `item`), capture (`snap`). Everything a script can do funnels into the
 same dispatch and key paths as the keyboard - the DSL adds no second
@@ -118,8 +118,8 @@ variable `x`.
 |---|---|---|---|
 | decimal arithmetic | 34-digit IEEE 754-2008 decimal floating point - the value type of the whole machine | `dep/decNumberICU` | General Decimal Arithmetic (Cowlishaw) |
 | bignum integers | arbitrary-precision long integers | GMP, `longIntegerType.c` | arbitrary-precision arithmetic |
-| root finder | Brent's method with a Newton polish option | `solver/solve.c:485` | Brent's method / derivative-free root finding |
-| quadrature | double-exponential (tanh-sinh) integration | `solver/integrate.c:354` | Takahasi-Mori double-exponential transformation |
+| root finder | Brent's method with a Newton polish option | `solver/solve.c:521` | Brent's method / derivative-free root finding |
+| quadrature | double-exponential (tanh-sinh) integration | `solver/integrate.c:330` | Takahasi-Mori double-exponential transformation |
 | numeric differentiation | finite differences over a program or formula | `solver/differentiate.c`, `solver/finite_differences.h` | finite-difference stencils |
 | summation/product | programmed series evaluation | `solver/sumprod.c`, `solver/isumprod.c` | - |
 | financial solver | time-value-of-money equation solving | `solver/tvm.c` | TVM equations |
@@ -164,8 +164,8 @@ flowchart LR
 Because the loop closes, nesting is user input: upstream deliberately enables
 SOLVE(SOLVE) and PLOT(SOLVE). The engines share the bookkeeping counter
 `currentSolverNestingDepth` and the FLAG_SOLVING/FLAG_INTING flag dance on
-entry and exit (`integrate.c:1582`, `solve.c`), progress display runs only at
-depth 1 (`solve.c:404`), and one shared counter caps PLOT, INT and SOLVE
+entry and exit (`integrate.c:1558`, `solve.c`), progress display runs only at
+depth 1 (`solve.c:405`), and one shared counter caps PLOT, INT and SOLVE
 together, stopping a self-referential nest from overflowing the C stack
 (`defines.h`, `MAX_ENGINE_NESTING_DEPTH`; the escape analysis and the stack-budget
 question live in [08-references.md](08-references.md), "Recursion guards on
@@ -177,7 +177,7 @@ basis: a gap, not a design.
 
 | module | what it is, technically | components |
 |---|---|---|
-| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:429` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
+| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:434` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
 | key assignment | user remapping of keys to items (ASN), with its browser | `assign.c`, `browsers/asnBrowser.c` |
 | operand entry | TAM - the state machine that collects an instruction's operand (register, digit, name, indirect) after the key | `bufferize.c`, `tamState_t` |
 | the modal editors | AIM (alpha), NIM (number), MIM (matrix), EIM (equation), PEM (program) - five modal input surfaces over one buffer | `bufferize.c`, `ui/matrixEditor.c`, `programming/`, `calcMode.c` |
@@ -187,7 +187,7 @@ basis: a gap, not a design.
 ### 3.1 Structure
 
 **TAM** is an explicit state machine in one struct, `tamState_t`
-(`typeDefinitions.h:672`): the pending `function`, digit accumulator
+(`typeDefinitions.h:682`): the pending `function`, digit accumulator
 (`digitsSoFar`, `value`), the `[min, max]` range the operand is clamped to,
 and mode bits for alpha, dot, colon and **indirection** (`value0` keeps the
 pre-indirection value). The documented invariant: **`tam.mode` non-zero is
@@ -195,14 +195,14 @@ the definition of "TAM is active"** - test that, not `calcMode`.
 
 **One buffer, five editors.** All modal entry shares `aimBuffer`
 ([00-architecture.md](00-architecture.md) Section 2.1 owns that fusion and
-its cost); `addItemToBuffer` (`bufferize.c:445`) routes by mode. The key-to-
+its cost); `addItemToBuffer` (`bufferize.c:456`) routes by mode. The key-to-
 screen control flow, including where assignments and shift planes resolve, is
 [01-codebase.md](01-codebase.md) Section 10 - user key assignments live in
 the config as `kbd_usr[37]` (`typeDefinitions.h:328` block), one entry per
 physical key.
 
 **R/S and EXIT double as the computation interrupt**: `exitKeyWaiting()`
-(`c47Extensions/addons.c:1113`) is polled inside the solver, integrator,
+(`c47Extensions/addons.c:1114`) is polled inside the solver, integrator,
 grapher and other long loops. State the limit: the abort is only as responsive
 as the polling points, so an interrupt landing between two of them waits for the
 next one.
@@ -211,7 +211,7 @@ next one.
 
 | module | what it is, technically | components |
 |---|---|---|
-| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6039` `refreshScreen` |
+| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6108` `refreshScreen` |
 | status bar | mode annunciators on a timer cadence | `statusBar.c` |
 | number formatter | value to glyph string: FIX/SCI/ENG, grouping, fractions, bases | `display.c:228` |
 | font and glyph engine | four bitmap fonts (standard, numeric, numeric bold, tiny), glyph lookup by codepoint, multi-byte strings | `fonts.c`, `charString.c`, `src/generated/` fonts |
@@ -221,11 +221,11 @@ next one.
 
 ### 4.1 Structure
 
-The screen is a fixed 400x240 frame buffer (`defines.h:1463`), shared by the
+The screen is a fixed 400x240 frame buffer (`defines.h:1509`), shared by the
 register lines, the softmenus, the browsers and the grapher - there is no
 layering or clipping system; whoever draws last owns the pixels, and
 `refreshScreen` recomposes by redrawing regions. Text is drawn from four
-`font_t` bitmap fonts (`c47.h:276`); glyph lookup is a binary search on
+`font_t` bitmap fonts (`c47.h:274`); glyph lookup is a binary search on
 codepoint with **no id fallback, so a miss is always a miss**
 (`fonts.c:40`) - the multi-byte string encoding it serves is owned by
 `charString.c`.
@@ -256,11 +256,11 @@ untested - a gap, not a design.
 The formats are line-oriented text: a keyword line, a value line, then
 payload (one byte per line for programs). The program loader is the model
 citizen: it **screens the whole file before reserving a single block**
-(`_programFileRefused`, `saveRestorePrograms.c:168`, applied at `:688`), so a
+(`_programFileRefused`, `saveRestorePrograms.c:168`, applied at `:790`), so a
 refusal needs no rollback - the LangSec recognize-before-process shape
 ([08-references.md](08-references.md)). The full-state restore path is not:
 `restoreCalc` reads the RAM image back essentially unscreened
-(`saveRestoreBackup.c:826`), trusting the file to be well-formed - a gap, not
+(`saveRestoreBackup.c:829`), trusting the file to be well-formed - a gap, not
 a design, and the reason the harness fuzzes that path
 ([07-ci.md](07-ci.md)).
 

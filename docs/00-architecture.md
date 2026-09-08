@@ -179,7 +179,7 @@ accurate but keep it).xlsx`.
 A spreadsheet is also a build input, but not one of these: CI clones and builds
 `xlsxio` from source to convert `res/fonts/sortingOrder.xlsx` to CSV
 (`.gitlab-ci.yml:38-39`). The files under `src/index spreadsheet/` are design
-source consumed by hand, which is why `items.c:1779` records that the item table
+source consumed by hand, which is why `items.c:1843` records that the item table
 was "generated (manually)".
 
 ## 2.1 The logical components
@@ -199,16 +199,16 @@ and every upward call is one of the violations catalogued in Section 8.3.
 | 5 | types and conversions | `shortIntegerMask`, `denMax` | `registerValueConversions.c` |
 | 6 | mathematics | the four type-dispatch tables | `mathematics/addition.c:10` |
 | 7 | derived numerics | statistical sums, unit tables | `stats.c`, `conversionUnits.c` |
-| 8 | program store | program memory, `labelList`, `programList` | `programming/manage.c:102` |
+| 8 | program store | program memory, `labelList`, `programList` | `programming/manage.c:100` |
 | 9 | value formatting | `displayFormat*`, grouping | `display.c:228` `real34ToDisplayString` |
-| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6039` `refreshScreen` |
-| 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:239` `reallyRunFunction` |
+| 10 | screen rendering | `lcd_buffer`, cursor, status bar | `screen.c:6108` `refreshScreen` |
+| 11 | dispatch and input | `indexOfItems[]`, `calcMode`, `tam` | `items.c:243` `reallyRunFunction` |
 | 11 | program execution | subroutine frames, local flags | `lblGtoXeq.c:754` `executeOneStep` |
-| 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:94` `fnSolve` |
-| 12 | application | file formats, config | `saveRestoreBackup.c:242` `saveCalc` |
+| 11 | solvers and equations | `currentSolver*`, `allFormulae` | `solver/solve.c:70` `fnSolve` |
+| 12 | application | file formats, config | `saveRestoreBackup.c:243` `saveCalc` |
 
 Levels 9 to 11 are one block in practice, not three. `display.c` and `screen.c`
-are mutually recursive (`display.c:3511` against `screen.c:2033`), as are
+are mutually recursive (`display.c:3973` against `screen.c:2052`), as are
 `screen.c` and `softmenus.c`, and `screen.c` and `items.c`. They are listed
 apart because that is the shape a split would take, not because the split exists.
 
@@ -217,9 +217,9 @@ apart because that is the shape a split would take, not because the split exists
 - **Number entry and alpha entry are one component.** They share a buffer, and
   `c47.c:124` says so: `char *aimBuffer; // aimBuffer is also used for NIM`.
   `addItemToBuffer` routes AIM, TAM, NIM and MIM from one if/else chain
-  (`bufferize.c:445`).
+  (`bufferize.c:456`).
 - **The matrix type and the matrix editor are one component.**
-  `mathematics/matrix.h:228-230` declares `showMatrixEditor`, `mimEnter` and
+  `mathematics/matrix.h:237-239` declares `showMatrixEditor`, `mimEnter` and
   `mimAddNumber`, all implemented in `ui/matrixEditor.c`. A maths header exports
   a user interface.
 - **Statistics and plotting have no seam.** `plotstat.c` reads the statistics
@@ -227,8 +227,8 @@ apart because that is the shape a split would take, not because the split exists
   file.
 
 **Why the components have to be inferred rather than read off.** `src/c47/c47.c`
-defines just **two** functions - `convertKeyCode` (`c47.c:429`) and
-`program_main` (`c47.c:593`, the DMCP run loop) - and everything else in its
+defines just **two** functions - `convertKeyCode` (`c47.c:434`) and
+`program_main` (`c47.c:598`, the DMCP run loop) - and everything else in its
 1258 lines is global variable definitions for every component in the system,
 declared through the 345 `extern`s in `c47.h`. There is almost no file-private
 state anywhere, so a component owns its globals by convention only - nothing
@@ -333,11 +333,11 @@ Three costs follow:
   files and `defines.h` (396) is third: item numbers are `#define`s, so every new
   command touches all three. Merge contention there is structural.
 `tamMinMax` is two fields in one `uint16_t`: the minimum in the top 2 bits, the
-maximum in the low 14 (`TAM_MAX_BITS` and `TAM_MAX_MASK`, `defines.h:1061-1062`).
+maximum in the low 14 (`TAM_MAX_BITS` and `TAM_MAX_MASK`, `defines.h:1107-1108`).
 The invariant it states is that **a command runs only with a parameter inside
 that range**, and the range is a property of the item, not of whoever supplies
 the parameter. Four suppliers read it, and they are not the same code:
-`_tamProcessInput` for keyboard entry (`tam.c:1142-1143`), the two indirect
+`_tamProcessInput` for keyboard entry (`tam.c:1143-1144`), the two indirect
 paths in `_executeOp` through `indirectAddressing`
 (`lblGtoXeq.c:329`, `:345`), and the t47 DSL (`value.c:224`). The fifth
 supplier - the parameter byte in a program step - is read by `_executeOp`'s own
@@ -368,7 +368,7 @@ with it.
    881  actual code          (19%)
 ```
 
-`items.c:789-1681`:
+`items.c:797-1718`:
 
 ```c
   #if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)
@@ -456,12 +456,12 @@ directly (`git grep -lE 'gboolean|GtkWidget|cairo_t|gtk/gtk\.h' -- src/c47`):
 ```
 
 The last five carry the types in declarations rather than definitions -
-`typeDefinitions.h:811` is `GtkWidget *keyImage[4];`, `keyboard.c:338` declares
+`typeDefinitions.h:836` is `GtkWidget *keyImage[4];`, `keyboard.c:339` declares
 `btnFnClicked(GtkWidget*, gpointer)` - which is why a narrower grep reports
 seven.
 
-`screen.c:124` defines `gboolean drawScreen(GtkWidget *widget, cairo_t *cr,
-gpointer data)`; `screen.c:507` `refreshLcd`; `timer.c:104` `refreshTimer`. These
+`screen.c:141` defines `gboolean drawScreen(GtkWidget *widget, cairo_t *cr,
+gpointer data)`; `screen.c:524` `refreshLcd`; `timer.c:104` `refreshTimer`. These
 are GTK callbacks defined **inside the library**, not in `src/c47-gtk/`. The
 library is not platform-independent code calling a HAL; it is a
 preprocessor-multiplexed superset of all platforms that also has a HAL. The HAL
@@ -469,7 +469,7 @@ covers file I/O, audio, printing and LCD primitives. It does not cover the event
 loop or the drawing surface, which the library reaches directly.
 
 **5.4 The testSuite is display-less, not GTK-less.** `src/testSuite/meson.build`
-links `gtk_dep`; `testSuite.c:29` declares `GtkWidget *screen;`. The harness must
+links `gtk_dep`; `testSuite.c:30` declares `GtkWidget *screen;`. The harness must
 define a GTK object to satisfy the library's own references. This is 5.3 charging
 rent: because the library defines GTK callbacks, every target that links the
 library links GTK -- including the one whose purpose is not to have a GUI.
@@ -513,9 +513,9 @@ platform, and the generated code is shared across both.
 
 | switch | values | where |
 |---|---|---|
-| `CALCMODEL` | `USER_C47`, `USER_R47` | `defines.h:29`; read at 37 sites in 10 files |
+| `CALCMODEL` | `USER_C47`, `USER_R47` | `defines.h:30`; read at 37 sites in 10 files |
 | the platform | `PC_BUILD`; `DMCP_BUILD`; `DMCP_BUILD` + `NEW_HW` | `meson.build:12,40` |
-| `DMCP_PACKAGE` | 1 to 4 | `Makefile:24`, `meson.build:42-45`, ladder at `defines.h:143-150` |
+| `DMCP_PACKAGE` | 1 to 4 | `Makefile:24`, `meson.build:42-45`, ladder at `defines.h:149-156` |
 
 The third changes the calculator most. `defines.h` declares **39 `OPTION_*`
 names**, read at 598 further sites in 66 files, and each package `#define`s and
@@ -541,8 +541,8 @@ for the DM42.
 
 ### 7.2 The feature profile is nested inside the platform
 
-The package ladder sits inside `#if defined(TWO_FILE_PGM)` (`defines.h:136`)
-inside `#if defined(DMCP_BUILD)` (`:74`), and meson adds `-DDMCP_PACKAGE` only
+The package ladder sits inside `#if defined(TWO_FILE_PGM)` (`defines.h:141`)
+inside `#if defined(DMCP_BUILD)` (`:79`), and meson adds `-DDMCP_PACKAGE` only
 when `DMCPVERSION` is `dmcp` (`meson.build:42-45`). Both gates are the platform,
 so **the profile is unreachable from a host build**: handing one the flag
 changes exactly one macro, `DMCP_PACKAGE` itself, and no `OPTION_*`.
@@ -589,7 +589,7 @@ maintained by hand:
    wraps the body of `fnDeltaToStar`, not its definition;
 3. `savedspace()` (`softmenus.c:2713`, 238 lines, 173 `case` labels under 17
    option names) strikes the items out of the menus and catalogues
-   (`softmenus.c:2978`, `:2990`).
+   (`softmenus.c:3058`, `:3070`).
 
 The invariant that follows is that **the item row and the function symbol always
 survive**. `items.c` carries four option conditionals in the whole file, so
@@ -825,10 +825,10 @@ classifies the allocator as a user-interface component.
 `displayCalcErrorMessage` renders nothing. Its success path is three assignments
 -- `lastErrorCode`, `errorMessageRegisterLine`, `screenUpdatingMode`
 (`error.c:296-298`) -- and the message is painted much later by
-`_refreshRegisterLine` (`screen.c:3215`), which is why the name misleads. But the
-same translation unit holds `displayBugScreen` (`error.c:352`), a real renderer:
-it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:364`) and
-`showString` (`error.c:367`). The two validation-failure paths of
+`_refreshRegisterLine` (`screen.c:3255`), which is why the name misleads. But the
+same translation unit holds `displayBugScreen` (`error.c:413`), a real renderer:
+it writes `calcMode`, calls `hideCursor`, `lcd_fill_rect` (`error.c:426`) and
+`showString` (`error.c:429`). The two validation-failure paths of
 `displayCalcErrorMessage` call it.
 
 So every file that merely wants to *signal* an error links, through one file, to
@@ -912,35 +912,35 @@ leaves `maths`: two downward edges, and two upward ones.
 
 | edge | proof |
 |---|---|
-| keyboard -> items | `keyboard.c:2272` `runFunction(item)` |
-| items -> the command | `items.c:409` `indexOfItems[func].func(param)` |
-| items -> buf | `items.c:697` `tamEnterMode(func)` |
-| prog -> items | `programming/lblGtoXeq.c:784` |
+| keyboard -> items | `keyboard.c:2281` `runFunction(item)` |
+| items -> the command | `items.c:413` `indexOfItems[func].func(param)` |
+| items -> buf | `items.c:713` `tamEnterMode(func)` |
+| prog -> items | `programming/lblGtoXeq.c:785` |
 | maths -> registers | `mathematics/addition.c:56` |
 | maths -> error | `mathematics/addition.c:35` |
 | registers -> memory | `registers.c:516` `allocC47Blocks` |
-| screen -> display | `screen.c:2033` `real34ToDisplayString` |
+| screen -> display | `screen.c:2052` `real34ToDisplayString` |
 | buf -.-> items | `ui/tam.c:219` `reallyRunFunction` |
-| convu -.-> items | `conversionUnits.c:761` `runFunction` |
+| convu -.-> items | `conversionUnits.c:797` `runFunction` |
 | maths -.-> softmenus | `mathematics/matrix.c:1462` |
-| maths -.-> screen | `mathematics/prime.c:818` |
-| display -.-> screen | `display.c:3511` |
-| registers -.-> display | `registers.c:1648` |
-| error -.-> screen | `error.c:367` `showString` |
-| charstring -.-> error | `charString.c:297` `displayBugScreen` |
-| temporaryInformation | written `display.c:3101`, read `charString.c:241` |
+| maths -.-> screen | `mathematics/prime.c:817` |
+| display -.-> screen | `display.c:3973` |
+| registers -.-> display | `registers.c:1674` |
+| error -.-> screen | `error.c:429` `showString` |
+| charstring -.-> error | `charString.c:311` `displayBugScreen` |
+| temporaryInformation | written `display.c:3114`, read `charString.c:242` |
 
 **What a cut would cost.** The upward edges are not evenly spread; they fall into
 a few classes, and one of them carries most of the weight:
 
 | class | edges | where |
 |---|---|---|
-| the error TU | 1 structural cut, 6 sites | `error.c:358-399` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
+| the error TU | 1 structural cut, 6 sites | `error.c:420-461` - splits the state-setter from the bug screen, and 151 files stop reaching the renderer |
 | compute reaching the screen | 6 files | `int.c`, `matrix.c`, `prime.c`, `rdp.c`, `round.c`, `rsd.c` - each has a product reason (progress, in-place round, menu); needs a reporting channel, not a file move |
 | conversion re-enters dispatch | 3 | `conversionUnits.c:761,779,782` call `runFunction` rather than the conversion directly |
-| store reaches formatting | 1 | `registers.c:1648` calls `shortIntegerToDisplayString` |
-| primitives reach up | 1 | `charString.c:297` - a string helper calling the bug screen. `charString.c:241` looks like a second, but it is a `temporaryInformation` read: the data channel reaching the very bottom of the graph |
-| flags, timer, store reach up | 6 | `flags.c:359`, `store.c:199`, `timer.c:189` and neighbours |
+| store reaches formatting | 1 | `registers.c:1674` calls `shortIntegerToDisplayString` |
+| primitives reach up | 1 | `charString.c:311` - a string helper calling the bug screen. `charString.c:242` looks like a second, but it is a `temporaryInformation` read: the data channel reaching the very bottom of the graph |
+| flags, timer, store reach up | 6 | `flags.c:359`, `store.c:180`, `timer.c:189` and neighbours |
 | the data channel | 56 writers | `temporaryInformation` - not cuttable by moving files; the writers must return a status instead |
 
 The first six classes are about 40 call sites. The seventh is the hard one, and
@@ -1031,9 +1031,9 @@ measurement of c43.
 
 **The compile-time switching is the product, and scoring it FAIL is a category
 error.** C47 ships *different calculators* from one tree. `Makefile:24` sets
-`DMCP_PACKAGE = 4`; the ladder at `defines.h:143-150` turns that number into
+`DMCP_PACKAGE = 4`; the ladder at `defines.h:149-156` turns that number into
 `DMCP_PACKAGE1` to `DMCP_PACKAGE4_NOOPT`, each selecting one block of the 39
-`OPTION_*` switches declared above it (`defines.h:32-71`), and each switch is
+`OPTION_*` switches declared above it (`defines.h:33-76`), and each switch is
 commented with the *user-visible functions* it adds or removes - `OPTION_FACTOR`
 is "FACTORS, M.FACT, EULPHI, SIGMA, NumTh menu". `BUILD.md:53-56` exposes it:
 `make DMCP_PACKAGE=1 dist_dmcp`.

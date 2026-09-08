@@ -27,7 +27,7 @@ stack is not independent of the heap** - the scheduler allocates it there.
 |---|---|---|---|---|
 | **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
 | **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
-| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:362`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
+| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:360`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
 
 Two consequences a newcomer gets wrong:
@@ -259,7 +259,7 @@ of them are design decisions worth knowing before you touch them:
 
 - **The modulo pair splits by hardware.** `WP34S_Mod`, `WP34S_BigMod` and their
   `_Pauli` variants each carry a `HARDWARE_MODEL == HWM_DM42` branch
-  (`src/c47/mathematics/wp34s.c:1629`, `:1650`, `:1670`, `:1681`). On the old
+  (`src/c47/mathematics/wp34s.c:2051`, `:2072`, `:2098`, `:2124`). On the old
   hardware the 6147-digit working buffer is taken from the **C47 pool** with
   `allocC47Blocks`, keeping only a 2139-digit stack fallback for when the pool
   refuses; every other build holds the full buffer on the stack and pays a frame
@@ -269,9 +269,9 @@ of them are design decisions worth knowing before you touch them:
   allocation in place, `1E700 SIN` and `700 10^x SIN` return -NaN.
 - **The angle-reduction buffers have moved off the stack, and the sizing that
   put them there was found by crashing.**
-  `src/c47/registerValueConversions.c:1326-1327` now takes both 2139-digit
-  buffers with `REAL_T_ALLOC` - a plain `malloc` (`src/c47/realType.h:21`) -
-  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:1325`
+  `src/c47/registerValueConversions.c:1399-1400` now takes both 2139-digit
+  buffers with `REAL_T_ALLOC` - a plain `malloc` (`src/c47/realType.h:28`) -
+  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:1398`
   measures the trade: 1436 bytes each, 2872 of a 2936-byte frame, and "from the
   heap the frame falls to 64 bytes". The ceiling is still a number nobody
   derived - `:1326` and `:1335` both say 6147 overruns the stack. **On the DM42

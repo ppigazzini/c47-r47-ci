@@ -22,8 +22,8 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 Verified in `src/c47/` of the upstream clone:
 
-- `ram` is a single `uint32_t *` (`c47.h:337`), `malloc`ed once in
-  `config.c:1545`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
+- `ram` is a single `uint32_t *` (`c47.h:335`), `malloc`ed once in
+  `config.c:1599`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
 - GMP is separate: `allocGmp`/`reallocGmp`/`freeGmp` (`memory.c`) are installed
@@ -43,7 +43,7 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`src/c47/defines.h:2250-2255`:
+`src/c47/defines.h:2304-2309`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
@@ -58,7 +58,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2083-2090`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2137-2145`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -299,14 +299,14 @@ this prose each time.
 
 The item sweep carries scalar operands only, so matrix overruns never trigger
 through it - see 4.1 for why matrix operands were reverted rather than kept.
-`fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:272`/`:244`) but need an
+`fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:285`/`:257`) but need an
 editor key context, so the headless sweep cannot reach the editor path either.
-(The empty `fnInsCol`/`fnInsRow` at `items.c:1316-1318` are catalog-generator
+(The empty `fnInsCol`/`fnInsRow` at `items.c:1341-1343` are catalog-generator
 stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
 
 **A live-region sweep needs a reset hook, or it reports the reset.** A block that
 is never freed is never checked at free time, so the sweep has to walk a registry
-the wrappers keep. `doFnReset` (`config.c:1534-1547`) `memset`s the whole pool and
+the wrappers keep. `doFnReset` (`config.c:1588-1601`) `memset`s the whole pool and
 re-forms the free list to one region **without a single `free`**, so from that
 point every registered pointer is stale and its guard bytes read as zero. Without
 a `poolGuardResetRegistry()` call there, a corpus run reports the reset itself as
@@ -418,7 +418,7 @@ long-integer loop counter, ~100 leaks per plot); `solver/isumprod.c`,
 Fixes for these were developed on local branches that are not upstream and are
 not reachable from a clone; treat the list as the map of the bug class, not as
 a pointer to code. Checked clean: `prime.c`, `matrixEditor.c`,
-`registerValueConversions.c:286`.
+`registerValueConversions.c:288`.
 
 **Counter-example - do not "fix" this one.** `getRegisterAsLongIntQuiet`'s
 *callers* own `val` and free it on error (e.g. `compare.c` frees `int1`/`int2`),
@@ -426,7 +426,7 @@ so adding a free inside would double-free.
 
 ### 6.2 The attribution trap
 
-Upstream's own `items.c:633` diagnostic prints the **running total** after each
+Upstream's own `items.c:638` diagnostic prints the **running total** after each
 function. Reading it as a per-function attribution produced a completely wrong
 audit scope (golden/power/root) when the real trigger was CHS. The first
 non-zero total appears "after STO" and means nothing about where the leak is.
@@ -464,7 +464,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:5311`). Unregistered functions return "cannot find the function to
+(`testSuite.c:5926`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -591,7 +591,7 @@ The equation lane has a clean baseline (120 s = 4,937,252 execs, no finding).
 The restore lane's hexDump finding - the byte count and the dump lines both come
 from the file on trust - is **real and confirmed**: replacing one dump line of a
 valid `backup.cfg` with two characters gives a heap over-read at
-`saveRestoreBackup.c:692`, and a region count of 100000 gives an out-of-bounds
+`saveRestoreBackup.c:700`, and a region count of 100000 gives an out-of-bounds
 write at `:696`, both under ASan on `3c84890a1`. The archived minimal file
 `scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg` does **not**
 reproduce standalone on master through the current harness (measured clean on
@@ -611,7 +611,7 @@ The **only** lane whose gate is on by default. Full corpus, no subset,
 Three hard-won points:
 
 - **memcheck prints basenames.** The original c47-site detector matched the
-  literal string `src/c47/` against frames that read `matrixEditor.c:984`, so it
+  literal string `src/c47/` against frames that read `matrixEditor.c:1032`, so it
   matched nothing: `valgrind-found.txt` was always empty and the gate was
   **inert**, detecting zero of the six real findings. The matcher is now driven
   by `find "$UPSTREAM_DIR/src/c47" -printf '%f'`. Attribute access errors to the
@@ -772,7 +772,7 @@ Every one of these has silently passed a broken thing at least once.
     orphaned). A **gdb hardware watchpoint** on
     `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
     a field nulled without freeing writes nothing textually greppable. (In
-    `runPgm`, `testSuite.c:736`, the buffer is freed before the pointer is
+    `runPgm`, `testSuite.c:793`, the buffer is freed before the pointer is
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
@@ -811,7 +811,7 @@ Every one of these has silently passed a broken thing at least once.
     anything on top.
 22. **A lane can pass on every desktop and fail on every runner, and the reason
     is `gtk_init`.** `c47`, `r47` and `t47` are one GTK binary, and it calls
-    `gtk_init` at `src/c47-gtk/c47-gtk.c:428` *before* it parses its arguments -
+    `gtk_init` at `src/c47-gtk/c47-gtk.c:430` *before* it parses its arguments -
     so with no display it exits **1** with "cannot open display", whatever
     front end argv[0] selects and whether or not `--headless` is passed. A
     desktop hides it completely: `DISPLAY`, or just `XDG_RUNTIME_DIR` under a

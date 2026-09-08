@@ -139,7 +139,7 @@ beside `tempConv.txt`.
   `any` / `?` to skip an element. It does **not** document the directives: grep
   it for `Item` or `Timer` and you get nothing, so a reader who trusts it as the
   whole grammar will conclude those do not exist. `processLine()`
-  (`testSuite.c:5529-5625`) is the authority on directives, and it handles ten:
+  (`testSuite.c:6144-6240`) is the authority on directives, and it handles ten:
   `Func:`, `Item:`, `In:`, `Out:`, `Desc:`, `Desc_prefix:`, `Desc_suffix:`,
   `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
   function. `PGM="Name"` selects a global label for `Func: fnExecute`.
@@ -169,37 +169,37 @@ beside `tempConv.txt`.
   outside that scheme** - `setParameter` calls `abortTest()` inline - which is
   what the misattribution above is about.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:92-671`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
-- `Item:` (`itemToCall`, `testSuite.c:5373`) drives the **real dispatch chain**
+  (`testSuite.c:103-728`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
+- `Item:` (`itemToCall`, `testSuite.c:5988`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:5213` and `:5219` are `funcToTest(functionParameter)` against
+  at `testSuite.c:5828` and `:5834` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
-  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:2992`)**,
+  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:3492`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:2922`) or `Func: name(n)`
-  (`testSuite.c:5274`) - both write the same variable - or use `Item:` and get
+  with `In: FARG=n` (`testSuite.c:3461`) or `Func: name(n)`
+  (`testSuite.c:5889`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
 - **A value is compared to 30 significant digits, not 34.** A mismatch is
-  reported only when `correctSignificantDigits < 30` (`testSuite.c:3784`), so the
+  reported only when `correctSignificantDigits < 30` (`testSuite.c:4436`), so the
   last four digits of a 34-digit expectation are documentation, not assertion: a
-  result wrong only in those digits passes. The return condition at `:3800`
+  result wrong only in those digits passes. The return condition at `:4452`
   conjoins `NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED`, so the effective
   threshold is the lower of the two. Pin a result that matters on its exponent or
   on an error code.
 - **Spell a system flag by its catalog name, not its `FLAG_` identifier.**
   `In: FL_<name>=0|1` resolves `<name>` by scanning `indexOfItems[]` for a
-  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:2902`,
-  inside the fallback at `:2898-2905`), so
+  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:3441`,
+  inside the fallback at `:3437-3444`), so
   any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
   A name that resolves to nothing calls `abortTest()`. This replaced a set of
   hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:4128`), so a file
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3937`), so a file
   still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
   explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
   `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
@@ -230,8 +230,8 @@ beside `tempConv.txt`.
 
 `t47` is **not a separate program**: it is a copy of the `c47` or `r47` GTK
 binary built into `build.sim.t47` with `-DT47`, which only silences debug output
-(`defines.h:421-460`). Headless is selected by **the binary's basename**
-(`c47-gtk.c:371-380`), so `./c47 --headless ...` is identical to `./t47 ...`.
+(`defines.h:456-495`). Headless is selected by **the binary's basename**
+(`c47-gtk.c:373-382`), so `./c47 --headless ...` is identical to `./t47 ...`.
 
 ```bash
 cd ~/_git/c43
@@ -246,7 +246,7 @@ lowercased command; then the DSL commands **last, so they override same-named
 catalog functions**.
 
 Not every catalog function makes it, and the run prints how many did - read that
-line rather than a count written here. `registerCatFn` (`dsl.c:209-240`) skips a
+line rather than a count written here. `registerCatFn` (`dsl.c:210-241`) skips a
 name that is empty, that duplicates the softmenu spelling, that is not a name by
 `compareString`, that is one of `+ - * / %` (they would shadow Jim's arithmetic),
 or that contains any of ``$ ; " \ [ ] { } ( )`` (they would break Jim parsing).
@@ -256,7 +256,7 @@ Those reasons are the durable fact; the count moves with the catalog.
 |---|---|---|
 | `item` | `item <number> [arg] [#comment]` | By item code, bypasses name lookup. `1..LAST_ITEM-1`. **Fallback only** - upstream requires the command name in any script a reader sees ([10-writing.md](10-writing.md)); use `catfn` for a name that is not a legal Tcl identifier. |
 | `catfn` | `catfn <name> [arg]` | By name. Needed for names that are not legal Tcl identifiers: `catfn STO+ 00`. |
-| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:846`). |
+| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:847`). |
 | `nim` | `nim <string>` | Types a number key-by-key then `closeNim()`. First `nim` -> Y, second -> X. `-` is deferred and emitted as CHS (RPN semantics). |
 | `reg` | `reg <name>` / `reg <name> <value>` | Read/write a register. **Returns a Jim value - wrap in `puts`.** Matrices return `<unsupported>`. |
 | `var` | `var <name>` / `var <name> <value>` | Same, but **creates** the named variable. |
@@ -265,7 +265,7 @@ Those reasons are the durable fact; the count moves with the catalog.
 | `xportp` | `xportp <label> <file>` | Export a program. |
 | `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - unnamed is a silent no-op headless, see below. |
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
-| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1130`). |
+| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1213`). |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
 | `press` | one key per call; **works headless** since upstream `633afdc97` (`dsl.c` `injectScriptKey`) | Section 3. |
 
@@ -379,7 +379,7 @@ returning a long integer, exposes a truncating round-trip that integer sentinels
 sail straight through.
 
 **Write the complex with the spaces.** `isComplexNumber` requires whitespace
-after the sign (`value.c:486`), so `"3+ix4"` fails the complex test, falls
+after the sign (`value.c:466`), so `"3+ix4"` fails the complex test, falls
 through real parsing, and is stored as a **string** - a probe that silently
 tests string round-tripping instead of the type you meant to test, which is the
 exact failure this paragraph is about.
@@ -410,7 +410,7 @@ refusal this section used to describe is gone. Upstream states it too:
 press included" (`res/SCRIPTS/cli_automation_examples.txt`).
 
 **A display server is still required, for `gtk_init` rather than for `press`.**
-`gtk_init` runs unconditionally in every front end (`c47-gtk.c:428`), so on a
+`gtk_init` runs unconditionally in every front end (`c47-gtk.c:430`), so on a
 machine with no X server the run dies at start-up with
 `Gtk-WARNING **: cannot open display:` and never reaches the script - measured at
 `dbc5cb45b` under `env -i`, exit 1. `xvfb-run` therefore stays in the CI lanes,
@@ -426,7 +426,7 @@ four ways: `xvfb-run ./c47 --script`, `xvfb-run ./c47 --headless --script`,
 `c47` and `t47` are **the same binary**, byte for byte (`md5sum c47 t47`
 matches): `make simc47 t47` builds one tree and `cp`s the result, and `main`
 reads `argv[0]` to force headless when the basename is `t47`
-(`c47-gtk.c:376`). Build both with `make simc47 t47` **exactly** - a bare
+(`c47-gtk.c:378`). Build both with `make simc47 t47` **exactly** - a bare
 `make t47` builds the R47-based t47 instead.
 
 A consequence worth knowing: because that invocation builds everything in
@@ -436,7 +436,7 @@ one for reading debug output.
 
 What the GUI still has that a headless run does not: the release handlers.
 `btnReleased`/`btnFnReleased` are wired only to GTK `button-release-event`
-signals - `gtkGui.c:5704-5709` for the softkeys, `:5817` onwards for the 37
+signals - `gtkGui.c:5704-5709` for the softkeys, `:5831` onwards for the 37
 physical keys - so anything that happens when an on-screen button is let go needs
 a mouse click and cannot be scripted at all. `press` reaches the press handlers:
 `F1`-`F6` call `btnFnClicked()` and `@k NN` calls `btnClicked()` directly, while
@@ -455,14 +455,14 @@ shows as `2;2=`:
 ```
 
 In M_EDIT `F5`/`F6` are left/right and
-the f-shifted pair is up/down (`softmenus.c:214-216`). M.EDIT binds the editor
-to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:83-87`), so a
+the f-shifted pair is up/down (`softmenus.c:233-235`). M.EDIT binds the editor
+to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:96-100`), so a
 later `nim` pushes the matrix out of X - index a numbered register instead when
 the test needs the stack.
 
 - The repo root is mandatory for the GUI: `prepareCssData()`
-  (`src/c47-gtk/gtkGui.c:1974`) does `fopen(CSSFILE, "rb")` at `:1980` on
-  `res/c47_pre.css` and calls `exit(1)` at `:1983` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
+  (`src/c47-gtk/gtkGui.c:1988`) does `fopen(CSSFILE, "rb")` at `:1994` on
+  `res/c47_pre.css` and calls `exit(1)` at `:1997` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
   `DATA/` are cwd-relative too. **On macOS only**, `main` chdirs to the
   binary's own directory first (`c47-gtk.c:73`, `#if defined(__APPLE__)`, and it
   skips the chdir when `argv[0]` is `t47`), so a Mac tolerates any cwd and Linux
@@ -511,7 +511,7 @@ those two paths, not both.
 ## 4. Programs and `.p47`
 
 `.p47` is **plain ASCII**, one decimal byte value per line after a six-line
-header, written at `saveRestorePrograms.c:541-545`. The comment block at
+header, written at `saveRestorePrograms.c:640-644`. The comment block at
 `:13-29` tabulates the same layout and agrees with the writer:
 
 ```
@@ -528,7 +528,7 @@ PROGRAM
 ```
 
 `WP43_program_file_version` is still accepted on read, with an "experimental"
-warning (`saveRestorePrograms.c:658-660`).
+warning (`saveRestorePrograms.c:760-762`).
 Extensions (`src/c47/hal/io.h`): `.p47` programs, `.s47` state, `.d47` data,
 `.rtf`/`.txt` human-readable exports.
 
@@ -563,7 +563,7 @@ operand is its numbered-register encoding, so `LBL 01` is rejected as
 `unsupported operand '01' for ITM_LBL` rather than assembled into something that
 loads and never runs.
 
-`readp` -> `setReadpFilenameOverride` (`dsl.c:77`) mirrors the UI resolution:
+`readp` -> `setReadpFilenameOverride` (`dsl.c:78`) mirrors the UI resolution:
 use the path as-is if it exists; else if it has no `/`, try `PROGRAMS/<name>`;
 else let `fnLoadProgram` report the failure. The plumbing is
 `_ioFileNameOverride`, which the GTK HAL **consumes once and clears**
@@ -589,7 +589,7 @@ ninja -C build.sim testPgms
 mkdir -p res/testPgms && cp build.sim/src/generateTestPgms/testPgms.bin res/testPgms/
 ```
 
-`addTestPrograms()` (`config.c:1237`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
+`addTestPrograms()` (`config.c:1289`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
 `fopen`s `res/testPgms/testPgms.bin` **relative to the cwd**. It is called
 unconditionally under `TESTSUITE_BUILD`.
 
@@ -609,7 +609,7 @@ from the **same synced upstream sources** as the binary, or the opcode numbering
 will not match.
 
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
-`loadTestPrograms` is set (`saveRestoreBackup.c:832`).
+`loadTestPrograms` is set (`saveRestoreBackup.c:840`).
 
 ## 6. The test-authoring rules
 
@@ -962,8 +962,8 @@ Corollaries:
   to the buffer would silently truncate a real name. Size the buffers.
 - The credible sweep also names its **negative controls** - the sites that look
   like the bug and are not:
-  - `decode.c:629-630` indexes `baseChars[base * 2]`, but `base` is clamped to
-    0 five lines earlier when it exceeds 16 (`decode.c:596`), so the worst index
+  - `decode.c:638-639` indexes `baseChars[base * 2]`, but `base` is clamped to
+    0 five lines earlier when it exceeds 16 (`decode.c:605`), so the worst index
     is 33 against a `baseChars[36]` (`decode.c:12`). Bounded by a runtime mode
     value, not by program data.
   - `decode.c:284` indexes `indexOfItems[*paramAddress + SFL_MONIT - 64]`.
@@ -1068,11 +1068,11 @@ case that asserts a default asserts the absence of your change.
 **A host build that is not the shipped build.** `TESTSUITE_BUILD` and the
 159-digit solver options make the corpus exercise code the firmware does not
 contain. The host defines `OPTION_CUBIC_159` and `OPTION_EIGEN_159`
-(`src/c47/defines.h:33` and `:35`, read at `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`),
+(`src/c47/defines.h:34` and `:36`, read at `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`),
 so every corpus case that solves a cubic or an eigenproblem runs the 159-digit
 implementation. DMCP package 4 - the Makefile default, and the only package that
-fits in flash - undefines all three (`:277-279`), and packages 1 and 2 lose
-`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:297-300`). The shipped binary
+fits in flash - undefines all three (`:287-289`), and packages 1 and 2 lose
+`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:327-330`). The shipped binary
 therefore runs the 75-digit twins, which the corpus never reaches, and a green
 run is a true statement about a program nobody ships. This is a seam rather than
 a bug; the discipline is to keep it visible. When the claim is about the

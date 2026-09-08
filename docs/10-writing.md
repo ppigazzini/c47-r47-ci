@@ -254,7 +254,7 @@ disabled for a reason, that reason belongs in the commit that re-enables it -
 and re-enabling it means answering the reason, not restoring the block and
 leaving the old one there as a second stale answer.
 
-**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:259` is
+**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:261` is
 checkable against a sha; "upstream does this too" is not.
 
 **Never explain an oddity into a convention.** If a sentence makes a strange
