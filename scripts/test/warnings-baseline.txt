@@ -1,7 +1,10 @@
 # OpenSSF hardening-warning baseline for the c47 sources.
 # One line per distinct warning site: src/c47/file:line [-Wcategory].
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-warnings.sh
-# Regenerated against upstream master d4d575a0e, gcc 14.2.0. All are
+# Regenerated against upstream master d4d575a0e, gcc 14.2.0, then line-mapped to
+# 2b2637c52: 20 of the 296 sites moved with their file and no lane run was made,
+# each new key verified by comparing the source line at the old and new position.
+# All are
 # style/hardening findings, none a defect (-Wshadow, -Wcast-qual,
 # -Wformat-nonliteral, -Wdouble-promotion, -Wundef). Most lines here differ from
 # the a361b6797 set only in the line number; counted per file and category, six
@@ -32,7 +35,7 @@
 #                                      `bool_t divide` shadows
 #
 
-src/c47/assign.c:1065 [-Wcast-qual]
+src/c47/assign.c:1067 [-Wcast-qual]
 src/c47/assign.c:752 [-Wcast-qual]
 src/c47/assign.c:824 [-Wcast-qual]
 src/c47/assign.c:833 [-Wcast-qual]
@@ -89,11 +92,11 @@ src/c47/dateTime.c:1145 [-Wcast-qual]
 src/c47/dateTime.c:1206 [-Wcast-qual]
 src/c47/dateTime.c:1242 [-Wcast-qual]
 src/c47/dateTime.c:551 [-Wshadow]
-src/c47/defines.h:2311 [-Wcast-qual]
-src/c47/defines.h:2366 [-Wcast-qual]
-src/c47/defines.h:2367 [-Wcast-qual]
-src/c47/defines.h:2368 [-Wcast-qual]
-src/c47/defines.h:2389 [-Wcast-qual]
+src/c47/defines.h:2316 [-Wcast-qual]
+src/c47/defines.h:2371 [-Wcast-qual]
+src/c47/defines.h:2372 [-Wcast-qual]
+src/c47/defines.h:2373 [-Wcast-qual]
+src/c47/defines.h:2394 [-Wcast-qual]
 src/c47/display.c:1712 [-Wformat-nonliteral]
 src/c47/display.c:1728 [-Wformat-nonliteral]
 src/c47/display.c:1903 [-Wformat-nonliteral]
@@ -167,8 +170,8 @@ src/c47/mathematics/wp34s.c:512 [-Wshadow]
 src/c47/mathematics/wp34s.c:856 [-Wshadow]
 src/c47/mathematics/wp34s.c:967 [-Wshadow]
 src/c47/mathematics/xfn.c:440 [-Wshadow]
-src/c47/plotstat.c:1596 [-Wshadow]
-src/c47/plotstat.c:1662 [-Wshadow]
+src/c47/plotstat.c:1629 [-Wshadow]
+src/c47/plotstat.c:1695 [-Wshadow]
 src/c47/plotstat.c:167 [-Wshadow]
 src/c47/plotstat.c:180 [-Wshadow]
 src/c47/plotstat.c:190 [-Wshadow]
@@ -283,18 +286,18 @@ src/c47/screen.c:1539 [-Wcast-qual]
 src/c47/screen.c:2021 [-Wshadow]
 src/c47/screen.c:2121 [-Wcast-qual]
 src/c47/screen.c:2130 [-Wcast-qual]
-src/c47/screen.c:4412 [-Wshadow]
-src/c47/screen.c:4413 [-Wshadow]
-src/c47/softmenus.c:2065 [-Wshadow]
-src/c47/softmenus.c:2142 [-Wdouble-promotion]
-src/c47/softmenus.c:2393 [-Wcast-qual]
-src/c47/softmenus.c:2422 [-Wdouble-promotion]
-src/c47/softmenus.c:2425 [-Wdouble-promotion]
-src/c47/softmenus.c:2428 [-Wdouble-promotion]
+src/c47/screen.c:4421 [-Wshadow]
+src/c47/screen.c:4422 [-Wshadow]
+src/c47/softmenus.c:2074 [-Wshadow]
+src/c47/softmenus.c:2151 [-Wdouble-promotion]
+src/c47/softmenus.c:2402 [-Wcast-qual]
 src/c47/softmenus.c:2431 [-Wdouble-promotion]
-src/c47/softmenus.c:2545 [-Wdouble-promotion]
-src/c47/softmenus.c:3483 [-Wshadow]
-src/c47/softmenus.c:4109 [-Wshadow]
+src/c47/softmenus.c:2434 [-Wdouble-promotion]
+src/c47/softmenus.c:2437 [-Wdouble-promotion]
+src/c47/softmenus.c:2440 [-Wdouble-promotion]
+src/c47/softmenus.c:2559 [-Wdouble-promotion]
+src/c47/softmenus.c:3502 [-Wshadow]
+src/c47/softmenus.c:4132 [-Wshadow]
 src/c47/solver/equation.c:1174 [-Wshadow]
 src/c47/solver/solve.c:747 [-Wshadow]
 src/c47/solver/tvm.c:106 [-Wcast-qual]

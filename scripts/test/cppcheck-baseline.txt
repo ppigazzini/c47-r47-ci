@@ -2,7 +2,9 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-# Regenerated against upstream master d4d575a0e, cppcheck 2.17.1. All findings
+# Regenerated against upstream master d4d575a0e, cppcheck 2.17.1, then line-mapped
+# to 2b2637c52: defines.h 2498 -> 2503 with no lane run, the new key verified by
+# comparing the source line at the old and new position. All findings
 # benign: printf int/uint width nits, two nullPointer false positives
 # (verifySqrtMatrix), two identicalInnerCondition redundant-but-correct guards in
 # graphs.c, and the decNumber macro parse limits. Counted per file and check id,
@@ -25,7 +27,7 @@ src/c47/c47Extensions/graphs.c:1123: identicalInnerCondition
 src/c47/c47Extensions/graphs.c:1140: identicalInnerCondition
 src/c47/core/freeList.c:135: invalidPrintfArgType_sint
 src/c47/core/freeList.c:244: invalidPrintfArgType_sint
-src/c47/defines.h:2498: preprocessorErrorDirective
+src/c47/defines.h:2503: preprocessorErrorDirective
 src/c47/mathematics/matrix.c:4378: nullPointer
 src/c47/mathematics/matrix.c:4379: nullPointer
 src/c47/mathematics/matrix.c:456: invalidPrintfArgType_sint

@@ -63,7 +63,10 @@
 # them at aef442e4d, the last green commit, and the only display.c site at
 # daada38417 is 654, in the same real34ToDisplayString2. Both keys still hold at
 # master 9af328a87: saveRestoreBackup.c is untouched since daada38417, and every
-# display.c hunk since is past line 3000.
+# display.c hunk since is past line 3000. Re-keyed at upstream master 2b2637c52
+# from run 34333675048's own valgrind-found.txt: saveRestoreBackup.c 197 -> 195,
+# the same statement, byte-identical at both commits. display.c:654 is unchanged,
+# and neither file moves between d4d575a0e and 2b2637c52.
 #
 # Known upstream uninitialised-value read in the c47 real formatter.
 # real34ToDisplayString2 explodes the value into a bcd digit buffer and scans it
@@ -88,4 +91,4 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:654
 # Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
-Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:197
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:195
