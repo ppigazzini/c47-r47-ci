@@ -1,6 +1,6 @@
 # Writing
 
-Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
+Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
 
 The rules for everything this repo writes for a reader: the **doc pages**, the
 **code comments**, the **corpus comments**, the **commit messages** and the
@@ -254,7 +254,7 @@ disabled for a reason, that reason belongs in the commit that re-enables it -
 and re-enabling it means answering the reason, not restoring the block and
 leaving the old one there as a second stale answer.
 
-**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:261` is
+**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:263` is
 checkable against a sha; "upstream does this too" is not.
 
 **Never explain an oddity into a convention.** If a sentence makes a strange

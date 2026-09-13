@@ -1,6 +1,6 @@
 # The High-Level Modules
 
-Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
+Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
 
 C47's directory names describe files, not systems, and that hides what the
 program actually contains. This page is the inventory of the **high-level
@@ -26,7 +26,7 @@ Five distinct input languages, each with its own scanner or parser:
 
 | surface | what it is, technically | components | literature term |
 |---|---|---|---|
-| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1457` | bytecode / VM instruction-set design |
+| the keystroke program language | a byte-code programming language: variable-length encoding (1-2 byte opcodes, high bit marks the second byte; typed operands - register, indirect, label/name string, type-tagged literals) | `items.h`, `defines.h:1459` | bytecode / VM instruction-set design |
 | - its interactive assembler | PEM records keystrokes as byte-code steps instead of running them; stepwise insert/delete | `programming/manage.c`, `items.c:666` | keystroke programming (HP-41/42 model) |
 | - its disassembler | byte-code back to listing text for the editor and browser | `programming/decode.c` | disassembly / listing generation |
 | - its virtual machine | fetch-decode-execute loop with a program counter (`currentStep`), GTO/XEQ/RTN, predicate-skip conditionals, and pool-allocated **activation records** | `programming/lblGtoXeq.c:929`, `nextStep.c` | interpreter main loops; activation records / call frames |
@@ -124,6 +124,7 @@ variable `x`.
 | summation/product | programmed series evaluation | `solver/sumprod.c`, `solver/isumprod.c` | - |
 | financial solver | time-value-of-money equation solving | `solver/tvm.c` | TVM equations |
 | linear algebra | real/complex matrix arithmetic, decompositions, eigenvalues (QR iteration) | `mathematics/matrix.c` | numerical linear algebra |
+| integer relation detection | LLL lattice reduction over exact GMP integers, behind `OPTION_ALGDEP`: `ALGDEP` finds a polynomial with integer coefficients satisfied by X, `LINDEP` an integer linear relation among the stack | `mathematics/algdep.c:530` `fnAlgdep`, `:584` `fnLindep` | LLL lattice basis reduction / integer relation algorithms |
 | elementary and special functions | the scalar mathematics tree: Bessel, gamma, erf, AGM... | `mathematics/` | special-function computation |
 | statistics and fitting | accumulated sums, regression / curve fitting | `stats.c`, `curveFitting.c` | statistical computing |
 | probability distributions | PDF/CDF/quantile per distribution | `distributions/` | statistical distribution algorithms |
@@ -170,7 +171,7 @@ together, stopping a self-referential nest from overflowing the C stack
 (`defines.h`, `MAX_ENGINE_NESTING_DEPTH`; the escape analysis and the stack-budget
 question live in [08-references.md](08-references.md), "Recursion guards on
 an embedded C stack"). The grapher takes one engine level for the whole sweep
-(`graph.c:2936`) and PLOT is refused at any nonzero depth (`graph.c:2759`), so
+(`graph.c:2940`) and PLOT is refused at any nonzero depth (`graph.c:2763`), so
 the per-pixel evaluation through `_executeSolverReal` (`graph.c:102`) is inside
 the cap. **Sum/product is outside it**: `sumprod.c` and `isumprod.c` touch
 neither the counter nor `engineNestingRefused`, so a program that sums itself
@@ -181,7 +182,7 @@ recurses until the C stack dies - a gap, not a design, and the one probe
 
 | module | what it is, technically | components |
 |---|---|---|
-| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:434` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
+| keyboard driver | key matrix to key code, shift planes (f/g), long-press and repeat timing | `keyboard.c`, `c47.c:436` `convertKeyCode`, `c47Extensions/keyboardTweak.c` |
 | key assignment | user remapping of keys to items (ASN), with its browser | `assign.c`, `browsers/asnBrowser.c` |
 | operand entry | TAM - the state machine that collects an instruction's operand (register, digit, name, indirect) after the key | `bufferize.c`, `tamState_t` |
 | the modal editors | AIM (alpha), NIM (number), MIM (matrix), EIM (equation), PEM (program) - five modal input surfaces over one buffer | `bufferize.c`, `ui/matrixEditor.c`, `programming/`, `calcMode.c` |
@@ -215,7 +216,7 @@ next one.
 
 | module | what it is, technically | components |
 |---|---|---|
-| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6108` `refreshScreen` |
+| screen compositor | the LCD frame buffer, damage-driven refresh, the register lines | `screen.c:6190` `refreshScreen` |
 | status bar | mode annunciators on a timer cadence | `statusBar.c` |
 | number formatter | value to glyph string: FIX/SCI/ENG, grouping, fractions, bases | `display.c:228` |
 | font and glyph engine | four bitmap fonts (standard, numeric, numeric bold, tiny), glyph lookup by codepoint, multi-byte strings | `fonts.c`, `charString.c`, `src/generated/` fonts |
@@ -225,7 +226,7 @@ next one.
 
 ### 4.1 Structure
 
-The screen is a fixed 400x240 frame buffer (`defines.h:1509`), shared by the
+The screen is a fixed 400x240 frame buffer (`defines.h:1511`), shared by the
 register lines, the softmenus, the browsers and the grapher - there is no
 layering or clipping system; whoever draws last owns the pixels, and
 `refreshScreen` recomposes by redrawing regions. Text is drawn from four
@@ -264,7 +265,7 @@ citizen: it **screens the whole file before reserving a single block**
 refusal needs no rollback - the LangSec recognize-before-process shape
 ([08-references.md](08-references.md)). The full-state restore path is not:
 `restoreCalc` reads the RAM image back essentially unscreened
-(`saveRestoreBackup.c:829`), trusting the file to be well-formed - a gap, not
+(`saveRestoreBackup.c:831`), trusting the file to be well-formed - a gap, not
 a design, and the reason the harness fuzzes that path
 ([07-ci.md](07-ci.md)).
 

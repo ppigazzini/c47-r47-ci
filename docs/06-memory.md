@@ -10,7 +10,7 @@ that pool - the SRAM it is carved out of, the stack a program runs on, and the
 firmware or host that hands out both. On the DM42 those last two are the same
 memory, which is the fact the page is built around.
 
-Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
+Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
 
 Two subjects are read against a **later** commit, `dbc5cb45b`, and say so where
 they appear: the second nesting gate in Section 5, and Section 8.1's account of
@@ -27,7 +27,7 @@ stack is not independent of the heap** - the scheduler allocates it there.
 |---|---|---|---|---|
 | **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
 | **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
-| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:360`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
+| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:361`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
 
 Two consequences a newcomer gets wrong:
@@ -91,7 +91,7 @@ Two smaller divergences with real consequences:
 `DMCP_PACKAGE` selects which functions are compiled in, so the DM42 has one
 memory model but four different sets of built code - and therefore four different
 largest-frame lists and worst-case paths. Each package's `#if` block in `src/c47/defines.h` opens with a
-comment naming what it carries - `:182`, `:198`, `:214` and `:235`. Package 3 is
+comment naming what it carries - `:183`, `:199`, `:215` and `:236`. Package 3 is
 the only one with `EIGEN`, package 2 the only one with the full `X.FN` menu
 (1 and 3 strip it), and package 4 is the minimal build the Makefile defaults to
 and CI compiles.

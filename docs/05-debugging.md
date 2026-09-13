@@ -22,7 +22,7 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 Verified in `src/c47/` of the upstream clone:
 
-- `ram` is a single `uint32_t *` (`c47.h:335`), `malloc`ed once in
+- `ram` is a single `uint32_t *` (`c47.h:336`), `malloc`ed once in
   `config.c:1599`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
@@ -43,7 +43,7 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`src/c47/defines.h:2304-2309`:
+`src/c47/defines.h:2310-2315`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
@@ -58,7 +58,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2137-2145`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2143-2151`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -464,7 +464,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:5893`). Unregistered functions return "cannot find the function to
+(`testSuite.c:6034`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -504,7 +504,7 @@ Interactive editors need a key context.
 
 The exit criterion is "every corpus-reachable math line covered, every residual
 classified", **not** a flat percentage. Line coverage is not use-case coverage:
-~3350 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
+~3482 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
 contexts x path classes
 is ~3.2M coarse cases - line coverage alone is not enough for a calculator.
 
@@ -591,8 +591,8 @@ The equation lane has a clean baseline (120 s = 4,937,252 execs, no finding).
 The restore lane's hexDump finding - the byte count and the dump lines both come
 from the file on trust - is **real and confirmed**: replacing one dump line of a
 valid `backup.cfg` with two characters gives a heap over-read at
-`saveRestoreBackup.c:700`, and a region count of 100000 gives an out-of-bounds
-write at `:696`, both under ASan on `3c84890a1`. The archived minimal file
+`saveRestoreBackup.c:702`, and a region count of 100000 gives an out-of-bounds
+write at `:698`, both under ASan on `3c84890a1`. The archived minimal file
 `scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg` does **not**
 reproduce standalone on master through the current harness (measured clean on
 both an unfixed and a fixed tree); it is kept as a seed, not as a repro. Fixed
@@ -772,7 +772,7 @@ Every one of these has silently passed a broken thing at least once.
     orphaned). A **gdb hardware watchpoint** on
     `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
     a field nulled without freeing writes nothing textually greppable. (In
-    `runPgm`, `testSuite.c:793`, the buffer is freed before the pointer is
+    `runPgm`, `testSuite.c:807`, the buffer is freed before the pointer is
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug

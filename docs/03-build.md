@@ -1,6 +1,6 @@
 # Building c43
 
-Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
+Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
 
 The `make` targets, the Meson graph underneath them, the generators, and how
 each platform package is produced. The product source is not in this

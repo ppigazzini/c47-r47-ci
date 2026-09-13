@@ -1,6 +1,6 @@
 # Testing c43
 
-Audit basis: upstream `d4d575a0e7eb40dbf52a14501f83d6fb90cfe0a5`, 2026-09-08.
+Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
 
 Every citation and count was re-read against that commit, and the behavioural
 claims were re-run on a build of it: `make test` (passes clean, GMP owns 0
@@ -112,10 +112,10 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size at the audit basis: **342 test files in
-`src/testSuite/tests/`, 338 listed** in `testSuiteList.txt`. Count test files,
+Corpus size at the audit basis: **346 test files in
+`src/testSuite/tests/`, 342 listed** in `testSuiteList.txt`. Count test files,
 not `.txt` blobs: the directory also holds `testSuiteList.txt` itself and
-`validate_tvm.py`, so a raw `ls` counts 344. (All three move; re-count rather
+`validate_tvm.py`, so a raw `ls` counts 348. (All three move; re-count rather
 than quoting this line.)
 
 **Count with `git ls-files`, not `ls`.** Running the suite drops a gitignored
@@ -139,7 +139,7 @@ beside `tempConv.txt`.
   `any` / `?` to skip an element. It does **not** document the directives: grep
   it for `Item` or `Timer` and you get nothing, so a reader who trusts it as the
   whole grammar will conclude those do not exist. `processLine()`
-  (`testSuite.c:6144-6240`) is the authority on directives, and it handles ten:
+  (`testSuite.c:6285-6387`) is the authority on directives, and it handles ten:
   `Func:`, `Item:`, `In:`, `Out:`, `Desc:`, `Desc_prefix:`, `Desc_suffix:`,
   `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
   function. `PGM="Name"` selects a global label for `Func: fnExecute`.
@@ -169,37 +169,51 @@ beside `tempConv.txt`.
   outside that scheme** - `setParameter` calls `abortTest()` inline - which is
   what the misattribution above is about.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:103-728`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
-- `Item:` (`itemToCall`, `testSuite.c:5988`) drives the **real dispatch chain**
+  (`testSuite.c:116-742`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
+- `Item:` (`itemToCall`, `testSuite.c:6129`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:5828` and `:5834` are `funcToTest(functionParameter)` against
+  at `testSuite.c:5969` and `:5975` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
-  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:3492`)**,
+  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:3612`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:3461`) or `Func: name(n)`
-  (`testSuite.c:5889`) - both write the same variable - or use `Item:` and get
+  with `In: FARG=n` (`testSuite.c:3504`) or `Func: name(n)`
+  (`testSuite.c:6030`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
-- **A value is compared to 30 significant digits, not 34.** A mismatch is
-  reported only when `correctSignificantDigits < 30` (`testSuite.c:4436`), so the
-  last four digits of a 34-digit expectation are documentation, not assertion: a
-  result wrong only in those digits passes. The return condition at `:4452`
-  conjoins `NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED`, so the effective
-  threshold is the lower of the two. Pin a result that matters on its exponent or
-  on an error code.
+- **A value is compared to 30 significant digits by default, not 34.** The floor
+  is `requiredSignificantDigits`; a mismatch is reported only when
+  `correctSignificantDigits` falls below it (`testSuite.c:4482`, returned at
+  `:4500`). So unless a file raises the floor, the last four digits of a 34-digit
+  expectation are documentation, not assertion: a result wrong only in those
+  digits passes. Three things set it:
+  - `DEFAULT_CORRECT_SIGNIFICANT_DIGITS` (`testSuite.c:16`) is 30, and is
+    restored at the top of every file (`:6409`).
+  - `Acc: <n>` (or `ACC: <n>`) on a line of its own sets the floor for every case
+    that follows in that file (`testSuite.c:6341`). `squareRoot.txt:14` is the
+    only corpus file that carries one, at `ACC: 34`.
+  - `ACC=<n>` as a space-delimited token on an `Out:` line sets the floor for
+    that line alone (`outAccuracyFloor`, `testSuite.c:5866`). The spelling
+    `ACC=<n>:<OPTION_NAME>` lowers it only in a build that does not compile
+    `OPTION_NAME` in, so a full-precision build keeps the full gate; the name
+    must appear in `accuracyOptionNames[]` (`testSuite.c:5817`) or the case
+    aborts.
+
+  Measure a floor rather than guessing it: `testSuite --report-accuracy <list>`
+  prints the digits every comparison actually reached. Pin a result that matters
+  on its exponent or on an error code.
 - **Spell a system flag by its catalog name, not its `FLAG_` identifier.**
   `In: FL_<name>=0|1` resolves `<name>` by scanning `indexOfItems[]` for a
-  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:3441`,
-  inside the fallback at `:3437-3444`), so
+  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:3484`,
+  inside the fallback at `:3480-3487`), so
   any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
   A name that resolves to nothing calls `abortTest()`. This replaced a set of
   hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3937`), so a file
+  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3950`), so a file
   still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
   explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
   `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
@@ -230,7 +244,7 @@ beside `tempConv.txt`.
 
 `t47` is **not a separate program**: it is a copy of the `c47` or `r47` GTK
 binary built into `build.sim.t47` with `-DT47`, which only silences debug output
-(`defines.h:456-495`). Headless is selected by **the binary's basename**
+(`defines.h:458-497`). Headless is selected by **the binary's basename**
 (`c47-gtk.c:373-382`), so `./c47 --headless ...` is identical to `./t47 ...`.
 
 ```bash
@@ -310,7 +324,7 @@ Flags that matter:
 **A headless file dialog fails quietly - it does not fail the run.** The GTK HAL
 guards both dialog paths on `headlessMode`: `file_selection_screen` returns
 `FILE_ERROR` as its first statement (`src/c47-gtk/hal/io.c:36-41`) and
-`show_warning` prints to stderr (`src/c47-gtk/hal/io.c:312-315`). Write that
+`show_warning` prints to stderr (`src/c47-gtk/hal/io.c:297-300`). Write that
 path in full - four files in the tree are called `hal/io.c`, and the testSuite's
 own (rule 6.9) is a different one. Re-measured at the audit basis with
 `DISPLAY` and `WAYLAND_DISPLAY` unset, each under `timeout 12`:
@@ -436,7 +450,7 @@ one for reading debug output.
 
 What the GUI still has that a headless run does not: the release handlers.
 `btnReleased`/`btnFnReleased` are wired only to GTK `button-release-event`
-signals - `gtkGui.c:5704-5709` for the softkeys, `:5831` onwards for the 37
+signals - `gtkGui.c:5702-5707` for the softkeys, `:5829` onwards for the 37
 physical keys - so anything that happens when an on-screen button is let go needs
 a mouse click and cannot be scripted at all. `press` reaches the press handlers:
 `F1`-`F6` call `btnFnClicked()` and `@k NN` calls `btnClicked()` directly, while
@@ -455,14 +469,14 @@ shows as `2;2=`:
 ```
 
 In M_EDIT `F5`/`F6` are left/right and
-the f-shifted pair is up/down (`softmenus.c:233-235`). M.EDIT binds the editor
+the f-shifted pair is up/down (`softmenus.c:241-243`). M.EDIT binds the editor
 to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:96-100`), so a
 later `nim` pushes the matrix out of X - index a numbered register instead when
 the test needs the stack.
 
 - The repo root is mandatory for the GUI: `prepareCssData()`
-  (`src/c47-gtk/gtkGui.c:1988`) does `fopen(CSSFILE, "rb")` at `:1994` on
-  `res/c47_pre.css` and calls `exit(1)` at `:1997` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
+  (`src/c47-gtk/gtkGui.c:1986`) does `fopen(CSSFILE, "rb")` at `:1992` on
+  `res/c47_pre.css` and calls `exit(1)` at `:1995` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
   `DATA/` are cwd-relative too. **On macOS only**, `main` chdirs to the
   binary's own directory first (`c47-gtk.c:73`, `#if defined(__APPLE__)`, and it
   skips the chdir when `argv[0]` is `t47`), so a Mac tolerates any cwd and Linux
@@ -609,7 +623,7 @@ from the **same synced upstream sources** as the binary, or the opcode numbering
 will not match.
 
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
-`loadTestPrograms` is set (`saveRestoreBackup.c:840`).
+`loadTestPrograms` is set (`saveRestoreBackup.c:842`).
 
 ## 6. The test-authoring rules
 
@@ -1071,8 +1085,8 @@ contain. The host defines `OPTION_CUBIC_159` and `OPTION_EIGEN_159`
 (`src/c47/defines.h:34` and `:36`, read at `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`),
 so every corpus case that solves a cubic or an eigenproblem runs the 159-digit
 implementation. DMCP package 4 - the Makefile default, and the only package that
-fits in flash - undefines all three (`:287-289`), and packages 1 and 2 lose
-`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:327-330`). The shipped binary
+fits in flash - undefines all three (`:289-291`), and packages 1 and 2 lose
+`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:329-332`). The shipped binary
 therefore runs the 75-digit twins, which the corpus never reaches, and a green
 run is a true statement about a program nobody ships. This is a seam rather than
 a bug; the discipline is to keep it visible. When the claim is about the
