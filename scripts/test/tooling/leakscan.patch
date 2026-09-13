@@ -1,5 +1,5 @@
 diff --git a/src/testSuite/testSuite.c b/src/testSuite/testSuite.c
-index 0611796f2..2e2518fbb 100644
+index 7b89295a7..0f02ee66c 100644
 --- a/src/testSuite/testSuite.c
 +++ b/src/testSuite/testSuite.c
 @@ -6,6 +6,8 @@
@@ -9,9 +9,9 @@ index 0611796f2..2e2518fbb 100644
 +#include <unistd.h>
 +#include <sys/wait.h>
  
- #define NUMBER_OF_CORRECT_SIGNIFICANT_DIGITS_EXPECTED 34
- 
-@@ -29,6 +31,13 @@ bool_t caseSetupFailed;
+ // The floor a real34 comparison must reach, in correct significant digits. It is the
+ // value every case gets unless the file lowers it: a build that computes a result at
+@@ -40,6 +42,13 @@ bool_t caseSetupFailed;
  // Set when an Out: line has already failed the case, so countUnreportedSetupFailure() does not count that same rejection again when the file or the block ends.
  bool_t caseSetupReported;
  
@@ -25,7 +25,7 @@ index 0611796f2..2e2518fbb 100644
  uint16_t label, functionParameter;
  
  GtkWidget      *screen;
-@@ -5526,6 +5535,53 @@ void stopTimerAndPrint(void) {
+@@ -6282,6 +6291,53 @@ void stopTimerAndPrint(void) {
  
  
  
@@ -79,7 +79,7 @@ index 0611796f2..2e2518fbb 100644
  void processLine(void) {
    // convert to upper case
    int32_t lg = strlen(line);
-@@ -5561,6 +5617,10 @@ void processLine(void) {
+@@ -6317,6 +6373,10 @@ void processLine(void) {
  
    else if(strncmp(line, "IN: ", 4) == 0) {
      //printf("%s\n", line);
@@ -90,7 +90,7 @@ index 0611796f2..2e2518fbb 100644
      strcpy(lastInParameters, line);
      inParameters(line + 4);
    }
-@@ -5615,6 +5675,9 @@ void processLine(void) {
+@@ -6377,6 +6437,9 @@ void processLine(void) {
      }
      else {
        outParameters(line + 5);
@@ -100,7 +100,7 @@ index 0611796f2..2e2518fbb 100644
      }
    }
  
-@@ -5760,6 +5823,56 @@ int processTests(const char *listPath) {
+@@ -6525,6 +6588,56 @@ int processTests(const char *listPath) {
    return failedTests > 0 || gmpMemInBytes != 0;
  }
  
@@ -157,7 +157,7 @@ index 0611796f2..2e2518fbb 100644
  int main(int argc, char* argv[]) {
    int exitCode;
  
-@@ -5774,6 +5887,341 @@ int main(int argc, char* argv[]) {
+@@ -6549,6 +6662,341 @@ int main(int argc, char* argv[]) {
  
    fnReset(CONFIRMED);
  
