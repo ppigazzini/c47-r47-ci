@@ -66,7 +66,14 @@
 # display.c hunk since is past line 3000. Re-keyed at upstream master 2b2637c52
 # from run 34333675048's own valgrind-found.txt: saveRestoreBackup.c 197 -> 195,
 # the same statement, byte-identical at both commits. display.c:654 is unchanged,
-# and neither file moves between d4d575a0e and 2b2637c52.
+# and neither file moves between d4d575a0e and 2b2637c52. Re-keyed at upstream
+# master 50f4b6508: saveRestoreBackup.c 195 -> 196. The shift is read from the
+# source, not from a fresh memcheck run - 4f556667d is the only commit to touch
+# the file since 2b2637c52, and its one hunk above the site (@@ -23,6 +23,7 @@,
+# a BACKUP_VERSION history line) adds exactly one line, leaving the sprintf in
+# the hexDump ASCII column byte-identical at 2b2637c52:195 and 50f4b6508:196.
+# display.c is untouched across the same range, so :654 stands; the runner
+# corroborates both, finding two c47 sites and calling only this one new.
 #
 # Known upstream uninitialised-value read in the c47 real formatter.
 # real34ToDisplayString2 explodes the value into a bcd digit buffer and scans it
@@ -91,4 +98,4 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:654
 # Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
-Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:195
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:196
