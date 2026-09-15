@@ -203,8 +203,10 @@ catalogue. Read it before trusting any lane result.
   keyboard test on a machine with no X server runs under `xvfb-run` whichever
   front end it uses. Run it **from the repo root** on Linux - the chdir that
   would lift that is `__APPLE__`-only (`c47-gtk.c:73`). Upstream's
-  `res/SCRIPTS/cli_automation_examples.txt` is the DSL's own reference; read it
-  before writing a script.
+  `res/SCRIPTS/cli_automation_examples.txt` is the DSL's own reference, and
+  upstream's `AGENTS.md` section 9 makes reading it in full a precondition of
+  using `t47` or `c47` at all, freshly at the start of every session rather than
+  recalled from the last one.
 - **One corpus file asserts the screen; the rest do not.** `graphs_cov.txt`
   renders through `SNAP` and pins a SHA-256 of the bitmap (`fnHashBmpCov`), so a
   change to the grapher, the fonts or the blitter fails it. Nothing else does:

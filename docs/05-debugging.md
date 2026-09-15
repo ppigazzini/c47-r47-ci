@@ -745,9 +745,11 @@ Every one of these has silently passed a broken thing at least once.
    freshly regenerated build-dir headers. Those files are populated by the
    Makefile's `install -C` step, **not by ninja**, so building a single target
    leaves them stale - producing errors like `const39_fpfToMph undeclared` even
-   though the build dir is correct. Mirror the install step after any upstream
-   constant/catalog change. `src/generated/constantsVerification.txt` is tracked
-   and regenerated - `git checkout --` it before any history rewrite.
+   though the build dir is correct. Upstream's `AGENTS.md` section 10 settles the
+   remedy: `make clean`, then the target, after any branch switch or merge, and
+   hand-installing the headers over the top is not the fix.
+   `src/generated/constantsVerification.txt` is tracked and regenerated -
+   `git checkout --` it before any history rewrite.
 8. **`ninja -C $BUILD_DIR src/c47/vcs.h` first, always.** Meson does not wire the
    generated `vcs.h` as a dependency of every source, so a fresh parallel
    testSuite-only build races.
