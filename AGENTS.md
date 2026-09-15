@@ -233,11 +233,15 @@ catalogue. Read it before trusting any lane result.
   quoting any embedded stack figure - `tooling/dmcp-stackband.py` prints the
   verdict, and it is the one number on this subject that is easy to measure and
   easy to mislabel.
-- **The DM42 ships as four feature packages and only one of them links today.**
-  `DMCP_PACKAGE` trades functions for flash, so each package has its own set of
-  built code; measured at the audit-basis commit with `arm-none-eabi-gcc` 13.2.1,
-  packages 1, 2 and 3 overflow internal FLASH and only package 4 - the Makefile
-  default - builds. Profile the package you mean, not "the DM42".
+- **The DM42 ships as four feature packages, and which of them link is a property
+  of the compiler.** `DMCP_PACKAGE` trades functions for flash, so each package
+  has its own set of built code. All four link with the toolchain this project's
+  CI installs - `ubuntu:25.10` and `apt-get install gcc-arm-none-eabi`, which is
+  `arm-none-eabi-gcc` 14.2.1 - and at upstream `ad322d6a3` package 1 holds 3,416
+  bytes of the 704 KiB FLASH region and package 3, the only one carrying `EIGEN`,
+  holds 5,960. Ubuntu 24.04's 13.2.1 overflows 1, 2 and 3 on the same tree, so an
+  overflow read there is a property of that compiler. Profile the package you
+  mean, with the compiler CI uses, not "the DM42".
 - **A lane failing does not mean this repo changed.** Every lane resolves upstream
   `master` at runtime, so an upstream commit breaks CI here with no commit here.
   Pin with `UPSTREAM_COMMIT` to tell the two apart.

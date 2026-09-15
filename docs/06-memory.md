@@ -96,15 +96,19 @@ the only one with `EIGEN`, package 2 the only one with the full `X.FN` menu
 (1 and 3 strip it), and package 4 is the minimal build the Makefile defaults to
 and CI compiles.
 
-**With `arm-none-eabi-gcc` 13.2.1, only package 4 links.** Packages 1, 2 and 3
-overflow the 704 KiB internal `FLASH` region (`src/c47-dmcp/stm32_program.ld`) by
-a few hundred to a few thousand bytes; the lane prints the current overflow for
-each, and the amount moves with every upstream commit, so read it from the run
-rather than from here. `make dmcp_pkgs_all` builds 1, 2 and 3, so that target
-fails here too. The lane profiles the packages that build and reports the rest;
-whether upstream CI's toolchain still fits them is not something this repo can
-see. **Package 3 is the one that matters most and the one nobody can measure** -
-it is the only build carrying eigenvalues, on the target with the least stack.
+**Which packages link is a property of the compiler.** All four link with the
+toolchain CI installs - `ubuntu:25.10` plus `apt-get install gcc-arm-none-eabi`,
+which is `arm-none-eabi-gcc` 14.2.1 - against the 704 KiB internal `FLASH` region
+(`src/c47-dmcp/stm32_program.ld`). Read at upstream `ad322d6a3`, later than this
+page's audit basis: package 1 leaves 3,416 bytes free, package 2 leaves 4,432,
+package 3 leaves 5,960 and package 4 leaves 32,536. Ubuntu 24.04's 13.2.1
+overflows 1, 2 and 3 on the same tree by a few hundred to a few thousand bytes,
+and `make dmcp_pkgs_all` fails there. The margins move with every upstream commit,
+and two readings of one package at one commit have differed by 16 bytes, so read
+them from the run rather than from here. The lane profiles every package that
+links and reports the rest as `DOES NOT BUILD at this commit`. **Package 3 is the
+one that matters most** - it is the only build carrying eigenvalues, on the
+target with the least stack.
 
 ## 3. The DM42: three stacks, and only one of them is a program's
 
@@ -439,10 +443,10 @@ column carries an unknown constant and compares only with itself.
   and it is cheaper than it looks on the host: the firmware already paints new
   task stacks with `0xA5` (four `#165` immediates in the image), so the mark can
   be read back without painting anything first.
-- **The three packages that do not link.** Their frames are unmeasured because
-  no ELF exists to measure, and package 2 and 3 are the ones carrying the
-  stack-heaviest functions. Whether the overflow is upstream's or this
-  toolchain's is not established.
+- **The frames of packages 1, 2 and 3.** They link with the compiler CI installs
+  and the lane profiles whatever links, so the reading is available and has not
+  been taken; package 2 and 3 carry the stack-heaviest functions. On a lane host
+  holding Ubuntu 24.04's 13.2.1 there is no ELF for them to measure at all.
 - **The macOS and Windows simulators.** Their compile-time limits are in the
   matrix, which is a preprocessor answer and needs no host. Their frames and
   their thread stack limits are not measured; the lane profiles the host it runs
