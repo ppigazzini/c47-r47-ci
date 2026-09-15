@@ -11,7 +11,14 @@ Read it before writing any of them.
 
 Three of them leave this repo. A code comment, a corpus comment and an MR body
 land in upstream c43 and are read there, so those three are not this repo's
-preference to set: they are conditions a change meets before it merges.
+preference to set: they are conditions a change meets before it merges, and they
+are written in upstream's own `AGENTS.md`, section 8. Read that file, not a
+summary of it - `scripts/test/run-upstream-contract.sh` checks a draft against
+its section 8.3, and [../AGENTS.md](../AGENTS.md) states which file governs
+what. A commit message on a c43 branch is bound by it too.
+
+What follows is this repo's own pages, plus the part of each artefact upstream
+does not settle.
 
 ## The rules
 
@@ -223,9 +230,13 @@ the commit; they always come out too long. A comment reaches the diff only if it
 is still necessary once the code reads plainly - if the line speaks for itself,
 say nothing.
 
-**Present tense, about what is there now.** Imperative, leading with a verb:
-"Resolve the upstream commit", not "Returns the commit", "This function
-resolves...", or "used to be a stub".
+**Upstream settles what a comment states and how it is laid out**, in `AGENTS.md`
+sections 8.1 and 8.2: terse present-tense facts, the mechanism rather than a
+metaphor for it, a Doxygen block on a new function, every `#endif` repeating its
+condition, two spaces before a trailing comment, and a fill toward 160 to 170
+columns that is never broken at 80. Existing comment text is never reflowed.
+Those are conditions, not preferences, and they are not restated here. The rest
+of this section is what upstream leaves open.
 
 **State the invariant the code keeps, never the bug that motivated it.** "uvw to
 keep ll positive", not "xyz because ll went negative". The failure is history;
@@ -239,9 +250,9 @@ incident - and only there. The lane scripts do this well:
 
 That comment survives a refactor. "Filter the comments" does not.
 
-**No history, no meta.** Not "was X", not "fixed in Y", not "the following block
-does". Why your change is right is the commit's job, and noise the moment it
-merges.
+**No meta.** Not "the following block does". Why your change is right is the
+commit's job, and noise the moment it merges. Upstream section 8.1 bars the
+history alongside it.
 
 **Say why code is absent when the absence is deliberate.** The reader cannot see
 a check that is not there - `run-docs-lint.sh` says why it does not hold a bare
@@ -261,11 +272,8 @@ checkable against a sha; "upstream does this too" is not.
 thing sound intended, stop and check whether it is a bug - that sentence is
 load-bearing for the next reader who might otherwise have fixed it.
 
-**Terse, and wide.** Keep to the fact and cut every word that is not it. Wrap
-comments at **160-170 columns**, never at 80 - a short wrap costs the maintainer
-a reflow on every read. Do not break before column 160 unless a punctuation mark
-falls between 150 and 170; then break there, ending the line on one of
-`, . ; : ! ? "`.
+**Terse.** Keep to the fact and cut every word that is not it. The wrap is
+upstream's, in section 8.2.
 
 ## Corpus comments
 
