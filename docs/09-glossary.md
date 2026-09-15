@@ -17,6 +17,15 @@ that must not be confused:
 A reader who cannot tell which tier a word is in will look for `lane` in the c43
 source and not find it. That is the failure this split exists to prevent.
 
+**These tiers are for this repository's own pages.** Text sent to upstream c43 -
+a code comment, a corpus comment, a commit message on a c43 branch, a merge
+request body - takes upstream's vocabulary instead, and upstream `AGENTS.md`
+section 8.3 refuses a list of words outright and gives the replacement for each.
+Several words below are on that list, `oracle` among them, where upstream writes
+`independent computation`. Words here are not wrong; they are this repository's,
+and they stop at its edge. `scripts/test/run-upstream-contract.sh` checks a
+draft against the list.
+
 Every entry names the file that defines it. **No entry carries a count**, even
 where the source has one: an item-space bound or a flag count is a number
 upstream moves, and [00-architecture.md](00-architecture.md) already owns the
