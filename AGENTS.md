@@ -127,7 +127,9 @@ Three of its sections catch this repo most often:
 
 Section 11 lists what is rejected without review, and item 10 is a refused word
 in a comment or in merge request text, so section 8.3 is a gate rather than a
-preference.
+preference. `scripts/test/run-upstream-contract.sh` reads that list out of a live
+clone and checks a drafted merge request body, or the commit messages on a c43
+branch, against it.
 
 Reconciled against upstream `ad322d6a3`. Upstream's file carries no version
 marker, so re-read it when a sync moves master and record the commit here.
