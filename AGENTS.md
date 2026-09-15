@@ -44,8 +44,10 @@ debugs a product whose source lives somewhere else.
 ## Non-negotiables
 
 1. **Upstream c43 is the source of truth** for build targets, artifact names,
-   CI behaviour and product facts. When a local note and upstream disagree,
-   upstream wins. Verify against a live clone, not memory.
+   CI behaviour and product facts, and its own `AGENTS.md` is the contract for
+   anything this repo sends there. When a local note and upstream disagree,
+   upstream wins. Verify against a live clone, not memory. The split is below,
+   under [Two AGENTS.md files](#two-agentsmd-files).
 2. **`__DEV/` is gitignored and maintainer-only.** It holds planning notes and
    working reports. Never commit it, never cite it from a tracked file, and
    never assume a reader can see it. Tracked documentation lives in `docs/`.
@@ -102,6 +104,33 @@ is here because the other behaviour costs something measurable in this tree.
 | find an authoritative external reference | [docs/08-references.md](docs/08-references.md) |
 | look up a term, or check which tier of vocabulary it belongs to | [docs/09-glossary.md](docs/09-glossary.md) |
 | write a doc, a code comment, a corpus comment, a commit message or an MR body | [docs/10-writing.md](docs/10-writing.md) |
+
+## Two AGENTS.md files
+
+Upstream c43 carries an `AGENTS.md` of its own, `C47/R47 rules for contributed
+code`, and it opens by stating that code ignoring it is rejected without review.
+That file governs **what this repo sends to c43**: product code, code comments,
+corpus comments, commit messages on a c43 branch and merge request text. This
+file governs **what stays here**: the lanes, the scripts, `docs/`, and how work
+in this repository is carried out. Where both speak, upstream wins, and the way
+to comply is to read upstream's file rather than a summary of it here - a copy
+drifts the moment upstream edits it, and a stale copy of a rejection rule is
+worse than none.
+
+Three of its sections catch this repo most often:
+
+| upstream section | what it binds |
+|---|---|
+| 8.1, 8.2 | what a code comment states, and its 160-to-170 column layout |
+| 8.3 | words refused in comments, commit notes and merge request text, with the replacement for each |
+| 9 | `res/SCRIPTS/cli_automation_examples.txt` read in full before any `t47` or `c47` run, freshly each session |
+
+Section 11 lists what is rejected without review, and item 10 is a refused word
+in a comment or in merge request text, so section 8.3 is a gate rather than a
+preference.
+
+Reconciled against upstream `ad322d6a3`. Upstream's file carries no version
+marker, so re-read it when a sync moves master and record the commit here.
 
 ## This file, and CLAUDE.md
 
