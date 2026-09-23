@@ -94,7 +94,7 @@ script wins.
 | **the corpus** | the regression `.txt` files the testSuite replays, plus the `*_cov.txt` extensions. **The fuzz lanes reuse the word** for a libFuzzer seed corpus, which is a different thing |
 | **driver** | one of the three ways to express a test - a testSuite `.txt` file, a `t47` DSL script, or an in-C `*Cov` function. [04-testing.md](04-testing.md) owns the ranking |
 | **baseline** | a checked-in file of accepted findings a lane diffs against: a new finding fails, a vanished one is reported as a likely fix (`scripts/test/run-leakscan.sh`) |
-| **ratchet** | a floor that may only rise. The coverage floors are one (`scripts/test/coverage-floors.txt`); the leak scanner's high-water bound is an unrelated second |
+| **ratchet** | a floor that rises with what it measures and is lowered only with the accepted regression written beside it. The coverage floors are one (`scripts/test/coverage-floors.txt`); the leak scanner's high-water bound is an unrelated second |
 | **high-water bound** | the leak scanner's running extreme - the least free memory and the most GMP ever seen - so only growth past the previous extreme is reported (`scripts/test/tooling/leakscan.patch`). Assigning it unconditionally is what invented the `toReal` finding; [10-writing.md](10-writing.md) tells that story |
 | **gate vs report-only** | whether a lane fails CI on a finding or merely publishes it. [07-ci.md](07-ci.md) owns which lanes are which, and says plainly that the reason for the report-only five is not recorded |
 | **sector** | a named group of source files coverage is aggregated over, so a floor can be set per subsystem (`scripts/test/coverage-floors.txt`). Sector percentages and the global floor use **different denominators** |
