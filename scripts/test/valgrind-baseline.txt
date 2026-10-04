@@ -75,21 +75,49 @@
 # display.c is untouched across the same range, so :654 stands; the runner
 # corroborates both, finding two c47 sites and calling only this one new.
 #
-# Known upstream uninitialised-value read in the c47 real formatter.
-# real34ToDisplayString2 explodes the value into a bcd digit buffer and scans it
-# for the first significant digit; that scan is the flagged jump. The reaching
-# path is the matrix editor's column-width pass - getRealMatrixColumnWidths and
-# getComplexMatrixColumnWidths format every element - and memcheck attributes the
-# value to the frames of insColComplexMatrix and delColRealMatrix, which the
-# mateditscroll_cov reshape cases drive.
+# Known upstream uninitialised-value read on the matrix editor's column-width
+# pass. getRealMatrixColumnWidths and getComplexMatrixColumnWidths format every
+# element, and the formatted value carries uninitialised bytes through
+# display.c, fonts.c and charString.c to the radix scan at
+# matrixEditor.c:1952-1953; every entry in this block is a jump on that value.
+# display.c:654 is the scan for the first significant digit in
+# real34ToDisplayString2. The one reaching path is covMatrixEditorScroll, the
+# testSuite function the mateditscroll_cov reshape cases call.
 #
-# Unlike every other entry here, this one is NOT established as harmless. The
+# The value is not the matrix the case builds: every element is given, and the
+# column fnAddCol inserts is zeroed (insColRealMatrix, insColComplexMatrix).
+# memcheck attributes display.c:654 to stack frames of insColComplexMatrix and
+# delColRealMatrix, and at upstream fc226bca3 every other entry here to a stack
+# frame of hessenbergQrSweep (matrix.c:6658), an eigenvalue routine the case
+# never calls. The editor reads memory no code in the case wrote, so which sites
+# fire depends on what earlier corpus files leave there: an upstream change to
+# them, with none to the editor, adds or drops entries. Which buffer the editor
+# reads is unexplained.
+#
+# Unlike every other entry here, this block is NOT established as harmless. The
 # corpus case that drives the path asserts the scroll offset, not the rendered
 # glyphs, so its pass says nothing about the digits. It is listed so the gate
 # keeps reporting genuinely new sites, and it needs an upstream report and a
-# verdict on whether a displayed digit can change.
-#   - display.c:654   real34ToDisplayString2, via the matrix editor column widths
+# verdict on whether a displayed digit can change. The keys are file:line, so a
+# new uninitialised read at one of these lines on another path does not gate.
+Conditional jump or move depends on uninitialised value(s) @ charString.c:251
+Conditional jump or move depends on uninitialised value(s) @ charString.c:253
+Conditional jump or move depends on uninitialised value(s) @ charString.c:274
+Conditional jump or move depends on uninitialised value(s) @ display.c:155
+Conditional jump or move depends on uninitialised value(s) @ display.c:162
+Conditional jump or move depends on uninitialised value(s) @ display.c:169
+Conditional jump or move depends on uninitialised value(s) @ display.c:301
+Conditional jump or move depends on uninitialised value(s) @ display.c:305
+Conditional jump or move depends on uninitialised value(s) @ display.c:390
 Conditional jump or move depends on uninitialised value(s) @ display.c:654
+Conditional jump or move depends on uninitialised value(s) @ display.c:710
+Conditional jump or move depends on uninitialised value(s) @ display.c:730
+Conditional jump or move depends on uninitialised value(s) @ display.c:967
+Conditional jump or move depends on uninitialised value(s) @ display.c:972
+Conditional jump or move depends on uninitialised value(s) @ fonts.c:48
+Conditional jump or move depends on uninitialised value(s) @ fonts.c:57
+Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:1952
+Conditional jump or move depends on uninitialised value(s) @ matrixEditor.c:1953
 
 # Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
 # global-register and free-region arrays (globalRegister, freeMemoryRegions in
