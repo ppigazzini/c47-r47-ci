@@ -201,12 +201,36 @@
 #                     one-shot: no other case in the file stops inside a
 #                     subroutine, so the high-water cannot show a repeat.
 #
+# Reconciled against upstream master 7f030deba. One case is added and two stop
+# appearing, and all three are one move of the same residue, not a fix:
+#
+#   added       rm_iter_cov.txt FARG=0, +28, pool-only (gmp=+0), with the
+#               whole-run leak gate green on the same commit. The file and its
+#               testSuiteList.txt line come in b920fa639, so the case cannot
+#               predate its file. FARG=0 is covRmIteration creating a formula
+#               with fnEqNew, allocating the named variable X and running
+#               fnSolve: the formula, the variable and the solver state the
+#               eq_cov/deriv_cov/solve_cov drivers above already leave.
+#   not found   deriv_cov.txt FARG=1 RX=REAL:"2" (+28) and solve_cov.txt FARG=0
+#               RY=REAL:"1" RX=REAL:"3" (+4). rm_iter_cov runs far ahead of
+#               both in testSuiteList.txt, so it reaches that residue first.
+#
+# Measured on one testSuite build at 7f030deba, varying only the list:
+#
+#   full list                           rm_iter_cov +28; deriv_cov and solve_cov
+#                                       absent (identical to the lane run)
+#   without rm_iter_cov                 deriv_cov +28 and solve_cov +4 return
+#   without the 20 files new since      the growth set equals the fc226bca3
+#   fc226bca3                           baseline exactly
+#
+# The last row is the negative control: on the same engine, the old list
+# reproduces the old set, so only the list moved the charge.
+#
 
 clearvars_cov.txt|IN: FARG=9877
 cpxslv_cov.txt|IN: FL_ASLIFT=0 FARG=0 RY=REAL:"1" RX=REAL:"5"
 deriv_accuracy.txt|IN: FARG=0
 deriv_accuracy.txt|IN: FL_ASLIFT=1 RX=REAL:"1" PGM="Xa"
-deriv_cov.txt|IN: FARG=1 RX=REAL:"2"
 deriv_mvar_cov.txt|IN: FARG=0
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
@@ -223,7 +247,7 @@ nested_cov.txt|IN: FL_ASLIFT=1 PGM="SLVSLV"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
 pgm_solve_cov.txt|IN: FARG=1 RX=REAL:"3"
-solve_cov.txt|IN: FARG=0 RY=REAL:"1" RX=REAL:"3"
+rm_iter_cov.txt|IN: FARG=0 RMODE=0 RY=REAL:"0" RX=REAL:"1"
 undo_on_error.txt|IN: FARG=0
 undo_on_error.txt|IN: FL_ASLIFT=1 FL_IGN1ER=0 PGM="ENS"
 vtoeq.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REAL:"3" RX=REMA:"M1,3[1,-2,-4]"
