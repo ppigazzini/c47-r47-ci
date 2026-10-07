@@ -577,6 +577,13 @@ Lessons that generalise:
   buffer but never set `beginOfProgramMemory`/`firstFreeProgramByte` to it, so
   bounded decoders were tested against an unrelated pool - false ASan crashes
   depending on stack-vs-pool address ordering.
+- **An overlay patch is only as current as the branch it is regenerated from.**
+  A fix made in `scripts/test/tooling/*.patch` and not on the c43 branch behind
+  it is dropped by the next regeneration from that branch, with nothing failing:
+  the decode harness lost its program-memory registration that way, and without
+  it the lane reports a false `decode.c` overflow. Commit a harness fix on the
+  c43 branch first (the decode one is on `test/fuzz-decode-step-program-memory`),
+  then regenerate, and diff the patch's `+`/`-` lines before and after.
 - **A precondition an Eva harness gives itself is a claim about a caller.**
   `eva/freelist_insert.c` is PROVED, but it opens with the region count already
   in `0..MAX-1` and calls that "the caller's guard". Nobody had checked who

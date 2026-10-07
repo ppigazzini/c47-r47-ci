@@ -1,5 +1,5 @@
 diff --git a/meson_options.txt b/meson_options.txt
-index 55515d376..b1cf8bb3e 100644
+index 3539acf54..0cffcc994 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
 @@ -10,6 +10,12 @@ option('RASPBERRY',
@@ -17,10 +17,10 @@ index 55515d376..b1cf8bb3e 100644
    value       : '',
 diff --git a/src/fuzz/fuzz_decode.c b/src/fuzz/fuzz_decode.c
 new file mode 100644
-index 000000000..c10324e3a
+index 000000000..b4c686f37
 --- /dev/null
 +++ b/src/fuzz/fuzz_decode.c
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,92 @@
 +// src/fuzz/fuzz_decode.c
 +//
 +// libFuzzer harness over the program-step decoder decodeOneStep().
@@ -100,6 +100,15 @@ index 000000000..c10324e3a
 +    n = sizeof(step) - pos;
 +  }
 +  memcpy(step + pos, data + 2, n);
++
++  // Register the step buffer as the program region so the decoders that clamp
++  // their name copies to firstFreeProgramByte are tested against THIS buffer.
++  // Without this, firstFreeProgramByte points into the unrelated test-program
++  // pool, the program-region clamps cannot bound the stack buffer, and whether
++  // ASan fires depends on stack-vs-pool address ordering rather than on a real
++  // bug.
++  beginOfProgramMemory = step;
++  firstFreeProgramByte = step + pos + n;
 +
 +  decodeOneStep(step);
 +  return 0;
