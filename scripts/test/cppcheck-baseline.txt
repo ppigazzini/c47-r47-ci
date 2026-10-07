@@ -5,10 +5,11 @@
 # Regenerated against upstream master d4d575a0e, cppcheck 2.17.1, and re-keyed
 # from a lane run at 7f030deba: 12 of the 23 findings sit at a new line number,
 # each with its source line byte-identical to the one keyed at 2b2637c52, and no
-# finding is added or dropped. All findings
-# benign: printf int/uint width nits, two nullPointer false positives
-# (verifySqrtMatrix), two identicalInnerCondition redundant-but-correct guards in
-# graphs.c, and the decNumber macro parse limits. Counted per file and check id,
+# finding is added or dropped. The two verifySqrtMatrix nullPointer false
+# positives are filtered by tooling/cppcheck-suppressions.txt at matrix.c:4386
+# and :4387 and are not listed here, so 21 remain. All of them benign: printf
+# int/uint width nits, two identicalInnerCondition redundant-but-correct guards
+# in graphs.c, and the decNumber macro parse limits. Counted per file and check id,
 # two groups move against the a361b6797 set, 23 findings to 23:
 #
 #   +2  mathematics/prime.c uninitvar   cc3cc7ce3 routes fnIsPrime and
@@ -29,8 +30,6 @@ src/c47/c47Extensions/graphs.c:1139: identicalInnerCondition
 src/c47/core/freeList.c:135: invalidPrintfArgType_sint
 src/c47/core/freeList.c:244: invalidPrintfArgType_sint
 src/c47/defines.h:2535: preprocessorErrorDirective
-src/c47/mathematics/matrix.c:4386: nullPointer
-src/c47/mathematics/matrix.c:4387: nullPointer
 src/c47/mathematics/matrix.c:455: invalidPrintfArgType_sint
 src/c47/mathematics/matrix.c:505: invalidPrintfArgType_sint
 src/c47/mathematics/matrix.c:510: invalidPrintfArgType_sint

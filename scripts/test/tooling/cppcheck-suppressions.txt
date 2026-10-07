@@ -20,5 +20,5 @@ uninitvar:*/c47Extensions/inlineTest.c
 # never dereferences NULL. cppcheck cannot see the caller contract. Line-scoped
 # so a real nullPointer elsewhere in matrix.c still surfaces - update the lines
 # if verifySqrtMatrix moves.
-nullPointer:*/mathematics/matrix.c:4338
-nullPointer:*/mathematics/matrix.c:4339
+nullPointer:*/mathematics/matrix.c:4386
+nullPointer:*/mathematics/matrix.c:4387

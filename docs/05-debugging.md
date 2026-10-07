@@ -917,7 +917,7 @@ and their limits, and those move with the tree.
 | Pool/GMP leak audit | `--leakscan`/`--keyscan`/`--testmem`, both hard gates | - |
 | **Intra-pool OOB** | **POOL_GUARD, manual only** | **not wired into any lane (Section 14)** |
 | Fuzzing | 3 lanes (decode/equation/restore) | report-only; OSS-Fuzz never onboarded; state-import + NIM unfuzzed |
-| Static analysis | cppcheck lane, `cppcheck-baseline.txt` (23) | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
+| Static analysis | cppcheck lane, `cppcheck-baseline.txt` (21) | **no clang-tidy** (needs an upstream `.clang-tidy`), **no scan-build**, **no `-fanalyzer`** |
 | Coverage | `run-coverage.sh`, gates 45% + 5 sector floors | the solver/graph and input/editor sectors carry no floor and are where the functional gap is; ui/input/dmcp are host ceilings. The lane prints every sector - read it there |
 | Differential numeric | `numeric-vectors.py`, 135 cases | single-argument only; no pow/atan2/logxy, no complex domain, no signed-zero/inf/NaN; no CI regeneration check |
 | Unit isolation | fork-per-item in the scans | the corpus itself is one monolithic binary |
