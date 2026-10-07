@@ -1,7 +1,7 @@
-# c43 GitHub Actions Port Workspace
+# c47-r47-ci
 
-This repository contains the workflow code and maintainer documentation for
-porting upstream c43 from GitLab CI to GitHub Actions.
+The CI and test harness for upstream c43, the C47 calculator. Its GitHub Actions
+lanes run alongside upstream's GitLab CI and replace none of it.
 
 The authoritative product source remains upstream c43 on GitLab:
 
@@ -30,6 +30,12 @@ inside GitHub Actions.
 		commit
 
 ## Implemented Workflows
+
+The `test-*.yml` workflows are thin callers of the lane scripts in
+`scripts/test/`; [docs/07-ci.md](docs/07-ci.md) maps every workflow to its
+script. The four `c43-*.yml` workflows build and test upstream directly, and
+the two CI ones package it through the reusable `desktop-*-package.yml`
+workflows:
 
 - `.github/workflows/c43-clang.yml`
 	- resolves the authoritative upstream c43 commit
@@ -76,7 +82,7 @@ inside GitHub Actions.
 
 ## Licensing
 
-This planning repo has separate licensing surfaces.
+This repo has separate licensing surfaces.
 
 - The local GitHub Actions workflow and CI implementation files are covered by
 	the Blue Oak Model License 1.0.0 in `LICENSE`.

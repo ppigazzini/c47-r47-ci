@@ -16,9 +16,11 @@ to reproduce a CI coverage failure.
   status passes through. The five frama-c gates use it. It is a script, not inline
   YAML, so a maintainer sees the same line locally - and because a workflow must
   contain no logic that cannot be run locally.
-- `lib/common.sh` - shared preamble sourced by every lane: upstream resolution
-  and sync (with submodules), the optional test/* tooling overlay hook, the
-  xlsxio static build, ccache configuration, job detection, and logging.
+- `lib/common.sh` - shared preamble sourced by every lane that clones upstream:
+  resolution and sync (with submodules), the xlsxio static build, ccache
+  configuration, job detection, and logging. `harness_overlay_tooling` only logs
+  a requested `TOOLING_REF`; a lane that needs tooling applies its patch from
+  `tooling/` with `git apply`.
 - `run-smoke.sh` - proves the call pattern end to end (resolve,
   sync, build-surface check, toolchain report, log). Does not build the
   simulator.
@@ -37,6 +39,10 @@ to reproduce a CI coverage failure.
   `decodeOneStep` under clang (ASan gate, UBSan report) and runs a time-boxed
   campaign over a seed corpus, uploading any crash reproducer and the evolved
   corpus. Report-first; set `FUZZ_GATE=1` to fail on a finding.
+- `run-fuzz-equation.sh`, `run-fuzz-restore.sh` - the same shape over
+  `parseEquation()` (the stored-formula tokeniser) and `restoreCalc()` (the
+  `backup.cfg` reader), each with its own patch, seeds and dictionary under
+  `tooling/`. Report-first; `FUZZ_GATE=1` to gate.
 - `run-warnings.sh` - rebuilds the testSuite with the OpenSSF
   hardening warning set and reports new warnings vs `warnings-baseline.txt`.
   Report-first; `WARN_GATE=1` to gate.
@@ -48,15 +54,35 @@ to reproduce a CI coverage failure.
   false positives filtered by `tooling/cppcheck-suppressions.txt`) and reports
   new findings vs `cppcheck-baseline.txt`. Report-first; `ANALYSIS_GATE=1` to
   gate.
+- `run-framac.sh`, `run-framac-eva.sh`, `run-framac-regress.sh`,
+  `run-framac-wp.sh`, `run-framac-nonterm.sh` - the five Frama-C gates: the
+  curated slice in `tooling/framac/targets.txt` parses as one C17 program; the
+  Eva harnesses hold their alarm counts in `tooling/framac/eva/ledger.txt`; the
+  regression wall re-fires one extracted kernel per historic out-of-bounds bug
+  (`tooling/framac/regress/manifest.txt`); WP proves the ACSL contracts in
+  `tooling/framac/wp/`; and Eva proves the depth-guarded nesting shape bounded
+  (`tooling/framac/m4/`). Each exits 127 (SKIP) without frama-c.
+- `run-docs-lint.sh` - the docs rot gate: dead links and section references,
+  dead paths, stale pinned baseline counts, non-ASCII bytes, `__DEV/`
+  citations, the `AGENTS.md`/`CLAUDE.md` contract, and the audit basis of every
+  upstream-tracking page. Needs no clone; [docs/10-writing.md](../../docs/10-writing.md)
+  lists the checks.
+- `run-docs-citations.sh` - resolves the backticked `name.c:N` / `name.h:N`
+  citations in `docs/` against a live clone; report-only (`CITATIONS_GATE=1` to
+  gate), and no workflow runs it.
+- `run-upstream-contract.sh` - checks a drafted MR body (`--text FILE`) or a
+  c43 branch's commit messages (`--commits DIR RANGE`) against upstream
+  `AGENTS.md` section 8.3's refused words, read from a live clone.
 - `run-ui.sh` - the only lane that drives the keyboard. Builds the simulator
   (`make simc47 t47`) and runs every `ui/*.t47` through the **GTK** front end
   under `xvfb-run`, gating on each script's exit status. It runs `./c47`
-  **without** `--headless` so the keys arrive the way a user's do, as GTK events
-  through `scriptInjectGtkKey`, which the headless path bypasses. That is now the
-  only reason: upstream `633afdc97` gave `press` a headless twin, so `t47` runs
-  these same scripts unchanged - measured on `ui/ij-preservation.t47` at
-  `dbc5cb45b`, which passes under `xvfb-run ./c47`, `xvfb-run ./c47 --headless`
-  and `xvfb-run ./t47` alike. The `xvfb-run` is for `gtk_init`, not for the
+  **without** `--headless`, so a single character, `ENTER` and `R/S` arrive as
+  GTK key events through `scriptInjectGtkKey`; `F1`..`F6`, `@f`, `@g` and
+  `@k NN` call the key handlers directly in every front end (`pressOne` in
+  `src/t47/dsl.c`), so the GTK event path this lane covers is those three forms
+  only. `t47` runs these same scripts unchanged - measured on
+  `ui/ij-preservation.t47` at `dbc5cb45b`, which passes under `xvfb-run ./c47`,
+  `xvfb-run ./c47 --headless` and `xvfb-run ./t47` alike. The `xvfb-run` is for `gtk_init`, not for the
   keypress; see the note below. Needs no upstream patch. Reaches what no other
   lane can - softmenu decode, TAM entry and the matrix editor cursor.
 - `ui/*.t47` - one self-checking DSL script per test, each exiting 0 on success
@@ -68,15 +94,16 @@ to reproduce a CI coverage failure.
   runs each headless under `timeout` **and `xvfb-run`**, classifying
   survived / crashed / hung. The legal depth-2 nest (`nested2`, root exactly 2) is
   the lane's control and must always survive. Report-only by default
-  (`NESTCHECK_GATE=0`): upstream master still crashes on the SOLVE/SUM/PLOT
-  probes, so the standing log count is the deliverable; `NESTCHECK_GATE=1` makes
-  any non-survival a hard failure once the nesting budget merges.
+  (`NESTCHECK_GATE=0`): upstream bounds SOLVE, INT and PLOT with
+  `engineNestingDepth` against `MAX_ENGINE_NESTING_DEPTH`, while `sumprod.c` and
+  `isumprod.c` take no part in it, so `selfsum` is the probe the lane expects to
+  crash. `NESTCHECK_GATE=1` fails the lane on any non-survival, for when every
+  probe survives.
 
   **`t47` needs a display even with no keyboard involved.** It is the same GTK
-  binary as `c47` and calls `gtk_init` at `src/c47-gtk/c47-gtk.c:428`, before it
-  parses its arguments, so on a machine with no display server it exits 1 with
-  "cannot open display" - and `--headless` does not help, because the flag is read
-  after `gtk_init` has already run. A desktop hides this: `DISPLAY`, or merely
+  binary as `c47` and calls `gtk_init` (`src/c47-gtk/c47-gtk.c:444`)
+  unconditionally after its argument loop, so on a machine with no display server
+  it exits 1 with "cannot open display" whatever `--headless` says. A desktop hides this: `DISPLAY`, or merely
   `XDG_RUNTIME_DIR` with a Wayland session, is enough for GTK to find a backend.
   A runner has neither, so the control failed on every CI run of this lane while
   passing everywhere else. Any lane that executes `c47`, `r47` or `t47` needs
@@ -85,16 +112,17 @@ to reproduce a CI coverage failure.
   compares platforms. Profiles every DM42 feature package, the DM42n and the host
   simulator with one instrument, reporting how much C stack one nested engine
   evaluation costs against the memory that platform has for it: on the DM42, the
-  24,568 bytes of malloc arena left once C47's pool is taken - a program runs on a
-  scheduler task stack out of that arena, not on the 2,472 B MSP handler band -
-  against the host thread's 8 MiB. It
+  24,568 bytes of malloc arena left once C47's pool is taken, which is this repo's
+  reading of where a program's stack lives (upstream's `tools/pgemu` reads the
+  8,104 B below the MSP instead; [docs/06-memory.md](../../docs/06-memory.md)
+  Section 3) - against the host thread's 8 MiB. It
   also prints the compile-time limits matrix, where the load-bearing line is that
   **the simulator carries the new hardware's pool**, so a DM42 pool failure is not
   reproducible on it. Report-only for the per-level ceilings in
   `stackprof-baseline.txt` (`STACKPROF_GATE=1` to gate); the calibration against
   `gcc -fstack-usage` is hard either way when it finds an under-report, because a
   bound below the real frame permits the overflow it was meant to stop. A DMCP
-  package that no longer fits in flash is reported, not fatal. It is the one lane
+  package that does not fit in flash is reported, not fatal. It is the one lane
   that deliberately disables ccache: `-fstack-usage` writes a second output file
   per object that a cache hit would not replay.
 - `tooling/stackprof.py` - the call-graph stack profiler the lane runs, for Thumb
@@ -106,8 +134,8 @@ to reproduce a CI coverage failure.
   its back edge and printing a finite number. `--chain` sums a named call chain
   and fails if a link is not really an edge; `--cut` drops the recursion edge on
   purpose and says so; `--su-dir` calibrates every frame against
-  `gcc -fstack-usage`, which needs a **no-LTO** build because LTO suppresses
-  `.su` output entirely. Run it standalone on any ELF, firmware or host.
+  `gcc -fstack-usage`, which needs a build passing that flag and, for the
+  simulator, a **no-LTO** one because LTO suppresses `.su` output entirely. Run it standalone on any ELF, firmware or host.
 - `tooling/platform-limits.py` - the compile-time limits matrix. Compiles a
   generated probe against upstream's own `defines.h` under each platform's macros
   and tabulates what came back, flagging every value that differs between
@@ -122,13 +150,18 @@ to reproduce a CI coverage failure.
   which is the evidence that separates heap from kernel globals. Its headline
   refuses to conflate: on the DM42 it reports the MSP band as the **handler and
   boot** stack, because SVCall/PendSV write PSP and a program therefore runs on a
-  scheduler task stack out of the arena. Mislabelling that band is the mistake this
-  tool exists to stop; two successive readings of the same image made it.
+  scheduler task stack out of the arena. Upstream's `tools/pgemu` reads the same
+  image the other way, as an 8,104 B program stack below the MSP; the two
+  readings disagree, and [docs/06-memory.md](../../docs/06-memory.md) Section 3
+  sets them side by side.
   Manual, not a lane - it needs a
   vendor image CI should not fetch. Re-run it when SwissMicros ships firmware;
   the constants in `run-stackprof.sh` and `docs/06-memory.md` are its output.
 - `tooling/leakscan.patch` - the leak-scanner tooling (`--leakscan`, `--keyscan`,
-  `--testmem`) carried off the `test/ram-pool-leak-scanner` branch, applied by the leak, memory and coverage lanes.
+  `--testmem`), applied by the leak, memory and coverage lanes. It is maintained
+  here as a patch against upstream master; the `test/ram-pool-leak-scanner`
+  branch it started from lags it, so re-key it with `git apply --3way` onto the
+  new upstream and `git diff --cached` back, never from the branch.
 - `tooling/fuzz-decode.patch` + `tooling/fuzz-decode-seeds/` +
   `tooling/fuzz-decode.dict` - the libFuzzer harness over `decodeOneStep`
   carried off the `test/fuzz-decode-harness` branch, with its seed corpus and
@@ -137,9 +170,8 @@ to reproduce a CI coverage failure.
   coverage lane reports CLI-relevant gaps instead of only a global percentage.
 - `tooling/coverage-patch-audit.py` - audits a carried coverage-corpus patch,
   failing fast if a newly added corpus file is not also wired into
-  `testSuiteList.txt`. The corpus itself merged upstream on 2026-07-09 (MR !1487),
-  so `coverage.patch` is retired and the coverage lane no longer overlays it; this
-  audit is retained for any future carried corpus patch.
+  `testSuiteList.txt`. No lane runs it: the coverage lane overlays
+  `leakscan.patch` and no corpus patch.
 - `tooling/p47asm.py` + `tooling/nestcheck/*.pgm` - a `.p47` assembler that turns
   a mnemonic listing into the calculator's byte-code program file, reading opcode
   numbers from the resolved clone's `src/c47/items.h` so it follows upstream
@@ -147,6 +179,17 @@ to reproduce a CI coverage failure.
   against upstream, so a drifted encoding fails loudly instead of emitting
   plausible garbage. Used by `run-nestcheck.sh`; run standalone to craft any
   program repro without hand-counting bytes.
+- `tooling/linkgraph.py` - the c47 link graph from a built simulator's objects:
+  SCCs, CCD/ACD/NCCD and the dispatch-split effect, the method
+  [docs/00-architecture.md](../../docs/00-architecture.md) Annex A states.
+- `tooling/numeric-vectors.py` - writes the differential test vectors the corpus
+  checks against mpmath ([docs/04-testing.md](../../docs/04-testing.md) Section 6.7).
+- `tooling/poolguard/`, `tooling/statesweep/` - the pool canary patch and the
+  state-file mutation sweep; manual, not lanes, each with its own README.
+- `tooling/lsan-analysis.supp` - LeakSanitizer suppressions the two
+  `c43-*-analysis.yml` workflows use.
+- `coverage-floors.txt` - the per-sector floors `run-coverage.sh` gates on when
+  `SECTOR_GATE=1`; edited by hand.
 - `tooling/function-reachability.py` - summarizes the effective testSuite
   `funcTestNoParam[]` whitelist against c47 `LAST_ITEM`, so the coverage lane
   reports how much of the catalog is directly callable from corpus tests.
@@ -158,8 +201,11 @@ to reproduce a CI coverage failure.
 
 ## Python in this directory
 
-The helpers under `tooling/` are the repo's only Python. `pyproject.toml` at the
-root configures ruff, ruff-format and ty for them; there is no package to build.
+The helpers under `tooling/` are the repo's Python files; four lane scripts also
+run inline Python through `python3 -` (`run-coverage.sh`, `run-stackprof.sh`,
+`run-docs-citations.sh`, `run-upstream-contract.sh`), which ruff and ty do not
+check. `pyproject.toml` at the root configures ruff, ruff-format and ty for the
+helpers; there is no package to build.
 `requires-python` is **>= 3.14**, and the three workflows that invoke a helper
 (`test-stackprof.yml`, `test-nestcheck.yml`, `test-coverage.yml`) pin the
 interpreter to match, because the runner image ships an older `python3` and a
@@ -177,8 +223,9 @@ scaffolding.
 
 Two rules the config encodes, both because the default fought this repo:
 
-- **`line-length = 170`, not ruff's 88.** [docs/10-writing.md](../../docs/10-writing.md)
-  sets the comment wrap at 160-170 on purpose. A narrower setting does not just
+- **`line-length = 170`, not ruff's 88.** Upstream `AGENTS.md` section 8.2 sets
+  the comment fill at 160 to 170, and [docs/10-writing.md](../../docs/10-writing.md)
+  applies it here. A narrower setting does not just
   warn, it makes `ruff format` break correct code into worse shapes.
 - **`end-of-file-fixer` and `trailing-whitespace` skip every file whose bytes are
   an input** - `.patch`, `.dict`, `.pgm`, `.cfg` and the fuzz seed corpora. A
@@ -194,18 +241,19 @@ reformatted f-string changed a fixture.
 
 A lane script:
 
-0. and one deviation worth naming: `run-stackprof.sh` skips
-   `harness_configure_ccache` and exports `CCACHE_DISABLE=1` instead, because
-   `-fstack-usage` emits a per-object `.su` file a cache hit does not replay,
-   and an empty `.su` tree would make its self-check vacuous rather than loud;
 1. sources `lib/common.sh`;
 2. uses `harness_resolve_commit` and `harness_sync_upstream` to obtain the
    upstream tree at the resolved commit;
-3. optionally calls `harness_overlay_tooling` to overlay not-yet-upstream tooling
-   carried on a `test/*` branch off upstream `master` (e.g. the `--leakscan` /
-   `--keyscan` scanners on `test/ram-pool-leak-scanner`);
+3. optionally applies a not-yet-upstream patch from `tooling/` with
+   `git apply`, dying with a re-key instruction when it does not apply
+   (leakscan, testmem, coverage, the three fuzz lanes, frama-c);
 4. calls `harness_setup_xlsxio` and `harness_configure_ccache` before building;
 5. writes its output under `$LOG_DIR` for the CI upload step.
+
+One lane deviates: `run-stackprof.sh` skips `harness_configure_ccache` and
+exports `CCACHE_DISABLE=1` instead, because `-fstack-usage` emits a per-object
+`.su` file a cache hit does not replay, and an empty `.su` tree would make its
+self-check vacuous rather than loud.
 
 ## Configuration (environment overrides)
 
@@ -217,33 +265,15 @@ A lane script:
 
 ```sh
 bash scripts/test/run-smoke.sh
-# log: ${HARNESS_WORK:-/tmp/c43-test-harness}/logs/smoke.log
+# log: ${HARNESS_WORK:-${RUNNER_TEMP:-/tmp}/c43-test-harness}/logs/smoke.log
 ```
 
-## Roadmap
+## Not covered
 
-- The smoke lane: `run-smoke.sh` + `test-harness-smoke.yml`. Done.
-- `run-leakscan.sh` + `test-leakscan.yml`: pool/GMP leak gate. Done.
-- `run-testmem.sh` + `test-testmem.yml`: per-test pool/GMP attribution. Done.
-- `run-coverage.sh` + `test-coverage.yml`: coverage map over the suite,
-  `--keyscan` and `--leakscan`, with macro-sector and direct-reachability
-  reporting. Done (baseline 37.5% c47 line coverage before the expanded coverage
-  corpus).
-- `run-fuzz.sh` + `test-fuzz.yml`: libFuzzer over `decodeOneStep`. Done
-  (the campaign immediately found a real decoder stack-buffer-overflow).
-- breadth lanes: `run-warnings.sh` (OpenSSF hardening warnings, 294
-  baselined), `run-valgrind.sh` (memcheck + suppressions, clean baseline),
-  `run-staticanalysis.sh` (cppcheck, 22 baselined after filtering confirmed
-  false positives) with their `test-*.yml`
-  callers. Done. MSan (needs an instrumented libc/gmp) and clang-tidy (needs an
-  upstream `.clang-tidy`) are documented deferrals.
-- breadth lanes (curated Valgrind suppressions, MemorySanitizer, static
-  analysis, `-Werror` hardening warnings).
-- `run-stackprof.sh` + `test-stackprof.yml`: per-platform memory limits and
-  C-stack profile over all four DM42 packages, the DM42n and the host simulator,
-  calibrated against `gcc -fstack-usage` once per instruction set. Done. Two open
-  follow-ups: a **dynamic high-water measurement** - paint the band at boot, run
-  the corpus, read back how far the stack got, the only method that also catches
-  GMP's `alloca` temporaries - and **macOS/Windows simulator frames**, which need
-  a runner of each and would answer whether the host divergence is a Linux
-  artifact or general.
+- **MSan** - it needs an instrumented libc and GMP.
+- **clang-tidy** - it needs an upstream `.clang-tidy`.
+- **A DM42 stack high-water reading.** Upstream offers `STACK_WATERMARK` for live
+  hardware (`src/c47/defines.h`, off by default) and `tools/pgemu
+  --stack-watermark` for an emulated image; no lane here runs either.
+- **macOS and Windows simulator frames** - they need a runner of each, and would
+  answer whether the host divergence is a Linux artifact or general.
