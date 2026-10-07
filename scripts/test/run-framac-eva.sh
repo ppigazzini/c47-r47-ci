@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/test/run-framac-eva.sh
 #
-# Frama-C Eva/RTE runtime-safety gate (Milestone M1; see __DEV REPORT-15).
+# Frama-C Eva/RTE runtime-safety gate (Milestone M1).
 # Runs the extracted-kernel harnesses under scripts/test/tooling/framac/eva/ and
 # holds each to the alarm count pinned in eva/ledger.txt. A PROVED harness (0
 # alarms) that grows an alarm, or any harness whose count exceeds its ledger

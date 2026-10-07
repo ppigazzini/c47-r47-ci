@@ -6,18 +6,18 @@
 # between re-entering execProgram and reaching the engine kernel. Multiply by the
 # runtime nesting cap and compare against what that platform has for it - on the
 # DM42, 24,568 B of malloc arena left after C47's pool, shared with GMP and every
-# other allocation, because a program runs on a scheduler task stack out of that
-# arena and NOT on the 2,472 B MSP handler band; 148 KiB on the DM42n; the host
-# thread's limit on the simulator. That comparison is the whole point of the lane;
-# see docs/10-memory.md.
+# other allocation, on this repo's reading that a program runs on a scheduler task
+# stack out of that arena (upstream's tools/pgemu reads the 8,104 B below the MSP
+# instead); 148 KiB on the DM42n; the host thread's limit on the simulator. That
+# comparison is the whole point of the lane; see docs/06-memory.md.
 #
 # A row keyed `DM42` serves every DM42-pkgN target: the DMCP packages are feature
 # subsets of one memory model and share their engine chain.
 #
 # THE SIMULATOR NEEDS ITS OWN CHAINS, and that is the finding, not a nuisance.
-# The firmware is built with -flto and the simulator at -O0, so the two do not
-# have the same call graph: LTO inlines executeOneStep into runProgram and splits
-# _fnIntegrate into a .part.0 clone, neither of which happens on the host. A
+# The firmware is compiled at -Os and the make simc47 simulator at -O0, so the two
+# do not have the same call graph: -Os inlines executeOneStep into runProgram and
+# splits _fnIntegrate into a .part.0 clone, neither of which happens at -O0. A
 # per-level cost measured on the simulator is not the firmware's cost, and no
 # amount of care with the arithmetic fixes that.
 #
@@ -33,8 +33,13 @@
 # the gate. Raise one only with the measurement and the reason; a rise is real
 # stack, and on the DM42 there is nowhere for it to come from.
 #
-# Measured at upstream 5e628d1e0f8552360c56c12f44fb14b8fe2d0f37,
-# arm-none-eabi-gcc 13.2.1 and gcc 13.3.0, DECNUMBER_FASTMUL:
+# The ceilings below were set from a measurement at upstream
+# 5e628d1e0f8552360c56c12f44fb14b8fe2d0f37, when the firmware was built with LTO
+# and the solver's working reals sat on the stack; at upstream 7f030deba the lane
+# measures DM42 992/1232, DM42n 1136/1232 and sim 2048/2216 (solve/int, with
+# gcc 14.2.0 for the sim), so they sit about twice above it and gate nothing
+# until re-derived on the runner. At 5e628d1e0, arm-none-eabi-gcc 13.2.1 and
+# gcc 13.3.0, DECNUMBER_FASTMUL:
 #
 #   DM42 (pkg4)  solve-level 1976   int-level 2088
 #   DM42n        solve-level 2368   int-level 2088

@@ -6,8 +6,8 @@
 # sub-allocates from its own RAM pool.
 #
 # It syncs the upstream tree at the resolved commit, overlays the not-yet-upstream
-# leak-scanner tooling (scripts/test/tooling/leakscan.patch, carried here off the
-# test/ram-pool-leak-scanner branch), builds the testSuite, runs --leakscan and
+# leak-scanner tooling (scripts/test/tooling/leakscan.patch, maintained here as a
+# patch against upstream master), builds the testSuite, runs --leakscan and
 # --keyscan, and compares the findings against scripts/test/leakscan-baseline.txt.
 # Any finding not in the baseline (a new pool/GMP leak or a new crash) fails the
 # lane; a baseline entry that no longer appears is reported as a likely fix.
@@ -48,8 +48,9 @@ main() {
     # Overlay the leak-scanner tooling onto the synced upstream tree.
     [[ -f "$TOOLING_PATCH" ]] || harness_die "tooling patch not found: $TOOLING_PATCH"
     if ! git -C "$UPSTREAM_DIR" apply --check "$TOOLING_PATCH" 2> /dev/null; then
-        harness_die "leakscan.patch does not apply on upstream $commit; rebase the
-        test/ram-pool-leak-scanner tooling onto current upstream and regenerate
+        harness_die "leakscan.patch does not apply on upstream $commit; re-key it
+        from the patch, not the stale test/ram-pool-leak-scanner branch: git apply
+        --3way it onto that commit and git diff --cached back into
         scripts/test/tooling/leakscan.patch"
     fi
     git -C "$UPSTREAM_DIR" apply "$TOOLING_PATCH"
@@ -80,9 +81,9 @@ main() {
     local bin="$UPSTREAM_DIR/$BUILD_DIR/src/testSuite/testSuite"
     [[ -x "$bin" ]] || harness_die "testSuite binary not built"
 
-    # Run the scans from a scratch dir: the testSuite writes calculator state
-    # files (REGS.TSV, .bmp, backup.cfg, c47.sav) into its CWD, which must not be
-    # the caller's checkout.
+    # Run the scans from a scratch dir: the testSuite writes its HAL's Test-named
+    # state files (c47Test.sav, backupTest.cfg, c47stateTest.bin, ...) and the
+    # c47plotTest<N>.bmp graphs into its CWD, which must not be the caller's checkout.
     local run_dir="$HARNESS_WORK/run"
     rm -rf "$run_dir"
     mkdir -p "$run_dir"

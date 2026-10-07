@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/test/run-framac-regress.sh
 #
-# Frama-C regression wall (Milestone M2; see __DEV REPORT-15). A permanent corpus
+# Frama-C regression wall (Milestone M2). A permanent corpus
 # of extracted-kernel harnesses, one per historic c43 out-of-bounds bug. Each
 # kernel reproduces the cited access with buffers sized to the real allocation,
 # and encodes both the pre-fix logic (default) and the shipped fix (-DFIXED).

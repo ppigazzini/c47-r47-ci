@@ -8,7 +8,8 @@ name: Valgrind Memcheck
 on:
   workflow_dispatch:
   schedule:
-    # 4h29m on a green run. What turns this lane red is upstream
+    # The slowest lane; its run time moves with upstream's corpus by an
+    # order of magnitude (gh run list). What turns this lane red is upstream
     # drift, which lands with no commit here, so a clock is a better
     # trigger than a push. Run it on demand for a change of your own.
     - cron: '0 2 * * *'

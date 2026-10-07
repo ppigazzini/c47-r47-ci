@@ -45,8 +45,9 @@ main() {
 
     [[ -f "$TOOLING_PATCH" ]] || harness_die "tooling patch not found: $TOOLING_PATCH"
     if ! git -C "$UPSTREAM_DIR" apply --check "$TOOLING_PATCH" 2> /dev/null; then
-        harness_die "leakscan.patch does not apply on upstream $commit; rebase the
-        test/ram-pool-leak-scanner tooling onto current upstream and regenerate
+        harness_die "leakscan.patch does not apply on upstream $commit; re-key it
+        from the patch, not the stale test/ram-pool-leak-scanner branch: git apply
+        --3way it onto that commit and git diff --cached back into
         scripts/test/tooling/leakscan.patch"
     fi
     git -C "$UPSTREAM_DIR" apply "$TOOLING_PATCH"

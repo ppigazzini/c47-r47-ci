@@ -14,12 +14,12 @@
 # and under xvfb-run ./c47 --headless, measured at dbc5cb45b. Keeping the GUI
 # front end is what makes this lane the only cover for the GTK event path.
 #
-# The xvfb-run below is for gtk_init, which every front end calls before it
-# parses its arguments (c47-gtk.c:428), and not for press: with no display
+# The xvfb-run below is for gtk_init, which every front end calls unconditionally
+# after its argument loop (c47-gtk.c:444), and not for press: with no display
 # server any of these binaries exits 1 with "cannot open display" before the
 # script runs. See scripts/test/README.md.
 #
-# c47 returns the script's exit status when given --script (c47-gtk.c:540-549),
+# c47 returns the script's exit status when given --script (c47-gtk.c:574-581),
 # so the gate is simply that status. Each scripts/test/ui/*.t47 file is one test
 # and must exit 0; the lane fails on the first that does not.
 #

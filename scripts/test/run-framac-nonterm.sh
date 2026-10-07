@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # scripts/test/run-framac-nonterm.sh
 #
-# Frama-C Tier-D frontier gate (Milestone M4; see __DEV REPORT-15). Two things:
+# Frama-C Tier-D frontier gate (Milestone M4). Two things:
 #
-# 1. The unbounded integrator nesting REPORT-13 left open. Upstream supports
-#    nested INT(INT) (integrate.c:309-310) with no depth guard in solver/, so a
-#    self-nesting program recurses until the C stack overflows. Frama-C's honest
-#    verdict: Eva REFUSES the unguarded recursion (`[eva:recursion]: cannot
-#    bound`) - the unbounded-recursion signal - and PROVES the depth-guarded fix
-#    shape bounds nesting (nestDepth <= MAX). This gate asserts the fix is
-#    provable and records that the unguarded form is unbounded.
+# 1. Integrator nesting. A program may nest INT inside INT, so without a depth
+#    guard a self-nesting program recurses until the C stack overflows; upstream
+#    bounds it with engineNestingDepth against MAX_ENGINE_NESTING_DEPTH. Frama-C's
+#    verdict on the kernel: Eva REFUSES the unguarded recursion
+#    (`[eva:recursion]: cannot bound`) - the unbounded-recursion signal - and
+#    PROVES the depth-guarded shape bounds nesting (nestDepth <= MAX). This gate
+#    asserts the guarded shape is provable and records that the unguarded form
+#    is unbounded.
 #
 # 2. Index safety with the numeric libraries stubbed (distributions / solver /
 #    matrix) was demonstrated in M2: real34_t / complex34_t modelled as opaque

@@ -11,28 +11,30 @@
 #      WITH THE NEW HARDWARE'S POOL, four times the DM42's, so a DM42 pool or
 #      fragmentation failure cannot be reproduced on it at all.
 #   2. Is the profiler telling the truth? Two calibration builds - one per
-#      instruction set - compile without LTO so gcc -fstack-usage covers c47's
-#      own sources, and every extracted frame is compared against gcc's. An
+#      instruction set - pass gcc -fstack-usage (and, for the simulator, drop
+#      LTO) so it covers c47's own sources, and every extracted frame is compared
+#      against gcc's. An
 #      UNDER-report fails the lane whatever STACKPROF_GATE says: a bound below
 #      the real frame is a bound that permits the overflow it was meant to stop.
 #   3. What does a nested engine evaluation cost on each platform, against the
-#      memory that platform actually has for it? On the DM42 that is what is left
-#      of the firmware malloc arena once C47's pool is taken - 24,568 B, shared
-#      with GMP and every other allocation - because a program runs on a
-#      scheduler task stack out of that arena, NOT on the MSP band. 148 KiB on
-#      the DM42n; the host thread's 8 MiB on the simulator, which is why the
-#      simulator can never show you this bug.
+#      memory that platform actually has for it? On the DM42 the band is what is
+#      left of the firmware malloc arena once C47's pool is taken - 24,568 B,
+#      shared with GMP and every other allocation - on this repo's reading that a
+#      program runs on a scheduler task stack out of that arena; upstream's
+#      tools/pgemu reads the 8,104 B below the MSP instead (docs/06-memory.md
+#      Section 3). 148 KiB on the DM42n; the host thread's 8 MiB on the simulator,
+#      which is why the simulator can never show you this bug.
 #
 # docs/06-memory.md owns the map, the derivation and the platform matrix.
 #
-# LTO is why there are two builds per instruction set and not one. The shipped
-# firmware and simulator are both built with -flto, which defers code generation
-# to link time, so gcc emits NO per-translation-unit .su file and the only stack
-# usage it reports comes from GMP - built by its own autotools without LTO. The
-# reported numbers therefore come from the shipped flags, and the calibration
-# comes from a no-LTO twin: upstream's -Dmem=true for the firmware, -fno-lto for
-# the simulator. Calibrating one target per ISA is enough - the extraction rules
-# are per instruction set, not per package.
+# Calibration is why there are two builds per instruction set and not one. It
+# needs gcc -fstack-usage, which no shipped build passes, so it comes from a twin:
+# the firmware is compiled without LTO and its twin adds only the flag (the
+# -Dmem=true it also passes changes nothing in src/c47-dmcp/meson.build); the
+# simulator pins b_lto=true per target, and an LTO build writes no
+# per-translation-unit .su file, so its twin also drops LTO. The reported numbers
+# come from the shipped flags. Calibrating one target per ISA is enough - the
+# extraction rules are per instruction set, not per package.
 #
 # Report-first by default (STACKPROF_GATE=0), like the other breadth lanes: the
 # per-level numbers move with upstream inlining, so the standing reading in the
@@ -201,8 +203,8 @@ main() {
         write_cross_file "$UPSTREAM_DIR/$arm_cross" "$su_cross" -fstack-usage
 
         harness_log "--- calibrating the profiler, one build per instruction set ---"
-        # -Dmem=true is upstream's own diagnostic switch: it drops -flto so that
-        # per-feature sizes read true, which is exactly the property needed here.
+        # The firmware builds without LTO, so the cross file's -fstack-usage is the
+        # only difference from the shipped build; -Dmem=true changes nothing there.
         verify_isa DM42-verify "$ARM_OBJDUMP" build.verify.dm42 dmcp C47.elf \
             "--cross-file=$su_cross" \
             -DDMCPVERSION=dmcp -DDMCP_PACKAGE=4 -DDECNUMBER_FASTMUL=true -DCI_COMMIT_TAG= -Dmem=true

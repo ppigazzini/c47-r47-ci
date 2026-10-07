@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/test/run-framac.sh
 #
-# Frama-C parse gate (Milestone M0 of the Frama-C plan; see __DEV REPORT-15).
+# Frama-C parse gate (Milestone M0 of the Frama-C plan).
 # Proves the curated c43 source slice parses and typechecks as one C17 program to
 # the Frama-C kernel - the prerequisite for any Eva/WP analysis. It does NOT run
 # Eva or WP; that is M1+.

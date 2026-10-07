@@ -5,11 +5,12 @@ name: Test Nested-Engine Recursion
 # The lane assembles the self-referential engine-nesting probes (p47asm.py),
 # builds the upstream simulator, and runs each headless, classifying
 # survived/crashed/hung. It is REPORT-ONLY here (NESTCHECK_GATE unset -> 0):
-# upstream master currently crashes on the SOLVE/SUM/PLOT probes, so a hard gate
-# would fail every run. The lane's value in report-only mode is the standing
-# count in the log - it says on every run how many self-referential nests
-# upstream still cannot bound. Set NESTCHECK_GATE=1 in the env once the nesting
-# budget merges to turn it into a regression gate.
+# upstream bounds SOLVE, INT and PLOT with engineNestingDepth, but the
+# programmable sum takes no part in it and its probe (selfsum) crashes, so a
+# hard gate would fail every run. The lane's value in report-only mode is the
+# standing count in the log - it says on every run how many self-referential
+# nests upstream cannot bound. Set NESTCHECK_GATE=1 in the env when every probe
+# survives, to turn it into a regression gate.
 
 on:
   workflow_dispatch:

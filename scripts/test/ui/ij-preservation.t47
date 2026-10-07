@@ -8,10 +8,10 @@
 #
 #   xvfb-run -a ./c47 --reset --script <this file>
 #
-# press is the only DSL command that needs GTK, and --headless is GTK-less by
-# design, so a keyboard test has to use c47 (or r47) without --headless. The
-# lane script scripts/test/run-ui.sh does exactly that; this file is the thing
-# it runs.
+# press runs in every front end, headless included; every front end still needs
+# a display for gtk_init, hence xvfb-run. The lane script scripts/test/run-ui.sh
+# runs c47 without --headless so a single character, ENTER and R/S arrive as GTK
+# key events; this file is the thing it runs.
 #
 # Exit 0 = every check passed. Exit 1 = the named check failed, and c47 returns
 # the script's status (c47-gtk.c:540-549), which is what the lane gates on.

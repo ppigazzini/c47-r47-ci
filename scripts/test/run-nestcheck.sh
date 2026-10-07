@@ -12,8 +12,8 @@
 # CRASHED, HANG.
 #
 # xvfb-run is not optional and not about the keyboard: t47 is the same binary as
-# c47 and calls gtk_init before parsing its arguments, so with no display it exits
-# 1 and every probe reads as a product failure. See the call site for the detail.
+# c47 and calls gtk_init unconditionally, so with no display it exits 1 and every
+# probe reads as a product failure. See the call site for the detail.
 #
 # The legal nest (nested2, root exactly 2) must ALWAYS survive: it is the lane's
 # own control - if it fails, the runner or the build is broken, and the lane

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/test/run-framac-wp.sh
 #
-# Frama-C WP deductive-proof gate (Milestone M3; see __DEV REPORT-15). Proves
+# Frama-C WP deductive-proof gate (Milestone M3). Proves
 # functional LAWS (not just runtime safety) about small non-bitwise c43 integer
 # helpers, via ACSL contracts discharged to Z3. Each driver under
 # scripts/test/tooling/framac/wp/ is an extracted kernel carrying `/*@ */`

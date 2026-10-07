@@ -21,8 +21,9 @@ dev = [
 [tool.ruff]
 target-version = "py314"
 src = ["scripts/test/tooling"]
-# 170, not ruff's 88, because docs/07-writing.md sets the house comment wrap at
-# 160-170 on purpose: a short wrap costs the maintainer a reflow on every read.
+# 170, not ruff's 88, because upstream AGENTS.md section 8.2 sets the comment fill
+# at 160-170 and docs/10-writing.md applies it here: a short wrap costs the
+# maintainer a reflow on every read.
 # A narrower setting here does not just warn, it makes `ruff format` break
 # correct code and trailing comments into worse shapes to obey a width this repo
 # rejected. The formatter and the style guide have to agree, so this follows it.
