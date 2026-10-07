@@ -1,6 +1,6 @@
 # Writing
 
-Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
+Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
 
 The rules for everything this repo writes for a reader: the **doc pages**, the
 **code comments**, the **corpus comments**, the **commit messages** and the
@@ -11,9 +11,11 @@ Read it before writing any of them.
 
 Three of them leave this repo. A code comment, a corpus comment and an MR body
 land in upstream c43 and are read there, so those three are not this repo's
-preference to set: they are conditions a change meets before it merges, and they
-are written in upstream's own `AGENTS.md`, section 8. Read that file, not a
-summary of it - `scripts/test/run-upstream-contract.sh` checks a draft against
+preference to set: they are conditions a change meets before it merges, written
+in upstream's own `AGENTS.md` - section 8 for what a comment states, its layout
+and the refused words, sections 6 and 10 for what an MR must show, section 11
+for what is rejected unread, section 12 for how an MR's commits move during
+review. Read that file, not a summary of it - `scripts/test/run-upstream-contract.sh` checks a draft against
 its section 8.3, and [../AGENTS.md](../AGENTS.md) states which file governs
 what. A commit message on a c43 branch is bound by it too.
 
@@ -57,9 +59,10 @@ them. Quote the command and let the reader run it.
 **Name the owner and the invariant, not just the mechanism.** Say which file and
 symbol owns the behaviour and what must stay true about it. "`dynamicMenuItem`
 selects a dynamic menu item" is accurate and useless. The fact a reader needs is
-that **-1 means nothing is selected**, that `c47.c` documents it, and that
-`fnSolveVar` and `fnIntVar` index with it anyway - which is why a headless call
-segfaults. Write the sentence a reader needs before they delete your line.
+that **-1 means nothing is selected**, that `c47.c` documents it beside the
+declaration, and that every reader of it (`fnSolveVar`, `fnIntVar`) tests
+`dynamicMenuItem < 0` before indexing - the test a refactor must keep. Write the
+sentence a reader needs before they delete your line.
 
 **Every word names the operation it performs.** A word taken from the domain the
 code sits near, rather than from what the code does, reads as precise and is not:
@@ -70,8 +73,9 @@ reviewer pushes to it, so a rename orphans the review. A badly-named branch stay
 badly named.
 
 **Describe a gap as a gap, never as a design.** "The corpus tests computation"
-sounds like a scope decision. The fact is that **only `graphs_cov.txt` asserts
-the screen**, so a regression anywhere else in the display passes CI. Framing a
+sounds like a scope decision. The fact is that **only `graphs_cov.txt` and
+`nested_cov.txt` assert pixels, and only for plots**, so a regression in glyph
+placement, the status bar or the softmenus passes CI. Framing a
 hole as a choice is what keeps it alive: nobody fixes a design. If something is
 missing, say missing, say how far the exception reaches, and say what it costs.
 
@@ -163,15 +167,15 @@ exactly that way, in the session that changed it.
 | [02-modules.md](02-modules.md) | the high-level module inventory and its literature terms | hot - tracks upstream |
 | [03-build.md](03-build.md) | upstream's `make` targets, the Meson graph, the generators, packaging | hot - tracks upstream |
 | [04-testing.md](04-testing.md) | the corpus, the three drivers, how to write a test | hot - tracks upstream |
-| [05-debugging.md](05-debugging.md) | the detectors and the false-pass catalogue | hot - tracks this repo |
+| [05-debugging.md](05-debugging.md) | the detectors and the false-pass catalogue | hot - tracks this repo, and upstream for its citations |
 | [06-memory.md](06-memory.md) | the per-target memory map, which stack is which, what a nested engine level costs | hot - tracks upstream **and the shipped firmware** |
 | [07-ci.md](07-ci.md) | the lane contract, the workflow-to-script map, the baselines | hot - tracks this repo |
 | [08-references.md](08-references.md) | external links, and the verification literature the oracle map argues from | cold |
 | [09-glossary.md](09-glossary.md) | what the words mean: product, harness, and the testing field | mixed - see below |
 | [10-writing.md](10-writing.md) | the rules | hot - tracks upstream |
 
-The hot rows split by what they track, and the distinction matters: rows 0-3
-describe a tree **this repo does not control**, so they rot when upstream moves
+The hot rows split by what they track, and the distinction matters: the rows
+marked "tracks upstream" describe a tree **this repo does not control**, so they rot when upstream moves
 and nothing here changed. That is the failure the leak gate hit - upstream moved
 `a361b6797` to `87c70c77a` and three lanes broke without a commit here. Pages
 that track upstream need re-reading on an upstream sync, not only on a local
@@ -208,7 +212,7 @@ When a page has never been checked, the line reads `Audit basis: none
 recorded.` and the page says so in prose. **That is the honest value, not a
 loophole.** An unchecked page with no line looks exactly like a checked one; an
 unchecked page that says "none recorded" tells a reader how much to trust it and
-tells a maintainer what to do next. `04-testing.md` carries it today.
+tells a maintainer what to do next.
 
 **State the limit, because this one is easily overread.** Check 7 verifies that
 a stamp exists and parses. It cannot verify that anyone read the page at that
@@ -219,7 +223,7 @@ does not check one.
 
 ## Code comments
 
-This repo's own code is shell; the product it drives is C. The rules above hold,
+This repo's own code is bash and Python; the product it drives is C. The rules above hold,
 plus these. Volume is what upstream review rejects hardest.
 
 **A comment lives two lives.** As you code and debug it is a **breadcrumb** - the
@@ -231,12 +235,8 @@ is still necessary once the code reads plainly - if the line speaks for itself,
 say nothing.
 
 **Upstream settles what a comment states and how it is laid out**, in `AGENTS.md`
-sections 8.1 and 8.2: terse present-tense facts, the mechanism rather than a
-metaphor for it, a Doxygen block on a new function, every `#endif` repeating its
-condition, two spaces before a trailing comment, and a fill toward 160 to 170
-columns that is never broken at 80. Existing comment text is never reflowed.
-Those are conditions, not preferences, and they are not restated here. The rest
-of this section is what upstream leaves open.
+sections 8.1 and 8.2. Those are conditions, not preferences; read them there.
+The rest of this section is what upstream leaves open.
 
 **State the invariant the code keeps, never the bug that motivated it.** "uvw to
 keep ll positive", not "xyz because ll went negative". The failure is history;
@@ -265,8 +265,8 @@ disabled for a reason, that reason belongs in the commit that re-enables it -
 and re-enabling it means answering the reason, not restoring the block and
 leaving the old one there as a second stale answer.
 
-**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:263` is
-checkable against a sha; "upstream does this too" is not.
+**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:268` at
+`7f030deba`, the `dynamicMenuItem = -1` declaration, is checkable against a sha; "upstream does this too" is not.
 
 **Never explain an oddity into a convention.** If a sentence makes a strange
 thing sound intended, stop and check whether it is a bug - that sentence is
@@ -308,7 +308,6 @@ The commit is the durable record of *why*, and the only place history belongs.
   root-causes each direction of the change.
 - Say what changed and why. The what-it-replaced belongs here, never in a doc or
   a comment.
-- **No `Co-Authored-By` or generated-by trailers** in this repo.
 - **Never reference a `__DEV/` path** - that tree is gitignored, so the reference
   is dead for every reader but its author.
 - A commit that changes a number a doc pins changes the doc too, in the same
@@ -334,6 +333,9 @@ time it takes to find out it never could have run. The step that cannot exist is
 the usual failure - a local label where `xeq` needs a global one, a name that is
 not a command ([04-testing.md](04-testing.md) Sections 3 and 4). Prefer the
 shortest driver that reaches the path: one `--exec` line beats a program.
+Upstream `AGENTS.md` section 10 sets what the body itself must state: what
+changed, where, what proves it, and which claims are measured and which are
+reasoned.
 
 **When the fault is invisible, say that, and say what makes it visible.** Some
 real defects have no user-visible symptom: an index corrected inside a loop that
@@ -347,18 +349,19 @@ mergeable finding. An invented reproducer is not.
 **State the landing order when two MRs touch the same code**: which lands first,
 why, and what the corpus reads with both applied.
 
-**The branch is shared, so fetch before you force-push.** Upstream review here
-answers an MR by **pushing commits to a branch of the same name in the upstream
-project**, not by leaving a change request - so the reviewed branch and yours
-diverge without a notification you will necessarily read. A rebase-and-force from
-a stale local copy discards their work silently. Check `git branch -r` and the
-MR's own commit list before every force-push, and when their version supersedes
-yours, say so and take theirs rather than reinstating your own. Rebase onto
-current master before asking for a merge, too: an MR inserting at the same
-anchor as a merged one hands the reviewer a conflict to resolve by hand, and a
-line lost in that resolution fails nothing - a corpus file that loses its
-`testSuiteList.txt` line still ships, and its gate stops running silently
-([04-testing.md](04-testing.md) Section 1).
+**The branch is shared, and upstream `AGENTS.md` section 12 sets how it moves.**
+A correction during review is a `git commit --fixup=<sha>` pushed on top, the
+branch is not force-pushed while the review is open, and the fixups are folded
+with `git rebase --autosquash <base>` before the merge. What section 12 leaves to
+this page: upstream review here answers an MR by **pushing commits to a branch
+of the same name in the upstream project**, not by leaving a change request, so
+the reviewed branch and yours diverge without a notification you will
+necessarily read. Fetch and read `git branch -r` and the MR's commit list before
+every push, build on their commits rather than over them, and when their version
+supersedes yours, say so in the MR. A conflict resolved by hand can drop a line
+and fail nothing: a corpus file that loses its `testSuiteList.txt` line still
+ships, and its gate stops running silently ([04-testing.md](04-testing.md)
+Section 1), so read the list after every resolution.
 
 **Give a line number only beside the commit it was read at.** These citations rot
 faster than anything else here, so lead with the symbol or the quoted source
@@ -369,7 +372,8 @@ line.
 **Never write `item <n>` in a script that reaches a reader** - not in an MR body,
 a corpus file, a doc page or a commit message. A bare number is unreadable to
 anyone without the item table in their head, and these scripts end up public.
-Upstream states it in `res/SCRIPTS/cli_automation_examples.txt`:
+Upstream rejects a hard-coded item number without review (`AGENTS.md` section
+11, item 8), and its `res/SCRIPTS/cli_automation_examples.txt` says:
 
 > The legal and only accepted way to control, is to use commands, not item
 > numbers. [...] `item <n>` is the fallback ONLY, not the first choice, for a
@@ -380,14 +384,13 @@ The fallback is narrow, and a name that is merely hard to find does not qualify:
 - Bare commands are registered lowercase (`m.dim 00`, `42dim#`, `scatr`); `xeq`
   takes the catalog's own case (`xeq SCATR`).
 - A constant is not an untypable name - reach it with `cnst <n>`.
-- For a genuinely untypable name, copy it from the list that exists for this:
-  `./t47 --dslcommands` writes `t47-op-commands.txt`, carrying the item number,
-  the command name and the catalog name. `PLT f` is the case in point - its gap
-  is a U+2005 four-per-em, not a space - and pasted it resolves as `xeq PLT f`.
-  Braces and double quotes work; single quotes are not Jim quoting and fail.
-- An item named `>NNNN<` is legacy and barred outright: "not in a script, not in
-  a program, not as a stand-in for a name you cannot type". Look up the current
-  name.
+- A name carrying a glyph no keyboard types is copied from the list that exists
+  for this: `./t47 --dslcommands` writes `t47-op-commands.txt`, carrying the item
+  number, the command name and the catalog name.
+- A name with a gap is not that case. One plain space matches a built-in name's
+  narrow gap, and the name is quoted: `xeq "PLT f" xx` or `xeq {PLT f} xx`.
+  Unquoted, Jim splits it in two, and single quotes are not Jim quoting and fail
+  the same way.
 
 ## The gates
 
@@ -399,16 +402,21 @@ The fallback is narrow, and a name that is merely hard to find does not qualify:
    if you want the gate to hold it,
 3. a baseline entry count quoted as `` `<name>-baseline.txt` (N) `` that
    disagrees with the file,
+   - 3b. a cross-page section reference - a link to an `NN-page.md` followed by
+     `Section N` or `sN` - whose target page has no such heading,
 4. a non-ASCII byte in a tracked doc,
 5. a tracked doc citing a path under `__DEV/`,
 6. a missing `AGENTS.md` or `CLAUDE.md`, or a `CLAUDE.md` whose `@AGENTS.md`
    import is backticked, fenced or gone - Claude Code reads `CLAUDE.md`, never
    `AGENTS.md`, so that one line carries the whole contract,
-7. an upstream-tracking page (`00` to `03`, and `10`) with no **audit basis**,
-   or one whose basis does not parse.
+7. a page the table in [Hot and cold](#hot-and-cold) marks "tracks upstream"
+   with no **audit basis**, or one whose basis does not parse; the gate reads
+   that column.
 
 It needs no upstream clone and no toolchain, so it runs in seconds on every push.
-Nothing gates a commit message.
+No lane gates a commit message. `scripts/test/run-upstream-contract.sh --commits
+DIR RANGE` checks a c43 branch's commit messages against upstream section 8.3
+when run by hand.
 
 **No gate can tell you a sentence is false.** The invented `toReal` rationale
 parsed, linked, named no dead path, and pinned no number - and was fiction for

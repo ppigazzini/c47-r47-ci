@@ -14,9 +14,9 @@ repo writes for a reader - pages, code comments, corpus comments, commit
 messages and merge request text alike - and maps every page to what it owns and
 which run hot. Three of those land in upstream c43 and meet its review conditions
 there; a t47 script in any of them names its commands, never `item <n>`. `bash scripts/test/run-docs-lint.sh`
-catches a dead link, a dead path, a stale pinned count, a non-ASCII byte, a
-`__DEV/` citation, a broken `@AGENTS.md` import, or an upstream-tracking page
-with no audit basis. It cannot tell you a sentence has become false, and an
+catches a dead link, a dead cross-page section reference, a dead path, a stale
+pinned count, a non-ASCII byte, a `__DEV/` citation, a broken `@AGENTS.md`
+import, or an upstream-tracking page with no audit basis. It cannot tell you a sentence has become false, and an
 audit basis is itself a sentence. That part is yours.
 
 ## What this repository is
@@ -93,7 +93,7 @@ is here because the other behaviour costs something measurable in this tree.
 
 | you want to | read |
 |---|---|
-| understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-9 only; 10-12 are an unadopted proposal |
+| understand what C47 is and how it is put together | [docs/00-architecture.md](docs/00-architecture.md) - Sections 1-9 are fact; 10-11 are assessment and 12 an unadopted proposal |
 | find your way around the c43 source tree | [docs/01-codebase.md](docs/01-codebase.md) |
 | identify the high-level module you are touching, and the literature to search for it | [docs/02-modules.md](docs/02-modules.md) |
 | build the simulator or the firmware | [docs/03-build.md](docs/03-build.md) |
@@ -110,28 +110,32 @@ is here because the other behaviour costs something measurable in this tree.
 Upstream c43 carries an `AGENTS.md` of its own, `C47/R47 rules for contributed
 code`, and it opens by stating that code ignoring it is rejected without review.
 That file governs **what this repo sends to c43**: product code, code comments,
-corpus comments, commit messages on a c43 branch and merge request text. This
+corpus comments, commit messages on a c43 branch, merge request text, and how an
+MR's commits move while it is under review. This
 file governs **what stays here**: the lanes, the scripts, `docs/`, and how work
 in this repository is carried out. Where both speak, upstream wins, and the way
 to comply is to read upstream's file rather than a summary of it here - a copy
 drifts the moment upstream edits it, and a stale copy of a rejection rule is
 worse than none.
 
-Three of its sections catch this repo most often:
+The sections that catch this repo most often:
 
 | upstream section | what it binds |
 |---|---|
+| 6, and 11 item 11 | a new item behind an `OPTION_` macro, and the MR's package 4 flash figure with the option on and off (`make PKG=4 dmcp_pkg4`) |
 | 8.1, 8.2 | what a code comment states, and its 160-to-170 column layout |
 | 8.3 | words refused in comments, commit notes and merge request text, with the replacement for each |
 | 9 | `res/SCRIPTS/cli_automation_examples.txt` read in full before any `t47` or `c47` run, freshly each session |
+| 10 | what an MR states (which claims are measured and which are reasoned), and the `res/testPgms/testPgms.bin` that `make test` writes over the tracked copy |
+| 12 | a review correction pushed as `git commit --fixup=<sha>`, no force-push while a review is open, `git rebase --autosquash <base>` before the merge |
 
 Section 11 lists what is rejected without review, and item 10 is a refused word
 in a comment or in merge request text, so section 8.3 is a gate rather than a
-preference. `scripts/test/run-upstream-contract.sh` reads that list out of a live
-clone and checks a drafted merge request body, or the commit messages on a c43
-branch, against it.
+preference. `scripts/test/run-upstream-contract.sh` reads section 8.3's word
+list out of a live clone and checks a drafted merge request body, or the commit
+messages on a c43 branch, against it.
 
-Reconciled against upstream `ad322d6a3`. Upstream's file carries no version
+Reconciled against upstream `7f030deba`. Upstream's file carries no version
 marker, so re-read it when a sync moves master and record the commit here.
 
 ## This file, and CLAUDE.md
@@ -211,11 +215,13 @@ catalogue. Read it before trusting any lane result.
 - **`make test` passes clean**, so any failure is a real regression rather than a
   known baseline to compare against. Read the summary the run prints; the count
   moves with upstream, so do not trust one written down here.
-- **A green `make test` is not evidence about the shipped firmware.** The host
-  build compiles the 159-digit cubic and eigenvalue solvers; the one DM42 package
-  that fits in flash compiles the 75-digit twins instead, and no corpus case
-  reaches them. Passing the package number to a host build does not fix that:
-  the `OPTION_*` profile lives inside `#if defined(DMCP_BUILD)`, so
+- **A green `make test` is not evidence about the DM42 firmware.** The host build
+  keeps `OPTION_CUBIC_159` and `OPTION_EIGEN_159`, defined at the top of
+  `src/c47/defines.h`, so it compiles the 159-digit cubic and eigenvalue solvers.
+  Every DM42 package undefines both in the block common to packages 1-4 and runs
+  the 75-digit twins, and no corpus case reaches them; only package 3 carries
+  `OPTION_EIGEN` at all. Passing the package number to a host build does not fix
+  that: the `OPTION_*` profile lives inside `#if defined(DMCP_BUILD)`, so
   `-DDMCP_PACKAGE=n` on a `PC_BUILD` changes one macro and no option
   ([docs/00-architecture.md](docs/00-architecture.md) s7.2). That is one row of
   a larger table: every check in this repo compares the calculator against
@@ -229,52 +235,61 @@ catalogue. Read it before trusting any lane result.
 - **`c47` and `t47` are one binary, byte for byte** - the front end is picked
   from `argv[0]`, with `t47` forcing headless. Build both with `make simc47 t47`
   exactly: a bare `make t47` builds the R47-based t47 instead. **`press` works in
-  every front end**, headless included, since upstream `633afdc97`; what still
-  needs a display is `gtk_init`, which the binary calls unconditionally, so a
+  every front end**, headless included; what still needs a display is `gtk_init`, which the binary calls unconditionally, so a
   keyboard test on a machine with no X server runs under `xvfb-run` whichever
   front end it uses. Run it **from the repo root** on Linux - the chdir that
-  would lift that is `__APPLE__`-only (`c47-gtk.c:73`). Upstream's
+  would lift that is `__APPLE__`-only (`c47-gtk.c:76`). Upstream's
   `res/SCRIPTS/cli_automation_examples.txt` is the DSL's own reference, and
   upstream's `AGENTS.md` section 9 makes reading it in full a precondition of
   using `t47` or `c47` at all, freshly at the start of every session rather than
   recalled from the last one.
-- **One corpus file asserts the screen; the rest do not.** `graphs_cov.txt`
-  renders through `SNAP` and pins a SHA-256 of the bitmap (`fnHashBmpCov`), so a
-  change to the grapher, the fonts or the blitter fails it. Nothing else does:
-  a regression in register-line rendering, the status bar, the softmenus or
-  matrix display passes CI.
+- **Two corpus files assert pixels, and only for plots.** `graphs_cov.txt` and
+  `nested_cov.txt` render through `SNAP` and pin a SHA-256 of each bitmap
+  (`fnHashBmpCov`), so a change to the grapher, the fonts or the blitter fails
+  them. Other files assert display **text**, not pixels: the `drm_*_cov` files,
+  `accuracy_fix_cov.txt` and `rm_iter_cov.txt` compare the string the X line, a
+  stack line, a matrix editor cell or the printer stream carries (`DSX`, `DLX`,
+  `DVX`-`DVT`, `MEC`, `PRX`, in `checkExpectedOutParameter`). Glyph placement,
+  the status bar, the softmenus and every other pixel carry no assertion, and a
+  regression there passes CI.
 - **The lanes share one upstream tree** at `${RUNNER_TEMP:-/tmp}/c43-test-harness` and each wipes
   it on entry, so two run at once will corrupt each other and the failure surfaces
   as an unrelated build error. Give each its own `HARNESS_WORK`. The Valgrind lane
-  legitimately takes 2-3 hours; it is not hung.
+  is the slowest by far, and its run time moves with upstream by an order of
+  magnitude; read it from `gh run list --workflow="Valgrind Memcheck"` before
+  calling a run hung.
   See [docs/07-ci.md](docs/07-ci.md).
 - **The simulator does not have the DM42's memory model, so it cannot reproduce
   a DM42 memory failure.** It is compiled with the *new* hardware's pool - 256 KiB
   against the DM42's 64 KiB, and 200 free regions against 50 - and its C stack is
-  the host thread's 8 MiB. On the DM42 a program runs on a **scheduler task stack
-  out of the firmware heap** (DMCP's SVCall/PendSV are a context switch that writes
-  PSP), so the stack, C47's 64 KiB pool and every GMP long integer come out of one
-  90,104-byte arena, leaving **24,568 bytes** for the stack and everything else.
-  DMCP documents none of it; it is read out of the shipped firmware image.
-  Recursion depth, pool exhaustion and any multi-kilobyte local are hardware
-  questions a host build answers wrongly, not slowly.
-  `bash scripts/test/run-stackprof.sh` profiles every platform with one
+  the host thread's 8 MiB. Recursion depth, pool exhaustion and any
+  multi-kilobyte local are hardware questions a host build answers wrongly, not
+  slowly. `bash scripts/test/run-stackprof.sh` profiles every platform with one
   instrument; see [docs/06-memory.md](docs/06-memory.md).
-- **A gap below the initial MSP is not "the stack a program gets".** On both DMCP
-  targets it is the handler and boot stack: SVCall and PendSV write PSP, so thread
-  mode runs on a `malloc`'d task stack. Ask which stack thread mode uses before
-  quoting any embedded stack figure - `tooling/dmcp-stackband.py` prints the
-  verdict, and it is the one number on this subject that is easy to measure and
-  easy to mislabel.
-- **The DM42 ships as four feature packages, and which of them link is a property
-  of the compiler.** `DMCP_PACKAGE` trades functions for flash, so each package
-  has its own set of built code. All four link with the toolchain this project's
-  CI installs - `ubuntu:25.10` and `apt-get install gcc-arm-none-eabi`, which is
-  `arm-none-eabi-gcc` 14.2.1 - and at upstream `ad322d6a3` package 1 holds 3,416
-  bytes of the 704 KiB FLASH region and package 3, the only one carrying `EIGEN`,
-  holds 5,960. Ubuntu 24.04's 13.2.1 overflows 1, 2 and 3 on the same tree, so an
-  overflow read there is a property of that compiler. Profile the package you
-  mean, with the compiler CI uses, not "the DM42".
+- **Which stack a DM42 program runs on is read two ways, and the readings
+  disagree.** DMCP documents neither; both come out of the firmware image. This
+  repo's `tooling/dmcp-stackband.py` finds SVCall and PendSV writing PSP, so
+  thread mode runs on a task stack out of the 90,104-byte arena that also holds
+  C47's 64 KiB pool and every GMP long integer - at most **24,568 bytes** for the
+  stack and everything else - and the band below the initial MSP is the handler
+  and boot stack. Upstream's `tools/pgemu/MEASUREMENTS.md` reads the same image
+  as an **8,104-byte** stack from the initial MSP down to the arena. Upstream's
+  hardware run bounds both: the `PLOT_NESTING_ALLOWED` comment in
+  `src/c47/defines.h` records INT inside INT (7,684 bytes) surviving on the DM42
+  and a plot with an integral inside it (12,020 bytes on the DM42n) hanging,
+  which upstream reads as the overrun. Name the reading any DM42 stack figure
+  comes from; neither one alone is "the stack a program gets".
+- **The DM42 build has four feature packages, and which of them link moves with
+  the tree and the compiler.** `DMCP_PACKAGE` trades functions for flash, so each
+  package has its own set of built code; upstream's pipeline builds package 4
+  only (`make dist_dmcp`). With Arm's 14.2.Rel1 binary standing in for the
+  `arm-none-eabi-gcc` 14.2.1 that upstream's `ubuntu:25.10` CI installs, upstream
+  `7f030deba` overflows the 704 KiB FLASH region in packages 1, 2 and 3 (by 1,536,
+  512 and 1,232 bytes) and links package 4 with 27,472 bytes left; the same
+  binary linked all four at `ad322d6a3`, where Ubuntu 24.04's 13.2.1 - the
+  compiler this repo's stackprof lane uses - already overflowed 1, 2 and 3.
+  Measure the package you mean with `make PKG=n dmcp_pkgn` under the compiler
+  you care about, at the commit you care about, not "the DM42".
 - **A lane failing does not mean this repo changed.** Every lane resolves upstream
   `master` at runtime, so an upstream commit breaks CI here with no commit here.
   Pin with `UPSTREAM_COMMIT` to tell the two apart.
