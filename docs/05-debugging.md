@@ -1,5 +1,7 @@
 # Debugging c43
 
+Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+
 Which detector can see which bug, how to run it, and the ways this project has
 already fooled itself. If you read one page before chasing a bug in C47, read
 this one.
@@ -22,8 +24,8 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 Verified in `src/c47/` of the upstream clone:
 
-- `ram` is a single `uint32_t *` (`c47.h:336`), `malloc`ed once in
-  `config.c:1599`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
+- `ram` is a single `uint32_t *` (`c47.h:338`), `malloc`ed once in
+  `config.c:1816`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
 - GMP is separate: `allocGmp`/`reallocGmp`/`freeGmp` (`memory.c`) are installed
@@ -43,7 +45,7 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`src/c47/defines.h:2310-2315`:
+`src/c47/defines.h:2341-2346`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
@@ -58,7 +60,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2143-2151`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2174-2182`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -90,8 +92,9 @@ Accounting facts worth knowing before you measure anything:
 - `debugMemory()` prints both plus the free-region table. The testSuite prints
   it at exit and `processTests` returns
   `failedTests > 0 || gmpMemInBytes != 0` - **a GMP leak fails the run**.
-- `isMemoryBlockAvailable()` peeks without consuming; `MAX_FREE_REGIONS` is 200
-  on the sim, 50 on DMCP.
+- `isMemoryBlockAvailable()` peeks without consuming; `MAX_FREE_REGIONS` is 50
+  on the DM42 (`DMCP_BUILD && OLD_HW`) and 200 everywhere else, the DM42n and
+  the simulator included.
 
 ## 3. Detector-to-bug-class matrix
 
@@ -113,8 +116,10 @@ Accounting facts worth knowing before you measure anything:
 The Eva row answers a question no other lane here does: *is the index in range for
 every input*, not *did this input crash*. That is what reaches a write landing in
 the sibling array of the same struct, where ASan and Valgrind are silent by
-construction (Section 5.4) and a fuzz seed has nothing to crash on. `KEY 00`
-writing `programmableMenu.itemParam[-1]` (c43 !1647) is the worked instance.
+construction (Section 5.4) and a fuzz seed has nothing to crash on. `KEY 00` from
+a program file is the worked instance: `keyGto` and `keyXeq`
+(`programming/programmableMenu.c`) index `programmableMenu.itemParam[keyNum - 1]`
+with no lower bound, so key 0 writes `itemParam[-1]`.
 
 **Where one bound is enforced on several paths and dropped on one, the dropped
 path is the one a file reaches.** A calculator bound is written for the keyboard;
@@ -122,10 +127,9 @@ the step decoder, the state reader and the program loader each take the same
 value from a file and are each a separate site that may or may not repeat it.
 When auditing a bound, enumerate its enforcers before its callers.
 
-The recursion row matters more than it looks: two of the most recent real bugs (the
-matrix editor clobbering I/J, and the STOVEL/RCLVEL off-by-one) are register
-collisions. Both were initially suspected to be pool corruption and are not
-memory bugs at all. Before reaching for a canary, ask whether the symptom is
+The register-collision row matters more than it looks: the matrix editor
+clobbering I/J and the STOVEL/RCLVEL off-by-one were both first suspected to be
+pool corruption, and both are register collisions, not memory bugs at all. Before reaching for a canary, ask whether the symptom is
 corruption or a wrong contract.
 
 ---
@@ -133,8 +137,8 @@ corruption or a wrong contract.
 ## 4. Pool and GMP leak scanning
 
 All three scanner modes come from **one** carried patch,
-`scripts/test/tooling/leakscan.patch` (500 lines, touches only
-`src/testSuite/testSuite.c`), off branch `test/ram-pool-leak-scanner`.
+`scripts/test/tooling/leakscan.patch` (touches only `src/testSuite/testSuite.c`).
+The patch, not a branch, is the source: `test/ram-pool-leak-scanner` lags it.
 
 | Flag | Invocation | End sentinel |
 |---|---|---|
@@ -142,13 +146,14 @@ All three scanner modes come from **one** carried patch,
 | `--keyscan` | `testSuite --keyscan` | `KEYSCAN done:` |
 | `--testmem` | `testSuite --testmem <list>` | `TESTMEM done:` |
 
-**All three exit non-zero by design.** Every lane asserts the end sentinel
-instead of trusting the exit code - a truncated run would otherwise emit fewer
+**No scan's exit code says it finished.** `--leakscan` and `--keyscan` return 0
+whatever they find, and `--testmem` returns 1 whenever any case grows. Every lane
+asserts the end sentinel instead - a truncated run would otherwise emit fewer
 findings and pass the baseline diff as a false PASS.
 
 ### 4.1 `--leakscan` - the item sweep
 
-Runs every item `1..LAST_ITEM` (2870 at `33328e4cc`) across the operand stack
+Runs every item `1..LAST_ITEM` (`items.h`; the `LEAKSCAN start:` line prints the bound) across the operand stack
 types in a **forked child** (so a crash or hang is attributed and isolated),
 clears state with `fnClAll`, and compares pool+GMP against baseline with the
 `setupStack`+`fnClAll` reference overhead subtracted. That overhead is measured
@@ -156,11 +161,11 @@ at runtime, once per stack type, in its own forked probe child
 (`leakscan.patch:204-216`) - it is not a constant.
 
 Operand types: real / string / long integer / complex - **scalars only**
-(`leakscan.patch:195`). Matrix operands are deliberately absent: they were added
-and then reverted (`e42cf61`), because matrix functions leak on the RAM-full
-error path and the sweep runs with ample RAM, so rotating matrix operands
-exercised only the happy path and bought scan cost for no detection. A matrix
-leak of that class needs fault injection, not another operand type.
+(`leakscan.patch:195`). Matrix operands are absent: matrix functions leak on the
+RAM-full error path and the sweep runs with ample RAM, so a matrix operand
+reaches only the happy path and buys scan cost for no detection (`e42cf61`
+carries the measurement). A matrix leak of that class needs fault injection,
+not another operand type.
 
 Two structural false positives, both baselined:
 
@@ -301,12 +306,13 @@ The item sweep carries scalar operands only, so matrix overruns never trigger
 through it - see 4.1 for why matrix operands were reverted rather than kept.
 `fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:285`/`:257`) but need an
 editor key context, so the headless sweep cannot reach the editor path either.
-(The empty `fnInsCol`/`fnInsRow` at `items.c:1341-1343` are catalog-generator
-stubs under `#if defined(GENERATE_CATALOGS)`, not the build's definitions.)
+(The empty `fnInsCol`/`fnInsRow` at `items.c:1349-1351` are catalog-generator
+stubs under `#if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)`, not
+the build's definitions.)
 
 **A live-region sweep needs a reset hook, or it reports the reset.** A block that
 is never freed is never checked at free time, so the sweep has to walk a registry
-the wrappers keep. `doFnReset` (`config.c:1588-1601`) `memset`s the whole pool and
+the wrappers keep. `doFnReset` (`config.c:1805-1818`) `memset`s the whole pool and
 re-forms the free list to one region **without a single `free`**, so from that
 point every registered pointer is stale and its guard bytes read as zero. Without
 a `poolGuardResetRegistry()` call there, a corpus run reports the reset itself as
@@ -335,12 +341,14 @@ result matrix looks correct, so no value assertion flags them) and reachable onl
 through specific ops:
 
 - a matrix shift/insert loop bounded one column too long (`j < cols + 1` instead
-  of `j < cols`), writing one element past the new matrix - the pattern in the
-  `insColRealMatrix`/`insColComplexMatrix` family;
+  of `j < cols`), writing one element past the new matrix;
 - a shared zero-init loop that runs across a large buffer and a smaller companion
-  allocation (`previousDiagonal`, `size*2` reals versus the `size*size*2` bulk),
-  overrunning the companion into the following block - the pattern in the
-  eigenvalue path.
+  allocation (`size*2` reals against a `size*size*2` bulk), overrunning the
+  companion into the following block.
+
+Both instances are fixed upstream - `insColRealMatrix`/`insColComplexMatrix` in
+`fb1f7f483`, the eigenvalue solver's `previousDiagonal` in `7c30f4a40` - so the
+shapes are what to grep for in new code, not live sites.
 
 Both write only zeros or in-range values into a live block, so they corrupt only
 in unlucky layouts - intermittent by nature, which is why this class survives
@@ -379,9 +387,10 @@ quietly eaten a section.
 A c43 host build links the **system libgmp**, whose `mpz_init` allocates
 **lazily**. An initialised-but-never-assigned long integer holds no limbs, so
 leaking it leaves `gmpMemInBytes` at **0**. A full BinetV3 sweep reported
-`gmpMemInBytes == 0` and was wrongly written up as "not reproducible". The same
-leak is 211552 bytes on the r47zen host build, which compiles the bundled
-firmware GMP (`-DCALCMODEL=USER_R47`) and charges a limb on every `mpz_init`.
+`gmpMemInBytes == 0` and was wrongly written up as "not reproducible". Only the
+firmware builds link the bundled GMP (`subproject('gmp-6.2.1')` in `meson.build`,
+cross builds only), which charges a limb on every `mpz_init`; no host target
+does.
 
 The technique that does not lie - **count the calls** via the linker:
 
@@ -415,9 +424,8 @@ To find them: grep callers of those three and flag any preceding
 Known members: `getRegisterAsLongIntQuiet` (the BinetV3 trigger - CHS on a
 long-integer loop counter, ~100 leaks per plot); `solver/isumprod.c`,
 `solver/sumprod.c`, the `stringFuncs.c` x->alpha family, `printing/print.c`.
-Fixes for these were developed on local branches that are not upstream and are
-not reachable from a clone; treat the list as the map of the bug class, not as
-a pointer to code. Checked clean: `prime.c`, `matrixEditor.c`,
+All of them are fixed upstream (`7577398dd`, `9050ca35d`); the commits show the
+fix shape, and the list maps the bug class for new code. Checked clean: `prime.c`, `matrixEditor.c`,
 `registerValueConversions.c:288`.
 
 **Counter-example - do not "fix" this one.** `getRegisterAsLongIntQuiet`'s
@@ -426,7 +434,7 @@ so adding a free inside would double-free.
 
 ### 6.2 The attribution trap
 
-Upstream's own `items.c:638` diagnostic prints the **running total** after each
+Upstream's own `items.c:641` diagnostic prints the **running total** after each
 function. Reading it as a per-function attribution produced a completely wrong
 audit scope (golden/power/root) when the real trigger was CHS. The first
 non-zero total appears "after STO" and means nothing about where the leak is.
@@ -464,7 +472,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:6034`). Unregistered functions return "cannot find the function to
+(`testSuite.c:6781`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -489,52 +497,50 @@ Two unlocks worth reusing:
   runs via `fnProcessLR` (resultType 1/2/4/7), which loops every bit of
   `lrSelection`. Register `fnProcessLR`, then `fnCurveFitting(511)` +
   `fnProcessLR(7)` hits all 9 model branches. 0 -> 72%.
-- **serializers**: the test HAL `src/testSuite/hal/io.c` mapped only 4 of 15
-  `ioFilePath_t` values; the rest returned FILE_ERROR so every save gave EC=55
-  "cannot write file". Completing the switch unlocked the whole save/restore
-  subsystem. Program serializers additionally need `-DPC_BUILD`.
+- **serializers**: the test HAL `src/testSuite/hal/io.c` must map every
+  `ioFilePath_t` value; a value it leaves out returns FILE_ERROR, so every save
+  through it gives EC=55 "cannot write file" and the save/restore subsystem
+  reads as dead. Program serializers additionally need `-DPC_BUILD`.
 
 ### 7.2 Honest residuals
 
-Documented **host ceilings**, not corpus gaps: `roundReal()` rounds via
-`displayValueX`, the *rendered* display string - headless there is no renderer,
-so `fnRound` on a real yields NaN. Same for `xfn.c` formatting. Every math
-dispatch has `default:` bug-screen branches unreachable by valid dispatch.
-Interactive editors need a key context.
+Documented **host ceilings**, not corpus gaps: every math dispatch has
+`default:` bug-screen branches unreachable by valid dispatch, and the
+interactive editors need a key context.
 
 The exit criterion is "every corpus-reachable math line covered, every residual
 classified", **not** a flat percentage. Line coverage is not use-case coverage:
-~3482 catalog items (`LAST_ITEM`) x operand shapes x mode families x stack
-contexts x path classes
-is ~3.2M coarse cases - line coverage alone is not enough for a calculator.
+`LAST_ITEM` catalog items (`items.h`) x operand shapes x mode families x stack
+contexts x path classes is millions of coarse cases - line coverage alone is
+not enough for a calculator.
 
-Per-file lifts beat sector deltas when a big file was already partly covered:
-`matrix.c` is 4159 gcovr-countable lines (9544 physical) = 21% of its sector and
-was already ~67%, so new cases
-overlap. Clean wins are files genuinely cold: `iteration.c` 0->79,
-`saveRestoreBackup.c` 0->80, `compare.c` 21->51.
+Per-file lifts beat sector deltas when a big file is already partly covered:
+`matrix.c` is the largest file in its sector and already well covered, so new
+cases overlap. Clean wins are files that are cold. `run-coverage.sh` prints
+each file's line count and percentage - read them there.
 
-### 7.3 The host build compiles a different function from the one three DM42 packages ship
+### 7.3 The host build runs a different solver from the one every DM42 package ships
 
-A residual the coverage number cannot show, because the uncovered code is not in
-the binary being measured. `src/c47/defines.h` carries `OPTION_CUBIC_159`,
-`OPTION_SQUARE_159` and `OPTION_EIGEN_159` - the 159-digit internal paths for
-`SLVC`, `SLVQ` and the eigensolver - defined for the host and **undefined for
-DM42 packages 1 to 3**, which get the 75-digit siblings instead
-(`solveCubicEquation()` against `solveCubicEquation159()`, `slvq.c`). They are
-not the same code, and only one of the pair is compiled at a time.
+A residual the coverage number cannot show, because the shipped path is not the
+one the host calls. `src/c47/defines.h` defines `OPTION_CUBIC_159` and
+`OPTION_EIGEN_159` for the host and undefines both, with `OPTION_SQUARE_159`,
+for every DM42 package (the block common to packages 1-4, inside
+`TWO_FILE_PGM`); `OPTION_SQUARE_159` is undefined everywhere. So the host's
+`SLVC` calls `solveCubicEquation159()` and the eigensolver takes its 159-digit
+path, while every DM42 package's `SLVC` calls the 75-digit
+`solveCubicEquation()` (`solver/slvc.c`) and package 3's eigensolver its
+75-digit path.
 
-So every corpus run, every coverage run and every fuzz run exercises the
-159-digit twin, and the 75-digit one that ships to those three packages **has
-never been executed by anything in this harness**. It is not a low-coverage
-line; it is absent from the object file. The gap is wide enough to hide a
-wrong-answer defect: on a tree the corpus reports green, undefining the two
+So every corpus run, every coverage run and every fuzz run exercises the host's
+choice, and the 75-digit `SLVC` path that ships to the DM42 is compiled on the
+host but never called from `SLVC` there. The gap is wide enough to hide a
+wrong-answer defect: on a tree the corpus reported green, undefining the two
 options and sweeping `SLVC` returned **811 of 1815** cubic roots wrong.
 
 Treat any `#undef` under a `DMCP_PACKAGE` guard the same way. To test what a
 package actually ships, undefine the options that package undefines and re-run,
-rather than reading a percentage measured on package 4's configuration. The
-package matrix is in [06-memory.md](06-memory.md).
+rather than reading a percentage measured on the host configuration, which is no
+DM42 package. The package matrix is in [06-memory.md](06-memory.md).
 
 ## 8. Fuzzing
 
@@ -577,26 +583,27 @@ Lessons that generalise:
   upholds it. `restoreCalc()` was a caller and did not - it took the count from
   `backup.cfg` unchecked. **Grep for every writer of a variable a harness
   constrains**; the assumption is where the bug hides, not the code around it.
-  The two `backup*.c` kernels on the regression wall discharge that one.
+  `backupregion.c` on the regression wall discharges that one.
 - **Check the harness writes the name the code under test opens.**
   `fuzz_restore.c` wrote each input to `backup.cfg`, but the testSuite HAL
   renames every writable path, so `restoreCalc()` opens `backupTest.cfg`. Every
   iteration therefore parsed no file at all, and a green campaign meant nothing.
-  It now asks the HAL for the name (`_ioFileNameFromFilePath(ioPathBackup)`)
-  instead of hard-coding one. **A fuzz lane that finds nothing is a claim to
+  It asks the HAL for the name (`_ioFileNameFromFilePath(ioPathBackup)`) rather
+  than hard-coding one. **A fuzz lane that finds nothing is a claim to
   verify, not a result** - feed it a known-bad input and watch it fail first.
 
-The equation lane has a clean baseline (120 s = 4,937,252 execs, no finding).
+The equation lane has a clean baseline: a 120 s campaign finds nothing.
 
 The restore lane's hexDump finding - the byte count and the dump lines both come
 from the file on trust - is **real and confirmed**: replacing one dump line of a
-valid `backup.cfg` with two characters gives a heap over-read at
-`saveRestoreBackup.c:702`, and a region count of 100000 gives an out-of-bounds
-write at `:698`, both under ASan on `3c84890a1`. The archived minimal file
+valid `backup.cfg` with two characters gives a heap over-read in
+`restoreStateValue`'s hexDump branch (the `*v` reads, `saveRestoreBackup.c:692`),
+and a region count of 100000 gives an out-of-bounds write (the `*buf` store,
+`:696`), both under ASan on `3c84890a1`. The archived minimal file
 `scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg` does **not**
 reproduce standalone on master through the current harness (measured clean on
 both an unfixed and a fixed tree); it is kept as a seed, not as a repro. Fixed
-upstream on branch `fix/restore-bound-backup-param-fields`.
+upstream in `4697e526a`.
 
 ## 9. Valgrind
 
@@ -604,30 +611,28 @@ upstream on branch `fix/restore-bound-backup-param-fields`.
 bash scripts/test/run-valgrind.sh          # VALGRIND_GATE defaults to 1 - gates by default
 ```
 
-The **only** lane whose gate is on by default. Full corpus, no subset,
+The only lane with a gate knob (`VALGRIND_GATE`) that defaults on. Full corpus, no subset,
 `--track-origins=yes`, `-g` build, suppressions in `tooling/valgrind.supp`
 (suppress libraries, never c47 frames).
 
-Three hard-won points:
+Four hard-won points:
 
-- **memcheck prints basenames.** The original c47-site detector matched the
-  literal string `src/c47/` against frames that read `matrixEditor.c:1032`, so it
-  matched nothing: `valgrind-found.txt` was always empty and the gate was
-  **inert**, detecting zero of the six real findings. The matcher is now driven
-  by `find "$UPSTREAM_DIR/src/c47" -printf '%f'`. Attribute access errors to the
+- **memcheck prints basenames.** A detector that matches the literal string
+  `src/c47/` against frames that read `matrixEditor.c:1032` matches nothing, and
+  the gate is **inert** - it has been, detecting zero of six real findings. The
+  matcher builds its owner map from `find "$UPSTREAM_DIR/src/c47" -printf '%f'`.
+  Attribute access errors to the
   **innermost** frame and leaks to the **first owned frame** in the allocation
   stack. `--error-exitcode=0` is kept deliberately: valgrind's own exit would
   trip on third-party noise, so the scoped baseline diff is the gate.
-- **Own the allocation, not the call.** "First *c47* frame" was the rule until
-  upstream `85b1636da` gave the testSuite a real frame buffer: the harness's own
-  `src/testSuite/hal/lcd.c` calloc's ~12 KB once and keeps it for the process,
-  and the walk sailed past `lcd.c` to blame `doFnReset` in `config.c` - a
-  product file that never allocated the block. Keyed to a `config.c` line, it
-  then drifted `1704 -> 1713 -> 1714 -> 1727` and failed the lane on each
-  upstream edit. The map now tags `src/c47` as `c47` and `src/testSuite` as
-  `harness` (the two trees share no basename), the walk stops at whichever comes
-  first, and a harness-owned block is logged under "harness-owned allocations"
-  rather than gated. A leak c47 really allocates still gates exactly as before.
+- **Own the allocation, not the call.** The harness's own
+  `src/testSuite/hal/lcd.c` callocs ~12 KB once and keeps it for the process; a
+  walk that stops at the first *c47* frame sails past it and blames `doFnReset`
+  in `config.c`, a product file that never allocated the block, keyed to a line
+  that drifts with every upstream edit. The map tags `src/c47` as `c47` and
+  `src/testSuite` as `harness` (the two trees share no basename), the walk stops
+  at whichever comes first, and a harness-owned block is logged under
+  "harness-owned allocations" rather than gated. A leak c47 allocates gates.
 - **Do not subset the corpus for memcheck.** Runtime is not spread across it but
   concentrated in a few iterative solver/integration tests (tvm, solve,
   integrate, sumprod, iteration, curveFitting). A random subset that happens to
@@ -649,8 +654,8 @@ matrix-editor block also moves without any edit to the editor: those reads take
 bytes no code in the case wrote, so which sites fire, and at which lines,
 follows upstream changes to earlier corpus files and to the formatting code. That
 is the intended cost of a strong regression gate, and it is a cost worth paying
-only for sites c47 owns, which is why the harness's own allocation is no longer
-one of them.
+only for sites c47 owns, which is why the harness's own allocation is not one
+of them.
 
 ## 10. Static analysis and warnings
 
@@ -673,8 +678,8 @@ fragility.
 
 The warnings lane uses the OpenSSF hardening set including
 `-ftrivial-auto-var-init=zero`; `-Wconversion`/`-Wsign-conversion` are
-deliberately omitted as baseline noise. It has found **zero bugs** to date
-(shadow / cast-qual / format-nonliteral only) - it is a regression fence, not a
+deliberately omitted as baseline noise. It has found **no bug**: its findings are
+shadow, cast-qual, format-nonliteral, double-promotion and undef only - it is a regression fence, not a
 hunting ground.
 
 ## 11. Sanitizer policy
@@ -693,11 +698,11 @@ reproduced identically on GCC and Clang is c43-owned**, not a compiler artifact.
 
 Known third-party noise, excluded and not filed: `dep/decNumberICU/decNumber.c`
 signed-left-shift UB (`:5541`, `:2261`), `decBasic.c:1194`, the decQuad FMA
-uninitialised remainder read, `factorial.c:41` float-cast-overflow. The
-build.asan meson `test` wrapper forces `halt_on_error=1` and aborts on the
-decNumber shift - run the testSuite binary directly with
-`UBSAN_OPTIONS=halt_on_error=0` for the real tally, and set
-`LD_LIBRARY_PATH=$HOME/.local/lib` for xlsxio.
+uninitialised remainder read, `factorial.c:41` float-cast-overflow. `meson test`
+on a sanitizer build sets `halt_on_error=1` unless the variable is already set,
+and the decNumber shift then aborts the run - export
+`UBSAN_OPTIONS=halt_on_error=0` first (the analysis workflows do), or run the
+testSuite binary directly with it, for the real tally.
 
 GTK leak attribution: a finding is a c43 bug only if the **direct allocating
 frame** is in `src/c47*`/`src/t47`, or c43 drops a documented **transfer-full**
@@ -717,8 +722,9 @@ uninitialised reads have no dedicated detector; Valgrind is the fallback.
 
 Every one of these has silently passed a broken thing at least once.
 
-1. **A scan mode's exit code is meaningless** - all three exit non-zero by
-   design. Assert the `LEAKSCAN done` / `KEYSCAN done` / `TESTMEM done`
+1. **A scan mode's exit code does not say it finished** - `--leakscan` and
+   `--keyscan` return 0 whatever they find, `--testmem` 1 whenever a case grows.
+   Assert the `LEAKSCAN done` / `KEYSCAN done` / `TESTMEM done`
    sentinel, or a truncated run passes the baseline diff.
 2. **An orphaned `*_cov.txt` never runs.** A corpus file created and registered
    in `funcTestNoParam[]` but **not added to `testSuiteList.txt`** silently never
@@ -728,13 +734,13 @@ Every one of these has silently passed a broken thing at least once.
    against the list and **confirm the per-case pass count rises** by the number
    of new `Out:` lines. Sigma-accumulating files must lead and trail with
    `fnClSigma` so they neither inherit nor leak sigma state.
-3. **A stale bitmap fakes a graph pass.** `covHashBmp()` SHA-256s
-   `c47plotTest<N>.bmp` **read from disk**, and `covBmpName()` only *names* the
-   target - nothing unlinks it. If the graph program errors before `SNAP`, the
-   hash test passes against the **leftover bitmap from an earlier passing run**.
-   Verified A/B on the same unfixed binary: clean dir -> 2 failures; bitmaps left
-   over -> **1** failure. This is why the failure count is not stable across
-   runs. **`rm -f c47plotTest*.bmp` before bisecting graphs_cov.**
+3. **A graph hash is only as good as the unlink before it.** `covHashBmp()`
+   SHA-256s `c47plotTest<N>.bmp` **read from disk**; `covBmpName()` removes that
+   file before the capture, so a graph program that errors before `SNAP` fails
+   with "Cannot open" instead of hashing an earlier run's bitmap. A harness that
+   names a capture target without removing it reintroduces the false pass, and
+   so does an `UPSTREAM_COMMIT` older than `204f69f87`: there,
+   `rm -f c47plotTest*.bmp` before bisecting `graphs_cov`.
 4. **`dirname(listPath)` decides where the corpus is found.** Writing a list to
    `$LOG_DIR` made testSuite find no test files, exit in ~1s with
    `0 errors from 0 contexts`, and run **nothing**. Write generated lists beside
@@ -756,9 +762,10 @@ Every one of these has silently passed a broken thing at least once.
 8. **`ninja -C $BUILD_DIR src/c47/vcs.h` first, always.** Meson does not wire the
    generated `vcs.h` as a dependency of every source, so a fresh parallel
    testSuite-only build races.
-9. **Run the testSuite from a scratch CWD** - it writes `REGS.TSV`, `.bmp`,
-   `backup.cfg`, `c47.sav` into the current directory - **but stage
-   `testPgms.bin`** ([04-testing.md](04-testing.md) Section 5) or you manufacture six false failures and a
+9. **Run the testSuite from a scratch CWD** - it writes the HAL's Test-named
+   files (`src/testSuite/hal/io.c`: `c47Test.sav`, `backupTest.cfg`,
+   `c47stateTest.bin`, ...) and the `c47plotTest<N>.bmp` graphs into the current
+   directory - **but stage `testPgms.bin`** ([04-testing.md](04-testing.md) Section 5) or you manufacture six false failures and a
    dead-looking program engine.
 10. **Test order leaks state** ([04-testing.md](04-testing.md) rule 6.6).
 11. **`fnRefreshState` is a no-op** (`{ doRefreshSoftMenu = true; }`). Two
@@ -777,18 +784,18 @@ Every one of these has silently passed a broken thing at least once.
     orphaned). A **gdb hardware watchpoint** on
     `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
     a field nulled without freeing writes nothing textually greppable. (In
-    `runPgm`, `testSuite.c:807`, the buffer is freed before the pointer is
+    `runPgm` (`testSuite.c:831`), the buffer is freed before the pointer is
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
     (Section 9). Prove it fires ([04-testing.md](04-testing.md) rule 7.7).
 16. **A "clean" sentinel result may mean the fix is applied**, not that the bug
     is absent. Check the branch ([04-testing.md](04-testing.md) Section 2.1).
-17. **A convenient sentinel hides the interesting failures.** I=7 J=9 round-trips
-    through the `int16_t` matrix-index backup unharmed, so it reports the
-    off-by-one and nothing else; the same path silently flattens I=0.35 to -1,
-    I=99999 to -31074 and a complex to a long integer ([04-testing.md](04-testing.md) Section 2.1). Pick sentinel values
-    that exercise the width, the fraction and the type, not just the arithmetic.
+17. **A convenient sentinel hides the interesting failures.** An integer like 7
+    survives an `int16_t` round trip that turns 0.35 into 0 and wraps 99999,
+    and never shows a type change ([04-testing.md](04-testing.md) Section 2.1).
+    Pick sentinel values that exercise the width, the fraction and the type, not
+    just the arithmetic.
 18. **`git stash` does not revert a commit.** Stashing to "get back to master"
     leaves a committed fix in the tree, and the A/B then compares the branch with
     itself and agrees. Check out the ref, force a rebuild (Section 7 method discipline in [04-testing.md](04-testing.md)), and print the
@@ -815,10 +822,11 @@ Every one of these has silently passed a broken thing at least once.
     touched paths against what you believe the tree contains before building
     anything on top.
 22. **A lane can pass on every desktop and fail on every runner, and the reason
-    is `gtk_init`.** `c47`, `r47` and `t47` are one GTK binary, and it calls
-    `gtk_init` at `src/c47-gtk/c47-gtk.c:430` *before* it parses its arguments -
-    so with no display it exits **1** with "cannot open display", whatever
-    front end argv[0] selects and whether or not `--headless` is passed. A
+    is `gtk_init`.** `c47`, `r47` and `t47` all run `main()` in
+    `src/c47-gtk/c47-gtk.c` (`t47` is a copy of `c47` or `r47`), and it calls
+    `gtk_init` (`c47-gtk.c:444`) unconditionally after its argument loop - so
+    with no display it exits **1** with "cannot open display", whatever front
+    end argv[0] selects and whether or not `--headless` is passed. A
     desktop hides it completely: `DISPLAY`, or just `XDG_RUNTIME_DIR` under a
     Wayland session, is enough for GTK to find a backend, so unsetting `DISPLAY`
     alone does **not** reproduce it - use `env -i`. Real case: the nestcheck
@@ -828,18 +836,17 @@ Every one of these has silently passed a broken thing at least once.
     package. The exit code is the trap - **1 is indistinguishable from a product
     error**, so the failure reads as a real finding.
 23. **A stack number is a label as much as a measurement, and the label is the
-    easy thing to get wrong.** The DM42's C stack was read off the shipped firmware
-    twice, both times as "the gap below the initial MSP", and both times named "the
-    C stack a program gets": once from the allocator arena top (8,088 B), once from
-    the top of kernel globals (2,472 B). The second measurement is correct to a
-    word. The label is not: DMCP's SVCall and PendSV write **PSP**, so thread mode
-    runs on a `malloc`'d task stack and both gaps are the *handler and boot* stack.
-    The number that bounds a program is what is left of the arena after the pool.
-    Before quoting any embedded stack figure, ask which stack thread mode uses -
-    `tooling/dmcp-stackband.py` prints the verdict, and
-    [06-memory.md](06-memory.md) Section 3 carries the derivation. Two lessons
-    generalise: a plausible number invites a plausible label, and an arithmetic
-    check on a region says nothing about who owns it.
+    easy thing to get wrong.** The gap below the DM42's initial MSP reads as 8,088
+    or 8,104 B from the allocator arena top and as 2,472 B from the top of kernel
+    globals, and each has been named "the C stack a program gets". This repo's
+    `tooling/dmcp-stackband.py` finds DMCP's SVCall and PendSV writing **PSP**,
+    which makes thread mode run on a `malloc`'d task stack and every gap below the
+    MSP the *handler and boot* stack; upstream's `tools/pgemu` treats the 8,104 B
+    below the MSP as the program's stack. The two readings disagree
+    ([06-memory.md](06-memory.md) Section 3), so name the reading beside any
+    embedded stack figure. Two lessons generalise: a plausible number invites a
+    plausible label, and an arithmetic check on a region says nothing about who
+    owns it.
 24. **A lane that writes its evidence to `$LOG_DIR` and uploads nothing cannot
     be diagnosed at all.** The same nestcheck failure printed one line -
     `control nested2 did not survive (rc=1)` - and sent the probe output, and
@@ -861,15 +868,16 @@ Every one of these has silently passed a broken thing at least once.
     canary intact passes identically when the program failed to load, when the
     label did not resolve, and when the fix works. The negative control shows
     only that the gate fires on the unfixed tree. Pair every "nothing happened"
-    assertion with a **witness** that something did: `keymenu_cov` puts a
-    literal after the refused step and requires it to reach X, so the refusal is
-    proved to have skipped one step and not the whole program.
+    assertion with a **witness** that something did: a gate that puts a literal
+    after the refused step and requires it to reach X proves the refusal skipped
+    one step and not the whole program.
 27. **A `file:line` citation into upstream rots with no commit here, and nothing
-    fails.** Upstream inserts lines above it and a page that read `error.c:333`
-    `displayBugScreen` points at a blank line; `run-docs-lint.sh` cannot see it,
+    fails.** Upstream inserts lines above it and a page's `file.c:N` `symbol`
+    points at whatever line slid under it; `run-docs-lint.sh` cannot see it,
     having no clone. `bash scripts/test/run-docs-citations.sh` resolves every
-    citation against a live clone and owns those counts; write the symbol beside
-    it - `` `liftStack` (`stack.c:21`) `` or `` `stack.c:21` `liftStack` `` - so
+    backticked `name.c:N` / `name.h:N` against a live clone - not a bare `:N`, and
+    not a citation into this repo's own files - and checks the number only where
+    a symbol sits beside it; write the symbol beside it - `` `liftStack` (`stack.c:21`) `` or `` `stack.c:21` `liftStack` `` - so
     the gate can anchor the line to a name, or the citation is reported
     unanchored and its number stays unchecked. **Resolve a
     citation by path suffix, never by basename** - the GMP subproject ships its
@@ -936,17 +944,12 @@ and their limits, and those move with the tree.
   `scripts/test/leakscan-baseline.txt` records the bisect.
 - **POOL_GUARD is not wired into any lane** - a manual sweep only (Section 15,
   Risks).
-- **`covBmpName()` should unlink its target bitmap** so a skipped SNAP fails
-  loudly instead of hashing history (the stale-bitmap hazard in Section 12). Proposed, not implemented.
 - **Fuzz harness M3**: extend to `scanLabelsAndPrograms` + label-exec/menu paths
   so the copy-paste findings regress automatically. The harness lives here, not
   in c43.
 - **MSan** remains unbuilt (needs instrumented GMP).
 - **Differential vectors**: two-argument functions, complex domain, special
   values; plus a CI reproducibility check (needs mpmath on the runner).
-- The `res/PROGRAMS` workload harness pins an `expected_display_hash`; **a
-  deterministic image hash cannot distinguish an intended render change from a
-  rendering regression.** Re-pinning is a maintenance point, not a formality.
 
 ## 15. Risks
 
@@ -955,11 +958,13 @@ and their limits, and those move with the tree.
   catches it automatically.
 - The valgrind baseline is line-number keyed against a moving upstream
   (Section 9).
-- `coverage-floors.txt` has no `UPDATE_BASELINE` path - the only baseline edited
-  by hand. Lowering a floor is an explicit, documented acceptance of a
-  regression.
+- `coverage-floors.txt` and `stackprof-baseline.txt` have no `UPDATE_BASELINE`
+  path and are edited by hand. Lowering a floor or raising a ceiling is an
+  explicit, documented acceptance of a regression.
 - The carried `leakscan.patch` drifts if upstream changes `testSuite.c`; the lane
-  fails loudly and the patch must be regenerated from a rebased
-  `test/ram-pool-leak-scanner`.
+  fails loudly. Regenerate it from the patch: `git apply --3way` it onto a clean
+  tree at the new upstream, resolve, and `git diff --cached` back. The
+  `test/ram-pool-leak-scanner` branch lags the patch, so a patch rebuilt from it
+  drops the program-derivative entry points.
 
 ---

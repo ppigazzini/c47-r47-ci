@@ -1,22 +1,18 @@
 # Testing c43
 
-Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
+Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
 
 Every citation and count was re-read against that commit, and the behavioural
 claims were re-run on a build of it: `make test` (passes clean, GMP owns 0
-bytes), the `t47` probes and the headless file-dialog table, which reproduce
-unchanged. The four softmenu hashes moved - all four at once, which is what a
-font or blitter change looks like - and are re-pinned below. Two things on this page are
-**not** covered by that: the coverage percentages in Section 5, whose
-measurement method was never recorded, and the anecdotes in Sections 6 and 7,
-which describe past incidents and leave no artifact to check.
+bytes), the `t47` probes, the four softmenu hashes, the global-label repro and
+the headless file-dialog table. Two things on this page are **not** covered by
+that: the coverage percentages in Section 5, whose measurement method was never
+recorded, and the anecdotes in Sections 6 and 7, which describe past incidents
+and leave no artifact to check.
 
-Several subjects are read against a **later** commit than the basis,
-`dbc5cb45b`, and say so where they appear: everything Section 3 and the driver
-table state about `press`, the softkey route and `CAT_NONE`; the global-label
-requirement in Section 4; the setup-directive behaviour and the `PGM=` count in
-Section 1; and the corpus wall-clock figures in Section 7. Nothing else on the
-page was re-read there.
+Three subjects are read against `dbc5cb45b`, earlier than the basis, and say so
+where they appear: what `nim` does after an engine abort (Section 2), and the
+four-way UI-lane run and the `CAT_NONE` softkey route (Section 3).
 
 How to drive the calculator and how to write a test that actually tests.
 
@@ -42,8 +38,11 @@ deletes directories meson is mid-regenerate in - the failure is a meson
 **It passes clean**, so a failure is a regression, not a baseline to compare
 against. The target depends on `testPgms` and generates the fixture first;
 run the binary without it and the corpus reports failures that are fixture
-artifacts, not defects (Section 5). Read the summary the run prints rather
-than a count written down here - it moves with upstream.
+artifacts, not defects (Section 5). `make test` prints the `NUMBER OF TESTS`
+line from `build.sim/meson-logs/testlog.txt` once `ninja test` passes
+(`Makefile:166`); on a failure the summary and the failing cases are in that log
+only. Read the count there rather than one written down here - it moves with
+upstream.
 
 ## The three ways to drive it
 
@@ -53,17 +52,28 @@ than a count written down here - it moves with upstream.
 | `t47` | the simulator plus a Jim/Tcl DSL, forced headless | you need state set up, a program run, a register read, or a keypress |
 | `c47` | the same binary with its GTK front end drawn on screen | you want to watch it, or you need what only a mouse click raises |
 
-The corpus never touches the keyboard or the menus. It reaches the screen in
-exactly one file: `graphs_cov.txt` renders each plot with `SNAP` and pins a
-SHA-256 of the bitmap, so the grapher, the fonts and the blitter are covered.
-Every other display path - register lines, the status bar, the softmenus, matrix
-rendering - carries no assertion at all.
+Upstream's `tools/pgemu/pgemu.py` is a fourth, and the only one that runs the
+shipped firmware: it executes a built `.pgm` (DM42) or `.pg5` (DMCP5) image byte
+for byte under an emulated Cortex-M and answers the DMCP calls on the host
+(`tools/pgemu/README.md`). No lane here runs it.
+
+No corpus case presses a key. Drivers call the menu and editor functions
+directly: `covMvarKey` opens the MVAR softmenu, and `covMatrixEditorScroll` and
+the `MEC` check open the matrix editor. The corpus asserts the screen two ways.
+`graphs_cov.txt` and `nested_cov.txt` render each plot with `SNAP` and pin a
+SHA-256 of the bitmap, so the grapher, the fonts and the blitter are covered as
+pixels. The `drm_*_cov` files, `accuracy_fix_cov.txt` and `rm_iter_cov.txt`
+assert display **text**: `DVX` to `DVT` the line a stack register renders,
+`DSX`/`DLX` the X line, `MEC` the last matrix-editor cell, `XFNS` the SHOW
+string, `TSX` the TSV row and `PRX` the printer bytes
+(`checkExpectedOutParameter`, `testSuite.c`). The status bar, the softmenus and
+every pixel outside the two plot files carry no assertion.
 
 **It also barely runs whole programs.** `PGM=` is the directive that drives a
-program end to end through `fnExecute`, and it appears in three files -
-`programs.txt`, `nested_cov.txt`, `graphs_cov.txt` - for 26 cases in total.
-`programs.txt` itself is three fixture programs (`Prime`, `Fact`, `SPIRAL`) over
-five cases. Everything else calls a function directly, so the pass count is weak
+program end to end through `fnExecute`, and it appears in five files -
+`programs.txt`, `nested_cov.txt`, `graphs_cov.txt`, `deriv_accuracy.txt`,
+`undo_on_error.txt`. `programs.txt` itself is three fixture programs (`Prime`,
+`Fact`, `SPIRAL`) over five cases. Everything else calls a function directly, so the pass count is weak
 evidence about the step decoder, the label walk and the program engine: a change
 to any of those needs a case that runs a program, not a green run. Re-derive
 rather than trusting the figure:
@@ -77,8 +87,8 @@ grep -c 'PGM=' src/testSuite/tests/*.txt | grep -v ':0$'
 GTK blitter, which is how `SNAP` works with no window. `./c47 --headless` and
 `t47` draw no window either - they still link and initialise GTK
 ([00-architecture.md](00-architecture.md) s5.4). What needs `xvfb-run` is
-`gtk_init`, which every front end calls unconditionally, and not `press`: since
-upstream `633afdc97` the DSL presses keys headlessly too (Section 3).
+`gtk_init`, which every front end calls unconditionally, and not `press`: the
+DSL presses keys headlessly too (Section 3).
 
 **A softmenu can be opened and hashed headlessly**, so the gap above is a gap,
 not a constraint. Measured at the audit basis with `DISPLAY` and
@@ -86,17 +96,19 @@ not a constraint. Measured at the audit basis with `DISPLAY` and
 Section 3 - first 16 hex digits of each bitmap's SHA-256:
 
 ```bash
-./t47 --reset --exec 'snap s_base'             # e598d3a891c16453
-./t47 --reset --exec 'menu STAT; snap s_stat'  # 646cf9de7d5b3b5d
-./t47 --reset --exec 'menu PROB; snap s_prob'  # defa977133fd4339
-./t47 --reset --exec 'menu MATX; snap s_matx'  # 3baa29210342689e
+./t47 --reset --exec 'snap s_base'             # ec401153a29b2c9c
+./t47 --reset --exec 'menu STAT; snap s_stat'  # ded3e68700428d31
+./t47 --reset --exec 'menu PROB; snap s_prob'  # 2cae6de8787f82b4
+./t47 --reset --exec 'menu MATX; snap s_matx'  # a2836e3dd707265b
 ```
 
 Four distinct hashes: the menu really is rendered into the buffer, and a wrong
 menu fails the comparison. That is the same mechanism `graphs_cov.txt` already
 uses for plots, so covering the softmenus is a corpus or UI-lane test to write,
 not a missing capability. Pin the upstream commit when you do - a font or
-blitter change moves every hash at once.
+blitter change moves every hash at once. A `t47` `snap` reads the GTK surface,
+overlays included, while a corpus `SNAP` reads the test HAL's `lcd_buffer`, so
+take the reference hash with the driver that will compare against it.
 
 
 Three drivers, ascending in realism and descending in convenience. Pick the
@@ -112,36 +124,41 @@ ninja -C build.sim src/testSuite/testSuite
 ./build.sim/src/testSuite/testSuite src/testSuite/tests/testSuiteList.txt
 ```
 
-Corpus size at the audit basis: **346 test files in
-`src/testSuite/tests/`, 342 listed** in `testSuiteList.txt`. Count test files,
-not `.txt` blobs: the directory also holds `testSuiteList.txt` itself and
-`validate_tvm.py`, so a raw `ls` counts 348. (All three move; re-count rather
-than quoting this line.)
+Count corpus files, not `.txt` blobs: the directory also holds
+`testSuiteList.txt` itself and `validate_tvm.py`. All the counts move; re-count
+rather than quoting one:
 
-**Count with `git ls-files`, not `ls`.** Running the suite drops a gitignored
-`c47regsTest.txt` into that same directory (`src/testSuite/hal/io.c`), so on any
-tree the tests have run on, `ls` returns one more than the figure above and the
-extra name is an artifact rather than a test.
+```bash
+git ls-files 'src/testSuite/tests/*.txt' | grep -vc testSuiteList   # corpus files
+grep -v '^;' src/testSuite/tests/testSuiteList.txt | grep -c .        # listed
+```
+
+**Count with `git ls-files`, not `ls`.** Running the suite writes a gitignored
+`c47regsTest.txt` into its working directory (`src/testSuite/hal/io.c`) - the
+repo root under `make test` - and a run from the tests directory leaves one
+there, which `ls` then counts as a test.
 
 A file that is not listed in `testSuiteList.txt` never runs, and the suite stays
 green while reporting the same pass count - add a corpus file and confirm the
-count rises, or the file is decoration. This is not hypothetical: the 4-file gap
-between the two counts above is `debug.txt` (listed but commented out as
-`;debug`), `initialSettings.txt`, `roundi.txt` and `validate_tvm.txt`, none of
-which execute. `conversions.txt` and `conversionsSI.txt`
+count rises, or the file is decoration. This is not hypothetical: the gap
+between the two counts is `debug.txt` (listed but commented out as `;debug`),
+`initialSettings.txt`, `roundi.txt` and `validate_tvm.txt`, none of which
+execute. `conversions.txt` and `conversionsSI.txt`
 are **regenerated on every build** (`src/generateTests/meson.build`), so a
 hand-written case placed there is destroyed; hand-written conversion cases belong
 beside `tempConv.txt`.
 
 - **Two different authorities, and neither is this page.** The header comment of
   `src/testSuite/tests/testSuiteList.txt` owns the *register* grammar - types
-  `LonI Stri ShoI Real Cmpx Time Date ReMa CxMa`, matrices as `"M2,2[1,2,3,4]"`,
-  `any` / `?` to skip an element. It does **not** document the directives: grep
-  it for `Item` or `Timer` and you get nothing, so a reader who trusts it as the
-  whole grammar will conclude those do not exist. `processLine()`
-  (`testSuite.c:6285-6387`) is the authority on directives, and it handles ten:
+  `LonI Stri ShoI Real Cplx Time Date ReMa CxMa`, matrices as `"M2,2[1,2,3,4]"`,
+  `any` / `?` to skip an element. Its header spells the complex type `Cmpx`,
+  which both parsers reject: write `Cplx`. It documents seven of the eleven
+  directives and omits `Item:`, `Timer:`, `TIMERON:` and `TIMEROFF:`, so a
+  reader who trusts it as the whole grammar concludes those do not exist.
+  `processLine()`
+  (`testSuite.c:7032-7136`) is the authority on directives, and it handles eleven:
   `Func:`, `Item:`, `In:`, `Out:`, `Desc:`, `Desc_prefix:`, `Desc_suffix:`,
-  `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
+  `Acc:`, `Timer:`, `TIMERON:` and `TIMEROFF:`. `FARG=n` is the `uint16_t` passed to the
   function. `PGM="Name"` selects a global label for `Func: fnExecute`.
 - **A case is a setup phase then an assertion phase, and the driver does not
   bracket them.** `Func:`, `Item:` and `In:` build the case; `Out:` asserts it
@@ -169,38 +186,40 @@ beside `tempConv.txt`.
   outside that scheme** - `setParameter` calls `abortTest()` inline - which is
   what the misattribution above is about.
 - `Func:` resolves against the `funcTestNoParam[]` whitelist
-  (`testSuite.c:116-742`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
-- `Item:` (`itemToCall`, `testSuite.c:6129`) drives the **real dispatch chain**
+  (`testSuite.c:125-760`), **not** the item catalog - see the coverage section of [05-debugging.md](05-debugging.md).
+- `Item:` (`itemToCall`, `testSuite.c:6876`) drives the **real dispatch chain**
   (`reallyRunFunction`), unlike `Func:` which calls the handler directly. It
   accepts an `ITM_` name resolved by parsing `src/c47/items.h` at runtime, so it
   cannot go stale. Prefer `Item:` when the undo/stack-lift wrapper is part of
   what you are testing.
 - **`Item:` passes the catalog's own parameter; `Func:` does not.** The two arms
-  at `testSuite.c:5969` and `:5975` are `funcToTest(functionParameter)` against
+  at `testSuite.c:6716` and `:6722` are `funcToTest(functionParameter)` against
   `reallyRunFunction(functionIndex, indexOfItems[functionIndex].param)`. A bare
-  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:3612`)**,
+  `Func:` line leaves `functionParameter` at **`NOPARAM` (9876, `items.h:3667`)**,
   which is not a value any catalog item passes. Where the parameter selects
   behaviour, that reaches only the branch 9876 happens to fall into, and where it
   is read as data the function is handed 9876 as the datum. Set it explicitly
-  with `In: FARG=n` (`testSuite.c:3504`) or `Func: name(n)`
-  (`testSuite.c:6030`) - both write the same variable - or use `Item:` and get
+  with `In: FARG=n` (`testSuite.c:3804`) or `Func: name(n)`
+  (`testSuite.c:6777`) - both write the same variable - or use `Item:` and get
   the catalog value for free.
 - **A value is compared to 30 significant digits by default, not 34.** The floor
   is `requiredSignificantDigits`; a mismatch is reported only when
-  `correctSignificantDigits` falls below it (`testSuite.c:4482`, returned at
-  `:4500`). So unless a file raises the floor, the last four digits of a 34-digit
+  `correctSignificantDigits` falls below it (`testSuite.c:4793`, returned at
+  `:4811`). So unless a file raises the floor, the last four digits of a 34-digit
   expectation are documentation, not assertion: a result wrong only in those
-  digits passes. Three things set it:
+  digits passes. The floor applies to register-value comparisons only: the text
+  checks `RXT`, `RXTP`, `DSX`, `DV<X..T>`, `DLX`, `MEC` and `XFNW` compare every
+  character. Three things set it:
   - `DEFAULT_CORRECT_SIGNIFICANT_DIGITS` (`testSuite.c:16`) is 30, and is
-    restored at the top of every file (`:6409`).
+    restored at the top of every file (`:7158`).
   - `Acc: <n>` (or `ACC: <n>`) on a line of its own sets the floor for every case
-    that follows in that file (`testSuite.c:6341`). `squareRoot.txt:14` is the
-    only corpus file that carries one, at `ACC: 34`.
+    that follows in that file (`testSuite.c:7090`). `squareRoot.txt` and the
+    display-rounding files set `Acc: 34`; `git grep -l '^Acc:'` lists them.
   - `ACC=<n>` as a space-delimited token on an `Out:` line sets the floor for
-    that line alone (`outAccuracyFloor`, `testSuite.c:5866`). The spelling
+    that line alone (`outAccuracyFloor`, `testSuite.c:6613`). The spelling
     `ACC=<n>:<OPTION_NAME>` lowers it only in a build that does not compile
     `OPTION_NAME` in, so a full-precision build keeps the full gate; the name
-    must appear in `accuracyOptionNames[]` (`testSuite.c:5817`) or the case
+    must appear in `accuracyOptionNames[]` (`testSuite.c:6564`) or the case
     aborts.
 
   Measure a floor rather than guessing it: `testSuite --report-accuracy <list>`
@@ -208,17 +227,15 @@ beside `tempConv.txt`.
   on its exponent or on an error code.
 - **Spell a system flag by its catalog name, not its `FLAG_` identifier.**
   `In: FL_<name>=0|1` resolves `<name>` by scanning `indexOfItems[]` for a
-  `CAT_SYFL` entry whose `itemCatalogName` matches (`testSuite.c:3484`,
-  inside the fallback at `:3480-3487`), so
-  any system flag is now writable directly - `FL_SIG0`, `FL_ENGOVR`, `FL_FRACT`.
-  A name that resolves to nothing calls `abortTest()`. This replaced a set of
-  hand-written branches at upstream `101084854`, and it **removed
-  `FL_SIGZEROS`**: that flag's catalog name is `SIG0` (`items.c:3950`), so a file
-  still writing `FL_SIGZEROS=1` now aborts its case. Twelve legacy spellings keep
-  explicit branches and still work - `SPCRES`, `CPXRES`, `PLINE`, `SCALE`,
-  `CARRY`, `OVERFL`, `ASLIFT`, `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The
-  non-flag settings are unaffected: `FARG`, `IM`, `CM`, `AM`, `SS`, `WS`, `GAP`,
-  `DSP`, `JG`, `SD`, `RMODE`, `PGM`.
+  `CAT_SYFL` entry whose `itemCatalogName` matches, so any system flag is
+  writable directly - `FL_TRL0`, `FL_ENGOVR`, `FL_FRACT`. A name that resolves to
+  nothing calls `abortTest()`: `FL_SIGZEROS` and `FL_SIG0` are not catalog names
+  (the flag `FLAG_SIGZEROS` is catalogued as `TRL0`, `items.c:4252`) and abort
+  their case. A flag whose catalog name is a glyph is written by number,
+  `FL_0x803D` (`testSuite.c:3765`). Thirteen spellings have explicit branches -
+  `SPCRES`, `CPXRES`, `IGN1ER`, `PLINE`, `SCALE`, `CARRY`, `OVERFL`, `ASLIFT`,
+  `YMD`, `MDY`, `DMY`, `TDM24`, `ENDPMT`. The non-flag settings: `FARG`, `IM`,
+  `CM`, `AM`, `SS`, `WS`, `GAP`, `DSP`, `JG`, `SD`, `RMODE`, `DRM`, `PGM`.
 - **An `In:` line sets only what it names.** A setting it omits keeps the value
   the previous case left, and the per-file preamble is applied once at the top
   rather than before every case - so one case setting `SS=8` silently moves every
@@ -226,9 +243,10 @@ beside `tempConv.txt`.
   in list order: `matrixIndex`, the stack size, `denMax` and the angular mode all
   survive into the next file. Name every setting a case depends on, and leave a
   changed setting as you found it.
-- **A `*Cov` driver hides a function from name-based coverage counting.** 36
-  entries in `funcTestNoParam[]` are `fn...Cov` wrappers that set up context and
-  then call the real function - `covEff` stores the TVM variables and calls
+- **A `*Cov` driver hides a function from name-based coverage counting.** The
+  `fn...Cov` entries in `funcTestNoParam[]` are wrappers that set up context and
+  then call the real function (count them with `awk '/^const funcTest_t
+  funcTestNoParam/,/^};/' src/testSuite/testSuite.c | grep -c '{"fn[A-Za-z0-9_]*Cov"'`) - `covEff` stores the TVM variables and calls
   `fnEff`, for instance. The wrapped function carries no `Func:` line of its own,
   so counting coverage by name reports it as untested when it is not.
 - `abortTest()` counts a failure and continues (its `exit(-1)` is commented
@@ -244,8 +262,8 @@ beside `tempConv.txt`.
 
 `t47` is **not a separate program**: it is a copy of the `c47` or `r47` GTK
 binary built into `build.sim.t47` with `-DT47`, which only silences debug output
-(`defines.h:458-497`). Headless is selected by **the binary's basename**
-(`c47-gtk.c:373-382`), so `./c47 --headless ...` is identical to `./t47 ...`.
+(`defines.h:471-510`). Headless is selected by **the binary's basename**
+(`c47-gtk.c:387-396`), so `./c47 --headless ...` is identical to `./t47 ...`.
 
 ```bash
 cd ~/_git/c43
@@ -253,24 +271,27 @@ make simc47 t47          # EXACTLY this. A bare `make t47` builds the R47-based 
 ./t47 --reset --exec 'nim 2; nim 3; xeq +; puts "X=[reg X]"'      # -> X=5
 ```
 
-Jim Tcl is linked into `c47` and `r47` too, so the DSL is always available.
+Jim Tcl is linked into `c47` and `r47` too, so the DSL is available in every
+front end whenever `dep/jimtcl` was present at configure time
+([03-build.md](03-build.md)).
 `initDSL` registers, in order: all standard Jim Tcl (`puts`, `set`, `expr`,
 `proc`, `for`, `exec`, `string`, ...); then every catalog function it can, as a
 lowercased command; then the DSL commands **last, so they override same-named
 catalog functions**.
 
 Not every catalog function makes it, and the run prints how many did - read that
-line rather than a count written here. `registerCatFn` (`dsl.c:210-241`) skips a
+line rather than a count written here. `registerCatFn` (`dsl.c:213-244`) skips a
 name that is empty, that duplicates the softmenu spelling, that is not a name by
-`compareString`, that is one of `+ - * / %` (they would shadow Jim's arithmetic),
-or that contains any of ``$ ; " \ [ ] { } ( )`` (they would break Jim parsing).
+`compareString`, that is one of `+ - * / %` or `IF`/`WHILE`/`FOR` (they would
+shadow Jim's arithmetic and control commands; `xeq IF` still reaches the STRUCT
+op), or that contains any of ``$ ; " \ [ ] { } ( )`` (they would break Jim parsing).
 Those reasons are the durable fact; the count moves with the catalog.
 
 | Command | Signature | Notes |
 |---|---|---|
 | `item` | `item <number> [arg] [#comment]` | By item code, bypasses name lookup. `1..LAST_ITEM-1`. **Fallback only** - upstream requires the command name in any script a reader sees ([10-writing.md](10-writing.md)); use `catfn` for a name that is not a legal Tcl identifier. |
 | `catfn` | `catfn <name> [arg]` | By name. Needed for names that are not legal Tcl identifiers: `catfn STO+ 00`. |
-| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:847`). |
+| `xeq` | `xeq <label> [arg]` | Runs a global label; falls back to a catalog function if no label matches. Clears `dynamicMenuItem` to -1 before running the label - on that path only, after the lookup (`dsl.c:865`). |
 | `nim` | `nim <string>` | Types a number key-by-key then `closeNim()`. First `nim` -> Y, second -> X. `-` is deferred and emitted as CHS (RPN semantics). |
 | `reg` | `reg <name>` / `reg <name> <value>` | Read/write a register. **Returns a Jim value - wrap in `puts`.** Matrices return `<unsupported>`. |
 | `var` | `var <name>` / `var <name> <value>` | Same, but **creates** the named variable. |
@@ -279,14 +300,14 @@ Those reasons are the durable fact; the count moves with the catalog.
 | `xportp` | `xportp <label> <file>` | Export a program. |
 | `loadst` / `savest` | `[<file>]` | State `.s47`. **Always name the file** - unnamed is a silent no-op headless, see below. |
 | `impreg` / `expreg` | `expreg <reg> [<file>]` | Registers `.d47`. **Always name the file.** |
-| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1213`). |
+| `snap` | `snap [<base>]` | Writes `<base>.bmp` and `<base>.REGS.TSV.T47.TSV` - `snap` builds the `.REGS.TSV` name, then `tsvfnSet` appends `.T47.TSV` to whatever it is handed (`dsl.c:1241`). |
 | `menu`, `asn`, `tsvfn` | see `src/t47/dsl.c` | Menu / key assignment / TSV log. |
 | `press` | one key per call; **works headless** since upstream `633afdc97` (`dsl.c` `injectScriptKey`) | Section 3. |
 
 **A single-letter name is a register, never a named variable.** `reg` and `var`
-resolve their argument through `dslParseRegisterArg` (`value.c:59`): one
+resolve their argument through `dslParseRegisterArg` (`value.c:68`): one
 alphabetic character is case-folded into `registerFlagLetters`
-("XYZTABCDLIJKMNPQRSEFGHOUVW", `c47.c:30`) - all 26 letters map to a lettered,
+("XYZTABCDLIJKMNPQRSEFGHOUVW", `c47.c:31`) - all 26 letters map to a lettered,
 stat or spare register, so the lookup never misses and never reaches the named
 variables. `[var x]` reads stack register X and `[var u]` reads spare register
 U, whatever named variables exist. A named variable is reachable only with a
@@ -298,9 +319,9 @@ abort (error 60) halts the machine with the modal error still raised; on the
 keyboard the next keypress acknowledges it, but the DSL enters through
 `reallyRunFunction`, skipping that acknowledgment, and `fnExecute` runs a
 program only when `lastErrorCode == ERROR_NONE` (`lblGtoXeq.c:201`) - the `xeq`
-returns with nothing run and no DSL-visible failure. No DSL command performs
-the acknowledgment (`nim` does not clear it, measured). Split the script at the
-abort, or `press` EXIT first - which `t47` can now do itself.
+returns with nothing run and no DSL-visible failure. `nim` does not clear it
+(measured at `dbc5cb45b`; `nimCmd` in `dsl.c` writes no `lastErrorCode`). Split
+the script at the abort, or `press` EXIT first.
 
 Value literals (`src/t47/value.c`): real `2.5`; complex `"3 + ix4"`; short
 integer `"FF#16"` (base 2..16); long integer `"12345678901234567890"`; date
@@ -312,19 +333,22 @@ Flags that matter:
 
 - `--reset` - `fnReset(CONFIRMED)` instead of `restoreCalc()`; prints
   `Factory reset: backup.cfg not loaded`. **Use it for every reproducible run.**
-- Scripted runs never write the config back (`gtkGui.c:100-110` guards
+- Scripted runs never write the config back (`gtkGui.c:101-111` guards
   `saveCalc()` on `!scriptingActive`), so a script cannot corrupt your state.
 - `--snapskiprefresh` - `fnSNAP` skips `refreshScreen(80)`, preserving drawn
   PIXEL/POINT/plot pixels.
+- `--snapkeepshift` - `snap` keeps a pending f/g shift and its glyph; without it
+  `fnSNAP` clears the shift, so the next key is unshifted.
 - `--script <file>` (`-` = stdin), `--dslcommands` (dumps the ops table and
-  exits), `--testPgms`, `--writeexportall`.
+  exits), `--catsequence` (writes `cat-fcns.tsv` and `cat-menus.tsv` and exits),
+  `--testPgms`, `--writeexportall`.
 - **main() returns the Jim return code**, so `./t47 --exec '...'` exits non-zero
   on a script error - usable directly in a shell gate.
 
 **A headless file dialog fails quietly - it does not fail the run.** The GTK HAL
 guards both dialog paths on `headlessMode`: `file_selection_screen` returns
 `FILE_ERROR` as its first statement (`src/c47-gtk/hal/io.c:36-41`) and
-`show_warning` prints to stderr (`src/c47-gtk/hal/io.c:297-300`). Write that
+`show_warning` prints to stderr (`src/c47-gtk/hal/io.c:328-331`). Write that
 path in full - four files in the tree are called `hal/io.c`, and the testSuite's
 own (rule 6.9) is a different one. Re-measured at the audit basis with
 `DISPLAY` and `WAYLAND_DISPLAY` unset, each under `timeout 12`:
@@ -339,7 +363,7 @@ own (rule 6.9) is a different one. Re-measured at the audit basis with
 The diagnostic reads `<title>: no file chooser without a GUI; name the file in
 the script instead`, and continues with the list of commands that take one. The
 named-file forms take a different path entirely: `_ioFileNameOverride`
-short-circuits the chooser (`src/c47-gtk/hal/io.c:96-100`), which is
+short-circuits the chooser (`src/c47-gtk/hal/io.c:109-113`), which is
 why the DSL commands take a filename at all. `load` (the LOAD catalog item) never reaches a
 chooser - `LM_ALL` routes to the fixed `SAVE_DIR/SAVE_FILE`.
 
@@ -393,7 +417,7 @@ returning a long integer, exposes a truncating round-trip that integer sentinels
 sail straight through.
 
 **Write the complex with the spaces.** `isComplexNumber` requires whitespace
-after the sign (`value.c:466`), so `"3+ix4"` fails the complex test, falls
+after the sign (`value.c:478`), so `"3+ix4"` fails the complex test, falls
 through real parsing, and is stored as a **string** - a probe that silently
 tests string round-tripping instead of the type you meant to test, which is the
 exact failure this paragraph is about.
@@ -416,19 +440,19 @@ cd ~/_git/c43            # MUST run from the repo root: res/ CSS is cwd-relative
 xvfb-run -a ./t47 --reset --exec 'press 1; press ENTER; puts "X=[reg X]"'   # machine with no display
 ```
 
-**`press` no longer needs the GUI.** Upstream `633afdc97` added
-`scriptInjectKeyHeadless()` (`gtkGui.c`), and `injectScriptKey()` picks it over
-`scriptInjectGtkKey()` whenever `headlessMode` is set (`dsl.c`), so the runtime
-refusal this section used to describe is gone. Upstream states it too:
+**`press` runs headless.** `injectScriptKey()` (`dsl.c`) calls
+`scriptInjectKeyHeadless()` (`gtkGui.c`) when `headlessMode` is set and
+`scriptInjectGtkKey()` otherwise; a lane pinned to an `UPSTREAM_COMMIT` older
+than `633afdc97` has no headless path. Upstream states it too:
 "t47 and c47 are one build, two front ends [...] The whole DSL runs in both,
 press included" (`res/SCRIPTS/cli_automation_examples.txt`).
 
 **A display server is still required, for `gtk_init` rather than for `press`.**
-`gtk_init` runs unconditionally in every front end (`c47-gtk.c:430`), so on a
+`gtk_init` runs unconditionally in every front end (`c47-gtk.c:444`), so on a
 machine with no X server the run dies at start-up with
-`Gtk-WARNING **: cannot open display:` and never reaches the script - measured at
-`dbc5cb45b` under `env -i`, exit 1. `xvfb-run` therefore stays in the CI lanes,
-and it now wraps whichever front end the lane wants. Unsetting `DISPLAY` and
+`Gtk-WARNING **: cannot open display:` and never reaches the script - measured
+under `env -i`, exit 1. `xvfb-run` therefore stays in the CI lanes, wrapping
+whichever front end the lane wants. Unsetting `DISPLAY` and
 `WAYLAND_DISPLAY` is **not** the same test: GTK's Wayland backend falls back to
 `$XDG_RUNTIME_DIR/wayland-0`, which is why a scripted run still works on a
 Wayland desktop with both variables cleared.
@@ -440,7 +464,7 @@ four ways: `xvfb-run ./c47 --script`, `xvfb-run ./c47 --headless --script`,
 `c47` and `t47` are **the same binary**, byte for byte (`md5sum c47 t47`
 matches): `make simc47 t47` builds one tree and `cp`s the result, and `main`
 reads `argv[0]` to force headless when the basename is `t47`
-(`c47-gtk.c:378`). Build both with `make simc47 t47` **exactly** - a bare
+(`c47-gtk.c:392`). Build both with `make simc47 t47` **exactly** - a bare
 `make t47` builds the R47-based t47 instead.
 
 A consequence worth knowing: because that invocation builds everything in
@@ -450,7 +474,7 @@ one for reading debug output.
 
 What the GUI still has that a headless run does not: the release handlers.
 `btnReleased`/`btnFnReleased` are wired only to GTK `button-release-event`
-signals - `gtkGui.c:5702-5707` for the softkeys, `:5829` onwards for the 37
+signals - `gtkGui.c:5724-5729` for the softkeys, `:5851` onwards for the 37
 physical keys - so anything that happens when an on-screen button is let go needs
 a mouse click and cannot be scripted at all. `press` reaches the press handlers:
 `F1`-`F6` call `btnFnClicked()` and `@k NN` calls `btnClicked()` directly, while
@@ -460,8 +484,10 @@ and `keyReleased()` directly when headless.
 
 **Only `press` reaches the keyboard and menu decode.** `item` and `xeq` call the
 function directly, so anything behind TAM parameter entry or a softmenu is
-unreachable without it - a name taking a TAM argument (`M.EDITN`) is not
-scriptable at all. Driving the matrix editor to cell 2;2, which `snap` then
+unreachable without it. The DSL passes a parameter only to an item whose `PTP_`
+type it parses (`expectedScriptArgCount` in `dsl.c`), so `STO`, `RCL` and
+`M.DIM` script fine while `M.EDITN`, which is `PTP_DISABLED`, is not scriptable
+at all. Driving the matrix editor to cell 2;2, which `snap` then
 shows as `2;2=`:
 
 ```bash
@@ -469,16 +495,16 @@ shows as `2;2=`:
 ```
 
 In M_EDIT `F5`/`F6` are left/right and
-the f-shifted pair is up/down (`softmenus.c:241-243`). M.EDIT binds the editor
+the f-shifted pair is up/down (`softmenus.c:254-256`). M.EDIT binds the editor
 to `REGISTER_X` when called with no parameter (`ui/matrixEditor.c:96-100`), so a
 later `nim` pushes the matrix out of X - index a numbered register instead when
 the test needs the stack.
 
 - The repo root is mandatory for the GUI: `prepareCssData()`
-  (`src/c47-gtk/gtkGui.c:1986`) does `fopen(CSSFILE, "rb")` at `:1992` on
-  `res/c47_pre.css` and calls `exit(1)` at `:1995` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
+  (`src/c47-gtk/gtkGui.c:1994`) does `fopen(CSSFILE, "rb")` at `:2000` on
+  `res/c47_pre.css` and calls `exit(1)` at `:2003` on failure. `res/testPgms/testPgms.bin`, `backup.cfg`, `PROGRAMS/`, `STATE/`,
   `DATA/` are cwd-relative too. **On macOS only**, `main` chdirs to the
-  binary's own directory first (`c47-gtk.c:73`, `#if defined(__APPLE__)`, and it
+  binary's own directory first (`c47-gtk.c:76`, `#if defined(__APPLE__)`, and it
   skips the chdir when `argv[0]` is `t47`), so a Mac tolerates any cwd and Linux
   does not. Upstream's own DSL notes describe the chdir without that condition;
   on Linux, `c47` from a foreign cwd dies with
@@ -525,7 +551,7 @@ those two paths, not both.
 ## 4. Programs and `.p47`
 
 `.p47` is **plain ASCII**, one decimal byte value per line after a six-line
-header, written at `saveRestorePrograms.c:640-644`. The comment block at
+header, written at `saveRestorePrograms.c:661-665`. The comment block at
 `:13-29` tabulates the same layout and agrees with the writer:
 
 ```
@@ -542,7 +568,7 @@ PROGRAM
 ```
 
 `WP43_program_file_version` is still accepted on read, with an "experimental"
-warning (`saveRestorePrograms.c:760-762`).
+warning (`saveRestorePrograms.c:781-783`).
 Extensions (`src/c47/hal/io.h`): `.p47` programs, `.s47` state, `.d47` data,
 `.rtf`/`.txt` human-readable exports.
 
@@ -557,16 +583,16 @@ comment claims - the tool removes the step where that goes wrong. The
 `nestcheck` lane's `tooling/nestcheck/*.pgm` are worked examples.
 
 ```bash
-./t47 --reset --exec 'readp res/PROGRAMS/SPIRALk.p47; xeq SPIRALk; puts "X=[reg X]"'
-./t47 --reset --exec 'readp ./docs/appnotes/sources/AN0022b_programs/func.p47; xeq PLTROOT'
+timeout 30 ./t47 --reset --exec 'readp res/PROGRAMS/SPIRALk.p47; xeq SPIRALk; puts "X=[reg X]"'   # redraws until stopped
+./t47 --reset --exec 'readp ./docs/appnotes/sources/AN0022_RPN_solve_integration_plot_deriv/func.p47; xeq PLTROOT'
 ```
 
 **A program a script drives must carry a *global* label**, which is the
 quoted-name form - `LBL 'A'`, `LBL '01'`. A bare `LBL 01` is a *local* label,
 reachable only from inside the program that defines it, and `xeq` resolves
 global names (`findNamedLabel`), so a repro built on one runs nothing. The name
-being digits does not make it local; the quotes are what decide. Measured at
-`dbc5cb45b`, assembling `LBL '01' / LIT 7 / ADD / RTN / END`:
+being digits does not make it local; the quotes are what decide. Assembling
+`LBL '01' / LIT 7 / ADD / RTN / END`:
 
 ```bash
 ./t47 --reset --exec "readp glob.p47; nim 5; xeq 01; puts \"X=[reg X]\""   # -> X=12
@@ -581,7 +607,7 @@ loads and never runs.
 use the path as-is if it exists; else if it has no `/`, try `PROGRAMS/<name>`;
 else let `fnLoadProgram` report the failure. The plumbing is
 `_ioFileNameOverride`, which the GTK HAL **consumes once and clears**
-(`src/c47-gtk/hal/io.c:96-100`). That is how `readp`, `xportp`, `loadst`, `savest`,
+(`src/c47-gtk/hal/io.c:109-113`). That is how `readp`, `xportp`, `loadst`, `savest`,
 `impreg`, `expreg` and `snap` bypass the GTK file chooser.
 
 `fnLoadProgram` is item **1567** (READP); `fnSaveProgram` is 1590 (WRITEP). The
@@ -593,7 +619,7 @@ human-readable exports. Ones we have used: `SPIRALk`, `BinetV4`, `GudrmPL`,
 `MANSLV2`, `NQueens`, `TRIv1p14`, `GRAPHS`, `TSTPLOT`, `INTDEMO`, `OpAmp`,
 `47DEFLT`.
 
-## 5. `testPgms.bin` - the fixture whose absence fakes a dead subsystem
+## 5. `testPgms.bin` - the fixture that fakes a dead subsystem when absent or stale
 
 **Different format from `.p47`**: raw binary, size-prefixed, produced by the
 native `generateTestPgms` target, not a `.p47` reader.
@@ -603,7 +629,15 @@ ninja -C build.sim testPgms
 mkdir -p res/testPgms && cp build.sim/src/generateTestPgms/testPgms.bin res/testPgms/
 ```
 
-`addTestPrograms()` (`config.c:1289`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
+The fixture is **tracked** (`res/testPgms/testPgms.bin`, with `.txt` and `.zip`
+beside it). `make testPgms`, `make test`, `make repeattest` and `make test_asan`
+write the regenerated file over it; upstream `AGENTS.md` section 10 says to
+commit it with a change to the item table or `src/generateTestPgms`, and
+otherwise to restore it with `git checkout -- res/testPgms/testPgms.bin`. Running
+the binary directly loads whatever copy is in the tree, and that copy can lag
+the item table: at upstream `7f030deba`, `make test` rewrites it.
+
+`addTestPrograms()` (`config.c:1500`) reserves `TO_BYTES(TO_BLOCKS(24000))` and
 `fopen`s `res/testPgms/testPgms.bin` **relative to the cwd**. It is called
 unconditionally under `TESTSUITE_BUILD`.
 
@@ -623,7 +657,7 @@ from the **same synced upstream sources** as the binary, or the opcode numbering
 will not match.
 
 The fixture only loads into a blank calculator: `restoreCalc` returns early when
-`loadTestPrograms` is set (`saveRestoreBackup.c:842`).
+`loadTestPrograms` is set (`saveRestoreBackup.c:853`).
 
 ## 6. The test-authoring rules
 
@@ -722,8 +756,8 @@ line 441, not at the end of the file) explaining why `matrix2_cov`,
 
 **Read the tail of the list, not the prose about it.** A comment that places a
 file relative to the end is a claim about a line that moves: what `config_cov`
-actually needs is to run after `graphs_cov`, and the list ends `serialize_cov`,
-`graphs_cov`, `nested_cov`, `config_cov`, `stack_cov`.
+actually needs is to run after `graphs_cov`. Read the tail rather than a copy
+of it: `grep -v '^;' src/testSuite/tests/testSuiteList.txt | grep . | tail -12`.
 
 Watch for mode-dependent readings: `fnGetType` folds the operand angular/polar
 mode into the pushed code's fraction (a complex reads `2.000` in RECT but `2.300`
@@ -947,7 +981,7 @@ else; a class with no mutant is the gap worth closing.
 **Perturb a value; never remove a bound.** A mutant aimed at a solver
 tolerance, an iteration cap or a convergence test must leave the loop a ceiling,
 or the experiment cannot end - and a gate that never returns has not failed, it
-has hung. The corpus already spends most of its wall clock in two numeric files
+has hung. The corpus spends much of its wall clock in a few numeric files
 (Section 7.9), so an unbounded mutant there costs a run and answers nothing.
 
 **A rig that can lie must refuse, not score itself.** Four conditions turn a
@@ -987,15 +1021,16 @@ Corollaries:
 
   Checking those is what makes "every copy is covered" believable.
 
-### 7.9 Know what a case costs the run, because two files already dominate it
+### 7.9 Know what a case costs the run
 
 Corpus wall clock is not spread evenly across 300-odd files - it sits in a
 handful of numeric ones, and a case added beside them is charged to every lane
 that runs the corpus, including the coverage and Valgrind lanes that run it
-under instrumentation. Measured at `dbc5cb45b` on an x86-64 host, one run, by
-timestamping the suite's own per-file headers: **`matrix.txt` 154 s and
-`slvp.txt` 82 s of a 305 s run** - two files, three quarters of it. Everything
-else is under 12 s and most files are under one.
+under instrumentation. Measured at the audit basis on an x86-64 host, one run,
+by timestamping the suite's own per-file headers: a 64 s run over 363 files, the
+slowest `nested_cov.txt` (10.5 s), `hypergeometric_r.txt` (8.1 s) and
+`hypergeometric_p.txt` (7.5 s), and 349 files under one second. Upstream's
+solver and eigenvalue work moves this distribution by multiples.
 
 Measure before you argue about it; the distribution moves whenever upstream adds
 a solver case:
@@ -1013,8 +1048,9 @@ An expensive case must not be the only cover for what it tests. Give the
 mechanism a **fast twin** beside the slow case - reduced precision, easier
 operands - so the mechanism stays gated when the accuracy case is the one being
 argued about, and leave the setting the twin changes exactly as it was found
-(rule 6.6). Nothing lets a lane skip the slow set: every lane that runs the
-corpus runs all of it.
+(rule 6.6). CI runs the full list in every lane that runs the corpus; only
+`scripts/test/run-valgrind.sh` takes another list (`VALGRIND_LIST`), and no
+workflow sets it.
 
 ## 8. What each check here is worth
 
@@ -1036,7 +1072,8 @@ first; it is the only question that decides how much a green run means.
 | `fnStateRoundtrip` in `serialize_state_cov.txt` | metamorphic relation | nothing - it relates two runs of the same build | full, and independent |
 | the pool and GMP end-of-run accounting (6.8) | implicit oracle | nothing - a non-zero balance is wrong on its face | weak per case, and mandatory |
 | ASan, UBSan, Valgrind, the three fuzz lanes, the pool canary | implicit oracle | nothing | weak per case, and free to run |
-| `fnHashBmpCov` in `graphs_cov.txt` | characterization test | a bitmap photographed earlier | change detector; it cannot say the plot is right |
+| `fnHashBmpCov` in `graphs_cov.txt` and `nested_cov.txt` | characterization test | a bitmap photographed earlier | change detector; it cannot say the plot is right |
+| the display-text checks (`RXT`, `RXTP`, `DSX`, `DV*`, `DLX`, `MEC`, `TSX`, `PRX`, `XFN*`) in the `drm_*_cov` files | derived oracle | a Python decimal model of the display rules, under upstream's `docs/appnotes/sources/AN0017_Display_Formats/rounding-audit/support/expected/` | full for the text compared; no pixel is compared |
 | every `*-baseline.txt` under `scripts/test/` | characterization test, ratcheted | a finding list photographed earlier | change detector |
 | the coverage floors and the sector gate | not an oracle at all | nothing about correctness | measures reach only |
 | a `.t47` script under the UI lane | implicit oracle, plus whatever the script asserts | its own `check` calls; the lane reads only the exit status | as strong as those calls - a script asserting nothing passes |
@@ -1066,11 +1103,11 @@ moves:
 
 ```bash
 cd <c43-clone>
-for f in src/testSuite/tests/*.txt; do b=$(basename "$f" .txt); [ "$b" = testSuiteList ] && continue
+for f in $(git ls-files 'src/testSuite/tests/*.txt'); do b=$(basename "$f" .txt); [ "$b" = testSuiteList ] && continue
   grep -qxE "[[:space:]]*$b[[:space:]]*" src/testSuite/tests/testSuiteList.txt || echo "not run: $b"; done
 ```
 
-That command reports five files at upstream `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`.
+At the audit basis that command names the four files Section 1 lists.
 Whether each is deliberate is a per-file question; that none of them runs is
 not.
 
@@ -1082,13 +1119,14 @@ case that asserts a default asserts the absence of your change.
 **A host build that is not the shipped build.** `TESTSUITE_BUILD` and the
 159-digit solver options make the corpus exercise code the firmware does not
 contain. The host defines `OPTION_CUBIC_159` and `OPTION_EIGEN_159`
-(`src/c47/defines.h:34` and `:36`, read at `5ccb4723efb3872a1db5e1538e61bf7d46cf3d9a`),
-so every corpus case that solves a cubic or an eigenproblem runs the 159-digit
-implementation. DMCP package 4 - the Makefile default, and the only package that
-fits in flash - undefines all three (`:289-291`), and packages 1 and 2 lose
-`OPTION_EIGEN_159` with `OPTION_EIGEN` (`:329-332`). The shipped binary
+(`src/c47/defines.h:34`, `:36`), so every corpus case that solves a cubic or an
+eigenproblem runs the 159-digit implementation. Every DM42 package undefines all
+three 159-digit options in the block common to packages 1-4 (`:284-286`), and
+`OPTION_EIGEN_159` follows `OPTION_EIGEN` out (`:316-318`). A DM42 firmware
 therefore runs the 75-digit twins, which the corpus never reaches, and a green
-run is a true statement about a program nobody ships. This is a seam rather than
+run is a true statement about a program the DM42 does not run. The DMCP5
+targets reach neither block (`:93-98`) and compile the 159-digit solvers, as the
+host does. This is a seam rather than
 a bug; the discipline is to keep it visible. When the claim is about the
 firmware, name the build that produced it and re-run with the defines that build
 uses ([06-memory.md](06-memory.md)).

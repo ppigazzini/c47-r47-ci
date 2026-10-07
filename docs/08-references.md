@@ -12,7 +12,9 @@ upstream c43 files over any note in this repository when the two disagree.
 - `meson.build`, `meson_options.txt`, `src/c47-dmcp*/cross_arm_gcc.build` - the build graph and cross files
 - `.gitlab-ci.yml` - upstream's own CI: stages, artifacts, runner tags, release rules
 - `docs/appnotes/` - first-party application notes, including the `.d47` file-format spec
-- `res/SCRIPTS/cli_automation_examples.txt` - the DSL's own reference, maintained by upstream: worked `--exec` examples for screenshots, stat graphs, programmed solve/draw, state save/load, the keyboard path and the power cycle. Read it before writing a script; it is the source for which names are scriptable and which need `press`. Two caveats measured on Linux. It says `c47` chdirs to its own folder, but that chdir is `__APPLE__`-only (`c47-gtk.c:73`), so on Linux `c47` still needs the repo root as cwd. And it disagrees with itself about `press` after `633afdc97` added the headless path: its opening lines say "The whole DSL runs in both, press included", while the keyboard section is still headed "press; c47 only" - the opening lines are the ones that match the code
+- `docs/authoring.md` - the rule set for the manual and the application notes; upstream `AGENTS.md` section 1 binds agents to it too
+- `tools/pgemu/` - runs a built `.pgm`/`.pg5` under an emulated Cortex-M; its `MEASUREMENTS.md` states upstream's DM42 and DM42n stack figures, which read the DM42 differently from this repo ([06-memory.md](06-memory.md) Section 3)
+- `res/SCRIPTS/cli_automation_examples.txt` - the DSL's own reference, maintained by upstream: worked `--exec` examples for screenshots, stat graphs, programmed solve/draw, state save/load, the keyboard path and the power cycle. Upstream `AGENTS.md` section 9 forbids any `t47` or `c47` run until it is read in full, freshly each session; it is the source for which names are scriptable and which need `press`. One caveat measured on Linux: it says `c47` chdirs to its own folder, but that chdir is `__APPLE__`-only (`c47-gtk.c:76`), so on Linux `c47` still needs the repo root as cwd
 - Community wiki build instructions: <https://gitlab.com/h2x/c47-wiki/-/wikis/Build-instructions>
 - Project wiki: <https://gitlab.com/rpncalculators/c43/-/wikis/home>
 
@@ -63,7 +65,7 @@ source is *for* here:
   source of the split above. It is what stops "we have a test" being read as a
   statement about strength.
 - **McKeeman, "Differential Testing for Software" (1998)** - the name for what
-  Section 6.7 does: drive two implementations with one input and diff. Older
+  [04-testing.md](04-testing.md) Section 6.7 does: drive two implementations with one input and diff. Older
   than this harness, with its failure modes already written down.
 - **Knight and Leveson, "An Experimental Evaluation of the Assumption of
   Independence in Multiversion Programming" (IEEE TSE 12(1), 1986)** - 27
@@ -145,7 +147,9 @@ Notes that are easy to lose:
   FORTIFY's inline libc wrappers interfere with ASan/MSan interception and cause
   false or missed reports. Keep it for a *hardened* lane and drop it
   (`-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0`) in any `-Db_sanitize` build. Most
-  distros default it on, so this must be active, not assumed. ASan, TSan and MSan
+  distros default it on, so this must be active, not assumed. No lane here passes
+  `-U_FORTIFY_SOURCE`, and whether FORTIFY is active in the sanitizer builds is
+  not established. ASan, TSan and MSan
   are mutually exclusive with each other - one sanitizer per lane.
 - `-ftrivial-auto-var-init=zero` (GCC 12 / Clang 8) deterministically zeroes
   automatic variables, neutralising a whole class of uninitialised-read bugs. It
@@ -159,13 +163,14 @@ Notes that are easy to lose:
 
 C47 lets a program re-enter its own numeric engines (a solved program can
 contain SOLVE; an integrand can contain INT), so unbounded recursion on the C
-stack is a reachable user input, not a coding accident - and on the DM42 that
-stack is a scheduler task stack sharing one firmware arena with the C47 pool and
-with GMP, which the tree does not state anywhere
-([06-memory.md](06-memory.md) Section 3 owns the derivation). Upstream caps PLOT,
-INT and SOLVE nesting with one shared depth counter (`MAX_ENGINE_NESTING_DEPTH`
-in `defines.h`). The mature-interpreter consensus, for when
-this class comes up again:
+stack is a reachable user input, not a coding accident. Which stack a DM42
+program runs on is read two ways, by this repo and by upstream's `tools/pgemu`
+([06-memory.md](06-memory.md) Section 3). Upstream bounds PLOT, INT and SOLVE
+with one counter, `MAX_ENGINE_NESTING_DEPTH` in `defines.h` (1 on the DM42, 3 on
+the DM42n, 4 on the simulator), refuses INT and SOLVE inside a plot on the DM42
+(`PLOT_NESTING_ALLOWED`), and leaves the programmable sum and product outside
+the count. The mature-interpreter consensus, for when this class comes up
+again:
 
 - **One budget per stack, not one per facility.** Lua bounds *all* nested C
   calls with a single `LUAI_MAXCCALLS` rather than a counter per entry point:
@@ -192,8 +197,9 @@ this class comes up again:
   ELF with `objdump -d` (prologue `sub sp` plus the `stmdb sp!` callee
   saves), and a hijacked command returning the address of a local gives the
   live stack pointer on the device. The capacity side - what the DMCP OS
-  grants - is stated in no public document, so it ends as a hardware
-  measurement, not a datasheet lookup.
+  grants - is stated in no DMCP document; this repo and upstream both read it
+  out of the firmware image and disagree, so it ends as a hardware measurement,
+  not a datasheet lookup.
 - **A depth bound and a smaller frame are complementary, not rivals.** Moving
   the big engine locals off the C stack into the heap - to shrink the per-level
   stack cost - is a real technique: CPython 3.11 did exactly this, relocating
@@ -202,21 +208,13 @@ this class comes up again:
   infinite recursion exhausts any finite arena, so a limit is still required -
   CPython kept its recursion limit alongside the heap frames. The two solve
   different halves: the bound stops the runaway, the smaller frame raises the
-  ceiling and the safety margin. Which matters here depends on the one number
-  still unmeasured, the DMCP C-stack grant: if it comfortably exceeds the
-  ~12-13 KiB peak at depth 5, the bound alone suffices and relocation is
-  headroom nobody needs (real nesting peaks at depth 3); if it is tight,
-  relocation earns its keep. Cost of the relocation, for when it is weighed:
-  `solver()` has seven return paths and a 1468-byte working set of 39-digit
-  `real_t` values, so it is delicate to move (one heap alloc/free per solver
-  entry, i.e. per nesting level - not per function evaluation), and the pool it
-  would lean on has its own unguarded exhaustion path - a self-summing program
-  that fills the 5000-region pool on the simulator crashes in a `labelList`
-  access (`lblGtoXeq.c:73`), with megabytes of C stack still free, rather than
-  failing cleanly with `RAM_FULL` (measured, `c91ce37a2`); relocating frames
-  onto the pool without hardening that path would trade a stack overflow for a
-  pool crash. Land the bound first (it stops the crash on every arena); treat
-  relocation as a separate improvement, sized against the measured stack grant.
+  ceiling and the safety margin. Upstream does both: the engine bound above,
+  and `solver()`'s working reals taken from the heap and freed on every exit
+  (the frame comment in `solver/solve.c` gives 1952 to 552 bytes on the DM42).
+  The pool has its own unguarded exhaustion path: a self-summing program that
+  fills the 5000-region pool on the simulator crashes in a `labelList` access
+  (`lblGtoXeq.c:73`), with megabytes of C stack still free, rather than failing
+  cleanly with `RAM_FULL` (measured, `c91ce37a2`).
 
 ## Reference list
 

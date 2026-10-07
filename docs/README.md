@@ -8,8 +8,8 @@ SwissMicros DM42 family, descended from WP43. The repository is named `c43`; the
 application is called C47.
 
 The product source is not here. It lives upstream on GitLab at
-<https://gitlab.com/rpncalculators/c43>, and every lane in this repo resolves
-that upstream commit at runtime, clones it, and builds it. This documentation
+<https://gitlab.com/rpncalculators/c43>, and every lane that tests the product
+resolves that upstream commit at runtime, clones it, and builds it. This documentation
 therefore covers two things at once: **how C47 is built** so you can navigate
 and debug it, and **how this harness drives it**.
 
@@ -22,7 +22,8 @@ The repository holds three things:
 - **The workflows** - `.github/workflows/` are thin callers that install a
   toolchain and invoke a script. Build and package lanes for Linux, macOS and
   Windows; analysis lanes for leaks, memory attribution, coverage, fuzzing,
-  Valgrind, cppcheck and hardening warnings.
+  Valgrind, cppcheck, hardening warnings, Frama-C, the keyboard UI, nested-engine
+  recursion and the per-platform stack profile; and the docs gate.
 - **This documentation.**
 
 ## Documents
@@ -39,7 +40,7 @@ The repository holds three things:
 | [07-ci.md](07-ci.md) | Harness contributors | The lane contract, the workflow-to-script mapping, baselines and how to add a lane |
 | [08-references.md](08-references.md) | All developers | Upstream c43, GitHub Actions, Meson, make, Clang and shell references, plus the verification literature: what an oracle is and what each kind is worth |
 | [09-glossary.md](09-glossary.md) | Anyone reading any of the above | Three tiers of vocabulary: the calculator's own terms, which upstream owns; the harness terms this repo invented; and the testing field's terms, which neither tree owns |
-| [10-writing.md](10-writing.md) | Anyone writing a doc, a comment or a commit | One set of rules for all three, then what is specific to each: the doc set and hot vs cold pages, code comments, commit messages, and what the docs gate does and does not check |
+| [10-writing.md](10-writing.md) | Anyone writing a doc, a comment, a commit or an MR body | One set of rules for every artefact this repo writes, then what is specific to each: doc pages and hot vs cold, code comments, corpus comments, commit messages, MR text and the t47 rule, and what the docs gate does and does not check |
 
 For the agent and contributor ground rules, see [AGENTS.md](../AGENTS.md). For
 what each lane script does in detail, see
@@ -68,7 +69,7 @@ looking for. This one is keyed by what brought you here.
 | add a lane, or change one | [07-ci.md](07-ci.md), then [scripts/test/README.md](../scripts/test/README.md) |
 | identify which high-level module you are in, and what to search for it | [02-modules.md](02-modules.md) |
 | find an authoritative external reference | [08-references.md](08-references.md) |
-| write a doc, a comment or a commit message | [10-writing.md](10-writing.md) |
+| write a doc, a comment, a commit message or an MR body | [10-writing.md](10-writing.md) |
 
 ## Quick start
 
@@ -80,7 +81,7 @@ cd c43
 
 make simc47 t47     # the GTK simulator (./c47) and the scripted one (./t47)
 make test           # the behavioural corpus; passes clean
-make docs           # doxygen + sphinx
+make docs           # the code documentation: doxygen + sphinx
 
 ./t47 --reset --exec 'nim 2; nim 3; xeq +; puts "X=[reg X]"'      # -> X=5
 ```
@@ -108,7 +109,7 @@ upstream, so do not trust one written down here.
 | Simulator UI | GTK 3, plus a Jim/Tcl DSL (`t47`) for scripted control |
 | Firmware targets | DM42 (DMCP, Cortex-M4) and DM42n/DM32 (DMCP5, Cortex-M33), `arm-none-eabi-gcc` |
 | Tests | a declarative `.txt` corpus run by `src/testSuite` |
-| Harness | POSIX shell scripts under `scripts/test/`, sourced from `lib/common.sh` |
+| Harness | bash lane scripts and Python helpers under `scripts/test/`; every lane that clones upstream sources `lib/common.sh` |
 | CI | GitHub Actions (this repo); upstream itself uses GitLab CI |
 
 ## Project layout
@@ -120,7 +121,8 @@ c47-r47-ci/
 |-- docs/                    -- this documentation
 |-- scripts/
 |   `-- test/
-|       |-- lib/common.sh    -- upstream resolve/sync, tooling overlay, xlsxio, ccache
+|       |-- lib/common.sh    -- upstream resolve/sync, xlsxio, ccache, logging
+|       |-- lib/skip127.sh   -- turns a lane's SKIP (exit 127) green in CI
 |       |-- run-*.sh         -- one script per lane; the contract CI calls
 |       |-- *-baseline.txt   -- the accepted-findings baselines each lane gates on
 |       `-- tooling/         -- not-yet-upstream patches, suppressions, analysis helpers

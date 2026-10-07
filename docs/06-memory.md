@@ -1,5 +1,7 @@
 # Memory Architecture
 
+Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+
 Where C47's memory physically lives on **each supported platform**, what bounds
 each region, where the platforms disagree, and how to measure any of it. Read it
 before changing anything that allocates, recurses, or sizes a buffer.
@@ -7,42 +9,37 @@ before changing anything that allocates, recurses, or sizes a buffer.
 [01-codebase.md](01-codebase.md) Section 6 owns the **C47 pool**: block numbers,
 the free list, program memory growing downward. This page is the machine under
 that pool - the SRAM it is carved out of, the stack a program runs on, and the
-firmware or host that hands out both. On the DM42 those last two are the same
-memory, which is the fact the page is built around.
+firmware or host that hands out both. Whether on the DM42 those last two are the
+same memory is the question the page is built around.
 
-Audit basis: upstream `50f4b6508f316c83d9ccb418a7f340a8de862a17`, 2026-09-13.
-
-Two subjects are read against a **later** commit, `dbc5cb45b`, and say so where
-they appear: the second nesting gate in Section 5, and Section 8.1's account of
-upstream's on-hardware watermark tool and the run behind both gates. Nothing
-else on the page was re-read there.
-
-## 1. Four arenas, and on the DM42 two of them are one
+## 1. Four arenas, and on the DM42 two of them may be one
 
 C47 draws on four pools of memory. They fail differently, the one with no
-detector at all is the one this page is mostly about, and **on the DM42 the C
-stack is not independent of the heap** - the scheduler allocates it there.
+detector at all is the one this page is mostly about, and on this repo's reading
+of the DM42 image **the C stack is not independent of the heap** - the scheduler
+allocates it there. Section 3 gives upstream's other reading.
 
 | arena | who bounds it | what C47 puts there | what exhaustion looks like | what detects it |
 |---|---|---|---|---|
 | **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
 | **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
-| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:361`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
+| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:363`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
 
 Two consequences a newcomer gets wrong:
 
 - **The pool is not the heap, and pool accounting cannot see the stack.** A
   nested engine evaluation costs 12 bytes of pool for its subroutine level
-  (`allocC47Blocks(3)`, `src/c47/programming/lblGtoXeq.c:171`) and about two
-  *kilobytes* of C stack for its frames. `getFreeRamMemory()`, the leak lanes and
+  (`allocC47Blocks(3)`, `src/c47/programming/lblGtoXeq.c:171`) and a kilobyte or
+  more of C stack for its frames (`run-stackprof.sh` prints the figure per
+  platform). `getFreeRamMemory()`, the leak lanes and
   `--testmem` measure the first and are blind to the second - which is the one
   that runs out.
-- **On the DM42 the stack, the pool and every long integer are one budget.** The
-  scheduler's task stack, C47's `malloc` for the pool, and GMP all come out of the
-  same firmware arena, so growth in any of them takes room from the others.
-  Section 3 does that arithmetic. On the DM42n and on a host they are genuinely
-  separate.
+- **On this repo's reading of the DM42 image, the stack, the pool and every long
+  integer are one budget.** The scheduler's task stack, C47's `malloc` for the
+  pool, and GMP all come out of the same firmware arena, so growth in any of them
+  takes room from the others. Section 3 does that arithmetic and gives upstream's
+  other reading. On the DM42n and on a host they are separate.
 - **The stack is the only one with no detector.** Everything else fails loudly
   or is gated by a lane. Stack exhaustion corrupts and continues.
 
@@ -64,9 +61,9 @@ python3 scripts/test/tooling/platform-limits.py <c43-clone>
 | C47 pool | **64 KiB** | 256 KiB | **256 KiB** |
 | `MAX_FREE_REGIONS` | **50** | 200 | **200** |
 | `MAX_ALLOCATED_REGIONS` | not defined | not defined | 5000 |
-| stack a program runs on | a scheduler **task stack** out of the 90,104 B arena; **24,568 B** left after the pool, shared with GMP | a task stack inside the **~152 KiB** shared heap-and-stack region below the MSP | the host thread's, 8 MiB by default on Linux |
-| MSP band (handlers and boot) | ~2.4 KiB - **not** a program's stack | ~148 KiB, shared with the heap | n/a |
-| optimisation | `-Os -flto` | `-Os -flto` | `-O0`, LTO overridden per target |
+| stack a program runs on | **disputed** (Section 3): this repo reads a scheduler task stack out of the 90,104 B arena, **24,568 B** left after the pool and shared with GMP; upstream's `tools/pgemu` reads the 8,104 B below the initial MSP | a task stack inside the **~152 KiB** shared heap-and-stack region below the MSP | the host thread's, 8 MiB by default on Linux |
+| MSP band (handlers and boot) | ~2.4 KiB on this repo's reading | ~148 KiB, shared with the heap | n/a |
+| optimisation | `-Os`, no LTO | `-Os`, no LTO | `-O0` for `make simc47`, `b_lto=true` pinned per target |
 
 **The simulator is built with the new hardware's memory model.** Its pool and its
 free-region ceiling are the DM42n's, four times the DM42's, so a DM42 pool
@@ -81,7 +78,7 @@ Two smaller divergences with real consequences:
 - **`HARDWARE_MODEL` is undefined on host builds**, so every
   `#if defined(DMCP_BUILD) && HARDWARE_MODEL == HWM_DM42` branch is false there.
   The simulator takes the DM42n path, not the DM42 path - including the
-  full-precision, stack-hungry side of the modulo split in Section 6.
+  6147- and 12321-digit side of the modulo split in Section 6.
 - **`MAX_ALLOCATED_REGIONS` exists only on host builds**, so the pool's
   allocation tracking, and the size-mismatch detector built on it, are host-only.
   A wrong `freeC47Blocks` size corrupts the free list silently on hardware.
@@ -91,26 +88,27 @@ Two smaller divergences with real consequences:
 `DMCP_PACKAGE` selects which functions are compiled in, so the DM42 has one
 memory model but four different sets of built code - and therefore four different
 largest-frame lists and worst-case paths. Each package's `#if` block in `src/c47/defines.h` opens with a
-comment naming what it carries - `:183`, `:199`, `:215` and `:236`. Package 3 is
-the only one with `EIGEN`, package 2 the only one with the full `X.FN` menu
-(1 and 3 strip it), and package 4 is the minimal build the Makefile defaults to
-and CI compiles.
+comment naming what it carries - `:193`, `:209`, `:225` and `:246`; the free-byte
+figures in those comments are upstream's notes, not a measurement of the tree
+they sit in. Package 3 is the only one with `EIGEN`, package 2 the only one with
+the full `X.FN` menu (1 and 3 strip it), and package 4 is the minimal build the
+Makefile defaults to and upstream's pipeline compiles.
 
-**Which packages link is a property of the compiler.** All four link with the
-toolchain CI installs - `ubuntu:25.10` plus `apt-get install gcc-arm-none-eabi`,
-which is `arm-none-eabi-gcc` 14.2.1 - against the 704 KiB internal `FLASH` region
-(`src/c47-dmcp/stm32_program.ld`). Read at upstream `ad322d6a3`, later than this
-page's audit basis: package 1 leaves 3,416 bytes free, package 2 leaves 4,432,
-package 3 leaves 5,960 and package 4 leaves 32,536. Ubuntu 24.04's 13.2.1
-overflows 1, 2 and 3 on the same tree by a few hundred to a few thousand bytes,
-and `make dmcp_pkgs_all` fails there. The margins move with every upstream commit,
-and two readings of one package at one commit have differed by 16 bytes, so read
-them from the run rather than from here. The lane profiles every package that
-links and reports the rest as `DOES NOT BUILD at this commit`. **Package 3 is the
-one that matters most** - it is the only build carrying eigenvalues, on the
-target with the least stack.
+**Which packages link moves with the tree and the compiler.** The limit is the
+704 KiB internal `FLASH` region (`src/c47-dmcp/stm32_program.ld`). With Arm's
+14.2.Rel1 binary standing in for the `arm-none-eabi-gcc` 14.2.1 that upstream's
+`ubuntu:25.10` CI installs, wiped build directories and ccache off, upstream
+`7f030deba` overflows packages 1, 2 and 3 by 1,536, 512 and 1,232 bytes and
+links package 4 with 27,472 bytes left; the same binary linked all four at
+`ad322d6a3`, with 3,424 bytes left in package 1. Ubuntu 24.04's 13.2.1, which
+this repo's stackprof lane installs, overflowed 1, 2 and 3 at `ad322d6a3`
+already. The margins move with every upstream commit, and two readings of one
+package at one commit have differed by 16 bytes, so read them from a build
+rather than from here. The lane profiles every package that links and reports
+the rest as `DOES NOT BUILD at this commit`. **Package 3 matters most** - it is
+the only build carrying eigenvalues, on the target with the least stack.
 
-## 3. The DM42: three stacks, and only one of them is a program's
+## 3. The DM42: three stacks, and which one is a program's is disputed
 
 The DM42 is an STM32L476 with 96 KiB of SRAM1 at `0x20000000` and 32 KiB of
 SRAM2. C47's own linker script (`src/c47-dmcp/stm32_program.ld`) puts `.data`
@@ -141,8 +139,8 @@ the switch to the process stack comes from the exception return. Thread mode
 therefore runs on a **task stack**, and a task stack is `malloc`'d - out of the
 arena in the first row.
 
-So the number that bounds a nested evaluation is not either stack band. It is
-what is left of the arena once C47's pool is taken:
+On that reading the number that bounds a nested evaluation is not either stack
+band. It is what is left of the arena once C47's pool is taken:
 
 ```
   usable arena                                       90,104 B
@@ -153,6 +151,19 @@ what is left of the arena once C47's pool is taken:
 GMP is in that number, not beside it: `allocGmp` rounds for accounting and then
 calls libc `malloc` ([01-codebase.md](01-codebase.md) Section 6), so every long
 integer competes with the stack a program is running on.
+
+**Upstream reads the same image differently.** `tools/pgemu/MEASUREMENTS.md` and
+`tools/pgemu/target.py` take the vector table's initial MSP, `0x20017FF0`, as the
+top of the program's stack and the arena end below it as the floor: **8,104 B**,
+with heap_4's variables first in line for an overrun. That span is this page's
+kernel globals plus its MSP band, and pgemu runs C47 without DMCP's scheduler,
+so it does not exercise the PSP switch above. The two readings disagree on which
+region a program's stack is, and neither has been checked on a running DM42 by
+reading the stack pointer. Upstream's hardware runs bound the answer from the
+outside: the `PLOT_NESTING_ALLOWED` comment in `src/c47/defines.h` records INT
+inside INT (7,684 B) surviving on the DM42 and a plot with an integral inside it
+(12,020 B on the DM42n) hanging, which upstream reads as the overrun. Name the
+reading beside any DM42 stack figure.
 
 ### How the boundary is known, and how far to trust it
 
@@ -186,8 +197,9 @@ the highest such word is the initial heap break, not a variable at all. The tool
 reports the conservative end of the range and says which it is.
 
 Upstream carries the matching fact for SRAM2: the DMCP **system data block** is
-at a fixed `0x10002000`, and `src/c47-dmcp/stm32_program.ld` now fails the link if
-C47's `.bss` reaches it (upstream `2e6493156`, 660 bytes of headroom).
+at a fixed `0x10002000`, and `src/c47-dmcp/stm32_program.ld:187` fails the link
+if C47's `.bss` reaches it. The headroom moves with every global; read `_ebss`
+from the build's `C47.map`.
 
 ## 4. The DM42n: the same shape, far more room
 
@@ -217,20 +229,23 @@ Every alarming conclusion on this page is an **old-hardware** conclusion.
 ## 5. What one nested evaluation costs, per platform
 
 A user program may re-enter its own numeric engines - `SOLVE(SOLVE)` and
-`PLOT(SOLVE)` are supported features - so the frames of one nested evaluation
-multiply by the nesting depth. Upstream bounds that count with
+`PLOT(SOLVE)` are supported where the cap below allows them, on the DM42n and
+the simulator; the DM42's cap of 1 refuses both - so the frames of one nested
+evaluation multiply by the nesting depth. Upstream bounds that count with
 `engineNestingDepth` (`src/c47/c47.h`), which covers **PLOT, INT and SOLVE
 combined** and is capped by `MAX_ENGINE_NESTING_DEPTH` in `src/c47/defines.h`:
 **1** on the DM42 (`OLD_HW`), **3** on the DM42n (`NEW_HW`), **4** on the
 simulator. PLOT runs only as the outermost engine. Past the cap the program
 stops with `ERROR_NESTING_TOO_DEEP` rather than overflowing the C stack.
 
-**A second macro gates the plot case separately, and refuses it earlier.**
-`PLOT_NESTING_ALLOWED` (`defines.h`) is **0** on the DM42 and 1 everywhere else,
-and `solve.c` tests it beside the count: where it is 0, nothing runs inside a
-plot at all, whatever the depth. Neither value is a margin someone chose - the
-comment beside each macro carries the hardware measurement it is set from, and
-Section 8.1 is where those runs live. Quote the comment, not this page: a
+**A second macro gates the plot case.** `PLOT_NESTING_ALLOWED` (`defines.h`) is
+**0** on the DM42 and 1 everywhere else, and `engineNestingRefused`
+(`solver/solve.c:43`) tests it beside the count: where it is 0, nothing runs
+inside a plot at all, whatever the depth. On the DM42 the cap of 1 already
+refuses every engine inside another, a plot included, so there the macro binds
+only if the cap rises. The comment above the cap calls it "one level each way",
+and the comment beside each macro carries the hardware measurement it is set
+from; Section 8.1 is where those runs live. Quote the comments, not this page: a
 retuned macro takes its own justification with it.
 
 The counter is taken at each engine's own entry - `solver/integrate.c`,
@@ -241,18 +256,19 @@ Re-measure `run-nestcheck.sh` against this cap before quoting a crash from it.
 The per-level chains and their measured cost live in
 [`scripts/test/stackprof-baseline.txt`](../scripts/test/stackprof-baseline.txt),
 which the stack lane re-measures on every run and gates on when
-`STACKPROF_GATE=1`. Read the numbers there, not here. The shape of it is the
-part that does not move: **on the DM42 a nested SOLVE level and the trig payload
-inside it are spending the same 24,568 bytes that GMP's long integers and every
-other allocation come out of** - the arena left after the pool, and the only
-memory a program's task stack can grow into. On the DM42n the same level fits
-sixty times over in a region nothing else competes for.
+`STACKPROF_GATE=1`. Read the numbers there, not here; the lane also prints how
+many levels fit each platform's band. On this repo's reading of the image,
+**on the DM42 a nested SOLVE level and the trig payload inside it spend the same
+24,568 bytes that GMP's long integers and every other allocation come out of** -
+the arena left after the pool. On the DM42n the same level has a region nothing
+else competes for.
 
-**The simulator does not even have the same call chain.** The firmware is built
-with `-flto`, the simulator at `-O0`: LTO inlines `executeOneStep` into
+**The simulator does not even have the same call chain.** The firmware is
+compiled at `-Os` without LTO (`src/c47-dmcp/meson.build` says so), the
+`make simc47` simulator at `-O0`: at `-Os` GCC inlines `executeOneStep` into
 `runProgram` and splits `_fnIntegrate` into a `.part.0` clone, neither of which
-happens on the host. The baseline therefore carries separate `sim` chains, and
-the simulator's per-level cost is the *largest* of the three platforms while its
+happens at `-O0`. The baseline therefore carries separate `sim` chains, and the
+simulator's per-level cost is the *largest* of the three platforms while its
 stack is the largest by three orders of magnitude. It is the one platform on
 which this class of bug cannot be observed.
 
@@ -261,27 +277,27 @@ which this class of bug cannot be observed.
 `run-stackprof.sh` prints the largest fixed frames per platform on every run. Two
 of them are design decisions worth knowing before you touch them:
 
-- **The modulo pair splits by hardware.** `WP34S_Mod`, `WP34S_BigMod` and their
-  `_Pauli` variants each carry a `HARDWARE_MODEL == HWM_DM42` branch
-  (`src/c47/mathematics/wp34s.c:2051`, `:2072`, `:2098`, `:2124`). On the old
-  hardware the 6147-digit working buffer is taken from the **C47 pool** with
-  `allocC47Blocks`, keeping only a 2139-digit stack fallback for when the pool
-  refuses; every other build holds the full buffer on the stack and pays a frame
-  of several kilobytes. Because `HARDWARE_MODEL` is undefined on host builds the
-  simulator pays the large frame, so it cannot show you the small one working.
-  Upstream records a defect on that path immediately above it: with the
-  allocation in place, `1E700 SIN` and `700 10^x SIN` return -NaN.
-- **The angle-reduction buffers have moved off the stack, and the sizing that
-  put them there was found by crashing.**
-  `src/c47/registerValueConversions.c:1399-1400` now takes both 2139-digit
-  buffers with `REAL_T_ALLOC` - a plain `malloc` (`src/c47/realType.h:28`) -
-  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:1398`
+- **The modulo pair takes its buffer from the heap, at a precision that splits
+  by hardware.** `WP34S_Mod` and `WP34S_BigMod`
+  (`src/c47/mathematics/wp34s.c:2145`, `:2171`) each carry a
+  `HARDWARE_MODEL == HWM_DM42` branch. On the DM42 both reduce at 2139 digits in
+  a 1436-byte `REAL_T_ALLOC` buffer; every other build allocates 12321 digits
+  (8224 bytes) the same way and reduces at 6147 (`WP34S_Mod`) or 12321
+  (`WP34S_BigMod`). Both raise `ERROR_RAM_FULL` when the allocation fails.
+  Because `HARDWARE_MODEL` is undefined on host builds, the simulator runs the
+  wide side and cannot show the DM42's 2139-digit reduction. The pool-allocating
+  `_Pauli` variants (`:2095`-`:2136`) sit inside `#if 0`, so the -NaN defect
+  upstream records above them belongs to code no build compiles.
+- **The angle-reduction buffers are heap, at the largest size that did not
+  crash.** `src/c47/registerValueConversions.c:1404-1405` takes both 2139-digit
+  buffers with `REAL_T_ALLOC`, a self-freeing `malloc` (`src/c47/realType.h:28`),
+  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:1403`
   measures the trade: 1436 bytes each, 2872 of a 2936-byte frame, and "from the
-  heap the frame falls to 64 bytes". The ceiling is still a number nobody
-  derived - `:1326` and `:1335` both say 6147 overruns the stack. **On the DM42
-  the relief is smaller than it reads:** `malloc` there comes out of the same
-  90,104 B arena the task stack grows into, so the cost moved inside one budget
-  rather than out of it. On the DM42n and the host it genuinely left the stack.
+  heap the frame falls to 64 bytes". The 2139 ceiling is found, not derived -
+  `:1404` and `:1413` both say 6147 overruns the stack. **On the DM42 the relief
+  depends on which stack reading holds (Section 3):** on this repo's, `malloc`
+  comes out of the same 90,104 B arena the task stack grows into, so the cost
+  sits inside one budget. On the DM42n and the host it leaves the stack.
 
 ## 7. Why the engines have no static bound
 
@@ -337,14 +353,13 @@ overflow it was meant to prevent. An over-report is the documented cost of
 summing every allocation a function makes instead of tracing which can co-occur,
 and is printed with its total so it cannot grow unnoticed.
 
-**Calibration needs its own build, and LTO is why.** The shipped firmware and
-simulator are both built with `-flto`, which defers code generation to link time,
-so GCC writes no per-translation-unit `.su` file at all: in an LTO build the only
-stack usage it reports comes from GMP, built by its own autotools without LTO.
-The lane therefore builds a no-LTO twin per instruction set - upstream's own
-`-Dmem=true` for the firmware, `-fno-lto` last in `c_args` for the simulator,
-which `src/c47-gtk/meson.build` needs because it pins `b_lto=true` per target -
-and calibrates there. The reported numbers still come from the shipped flags.
+**Calibration needs its own build.** It needs `gcc -fstack-usage`, which no
+shipped build passes, so the lane builds a twin per instruction set and
+calibrates there. The firmware is compiled without LTO, so its twin differs from
+the shipped build by that flag alone. The simulator pins `b_lto=true` per target
+in `src/c47-gtk/meson.build`, and an LTO build writes no per-translation-unit
+`.su` file, so its twin puts `-fno-lto` last in `c_args`. The reported numbers
+come from the shipped flags.
 
 Two extraction details the calibration pinned down, both platform-specific:
 
@@ -408,10 +423,12 @@ ordered shallowest first, one column per machine. Read them there rather than
 from a copy here; the two facts on this page's subject are the ones that hold
 whatever the figures move to:
 
-- **The DM42 completes `INT` nesting `INT` and hangs on an engine inside a
-  plot.** That is what both gates in Section 5 are set from, and it is why the
-  cap and `PLOT_NESTING_ALLOWED` are set separately: the plot case fails a level
-  earlier than the count alone would refuse it. The DM42n completes all eight.
+- **The captured runs come from a DM42 firmware whose cap was 2:** it completed
+  `INT` nesting `INT` and hung on an engine inside a plot. The results are dated
+  2026-07-27; `MAX_ENGINE_NESTING_DEPTH` is 1 on `OLD_HW`, so the current
+  firmware refuses that plot case with `ERROR_NESTING_TOO_DEEP`, and the
+  `README.txt` beside the results describes the cap of 2. The DM42n
+  completes all eight.
 - **Nothing there bounds the DM42's grant.** The runs report what a case used,
   never what was available, and the DM42 never reached a case that would have
   told you.
@@ -427,10 +444,11 @@ column carries an unknown constant and compares only with itself.
 
 ## 9. What is not established
 
-- **The size of the task stack a program actually gets.** This is now the
-  load-bearing unknown, and an image cannot answer it: the scheduler passes a
-  stack depth at task creation and the stack is `malloc`'d, so only a running
-  machine knows. 24,568 B is the ceiling on it, not its size. Everything in
+- **The size of the stack a program actually gets.** This is the load-bearing
+  unknown, and an image cannot answer it. On this repo's reading the scheduler
+  passes a stack depth at task creation and the stack is `malloc`'d, so 24,568 B
+  is the ceiling on it, not its size; on upstream's it is the 8,104 B below the
+  MSP (Section 3). Only a running machine settles it. Everything in
   Section 5 is a per-level cost against a budget whose exact size is unmeasured.
 - **Which task, and whether one program runs on more than one.** The context
   switch is identified; the task layout is not.
@@ -443,10 +461,9 @@ column carries an unknown constant and compares only with itself.
   and it is cheaper than it looks on the host: the firmware already paints new
   task stacks with `0xA5` (four `#165` immediates in the image), so the mark can
   be read back without painting anything first.
-- **The frames of packages 1, 2 and 3.** They link with the compiler CI installs
-  and the lane profiles whatever links, so the reading is available and has not
-  been taken; package 2 and 3 carry the stack-heaviest functions. On a lane host
-  holding Ubuntu 24.04's 13.2.1 there is no ELF for them to measure at all.
+- **The frames of packages 1, 2 and 3.** At upstream `7f030deba` none of them
+  links with either compiler Section 2 measures, so there is no ELF to profile;
+  packages 2 and 3 carry the stack-heaviest functions.
 - **The macOS and Windows simulators.** Their compile-time limits are in the
   matrix, which is a preprocessor answer and needs no host. Their frames and
   their thread stack limits are not measured; the lane profiles the host it runs
