@@ -2,9 +2,10 @@
 # One line per distinct finding: src/c47/file:line check-id.
 # Confirmed false positives are filtered by tooling/cppcheck-suppressions.txt.
 # Regenerate with: UPDATE_BASELINE=1 bash scripts/test/run-staticanalysis.sh
-# Regenerated against upstream master d4d575a0e, cppcheck 2.17.1, then line-mapped
-# to 2b2637c52: defines.h 2498 -> 2503 with no lane run, the new key verified by
-# comparing the source line at the old and new position. All findings
+# Regenerated against upstream master d4d575a0e, cppcheck 2.17.1, and re-keyed
+# from a lane run at 7f030deba: 12 of the 23 findings sit at a new line number,
+# each with its source line byte-identical to the one keyed at 2b2637c52, and no
+# finding is added or dropped. All findings
 # benign: printf int/uint width nits, two nullPointer false positives
 # (verifySqrtMatrix), two identicalInnerCondition redundant-but-correct guards in
 # graphs.c, and the decNumber macro parse limits. Counted per file and check id,
@@ -23,16 +24,16 @@
 #       call was fixed - the configuration it lives in is switched off.
 #
 
-src/c47/c47Extensions/graphs.c:1123: identicalInnerCondition
-src/c47/c47Extensions/graphs.c:1140: identicalInnerCondition
+src/c47/c47Extensions/graphs.c:1122: identicalInnerCondition
+src/c47/c47Extensions/graphs.c:1139: identicalInnerCondition
 src/c47/core/freeList.c:135: invalidPrintfArgType_sint
 src/c47/core/freeList.c:244: invalidPrintfArgType_sint
-src/c47/defines.h:2503: preprocessorErrorDirective
-src/c47/mathematics/matrix.c:4378: nullPointer
-src/c47/mathematics/matrix.c:4379: nullPointer
-src/c47/mathematics/matrix.c:456: invalidPrintfArgType_sint
-src/c47/mathematics/matrix.c:506: invalidPrintfArgType_sint
-src/c47/mathematics/matrix.c:511: invalidPrintfArgType_sint
+src/c47/defines.h:2535: preprocessorErrorDirective
+src/c47/mathematics/matrix.c:4386: nullPointer
+src/c47/mathematics/matrix.c:4387: nullPointer
+src/c47/mathematics/matrix.c:455: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:505: invalidPrintfArgType_sint
+src/c47/mathematics/matrix.c:510: invalidPrintfArgType_sint
 src/c47/mathematics/prime.c:231: uninitvar
 src/c47/mathematics/prime.c:270: uninitvar
 src/c47/programming/input.c:491: invalidPrintfArgType_uint
@@ -42,7 +43,7 @@ src/c47/programming/input.c:510: invalidPrintfArgType_uint
 src/c47/programming/input.c:516: invalidPrintfArgType_uint
 src/c47/programming/input.c:522: invalidPrintfArgType_uint
 src/c47/programming/input.c:528: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2327: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2353: invalidPrintfArgType_uint
-src/c47/solver/graph.c:2375: invalidPrintfArgType_uint
-src/c47/solver/integrate.c:902: syntaxError
+src/c47/solver/graph.c:2343: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2369: invalidPrintfArgType_uint
+src/c47/solver/graph.c:2391: invalidPrintfArgType_uint
+src/c47/solver/integrate.c:903: syntaxError

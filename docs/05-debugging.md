@@ -909,7 +909,7 @@ and their limits, and those move with the tree.
 
 | Technique | Status here | Gap |
 |---|---|---|
-| Warnings/hardening | `run-warnings.sh`, `warnings-baseline.txt` (296) | report-only; no `-Werror` lane |
+| Warnings/hardening | `run-warnings.sh`, `warnings-baseline.txt` (278) | report-only; no `-Werror` lane |
 | ASan + LSan | analysis lanes, hard gate | malloc-only; blind to the pool |
 | UBSan | analysis lanes, report mode | not in upstream CI |
 | **MSan** | **none** | uninitialised reads have no dedicated detector (needs instrumented GMP) |
