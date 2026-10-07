@@ -44,11 +44,21 @@
 # - leakscan LEAK item=1202/1203/1465/1889 - persistent state
 #   (named vars / equations / refresh), not orphan leaks.
 # - CRASH item=... - handlers called out of keyboard/menu context.
-# - keyscan CRASH seq=integrate_pgm_x20 - REAL SIGSEGV, tracked pending a
-#   c43 fix branch; not a scanner out-of-context artifact.
 # Remove a line here only when the underlying finding is fixed upstream.
+#
+# 3. REMOVED at upstream 7f030deba: keyscan CRASH seq=integrate_pgm_x20. The
+#    sequence stops crashing at master merge 1560394cc
+#    (Jolbas/show-function-name-as-LCD-overlay), bisected over the 70
+#    first-parent merges 86a1fe937..fc226bca3 with this lane pinned by
+#    UPSTREAM_COMMIT: crash at 0d62b4f92, its first parent; no crash at
+#    1560394cc, fc226bca3 and 7f030deba. Under memcheck at 0d62b4f92 the crash
+#    is a NULL read in _decodeOneStep (decode.c:856) from a re-entrant fnPem:
+#    fnPem -> refreshScreen -> _refreshPemScreen -> fnPem -> decodeOneStep(NULL).
+#    1560394cc reworks the function-name overlay and the program-entry display
+#    in screen.c and manage.c; which of its changes stops the NULL decode, and
+#    whether another route still reaches it, is not established.
+#    Dropping the line lets the gate report any new crash of this sequence.
 
-keyscan CRASH seq=integrate_pgm_x20
 leakscan CRASH item=1197
 leakscan CRASH item=1483
 leakscan CRASH item=1484

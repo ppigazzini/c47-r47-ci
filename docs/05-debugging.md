@@ -925,13 +925,15 @@ and their limits, and those move with the tree.
 
 ## 14. Open
 
-- **Unbounded integrator recursion** (`keyscan CRASH seq=integrate_pgm_x20`).
-  The keyscan driver's 20x replay folds the integrate keys into the stored
-  program, so the integrand integrates itself (`_integratorIteration` ->
-  `execProgram` -> `_executeOp` op=1690 -> `fnIntegrateYX` -> ...). There is no
-  depth guard across `integrate`/`execProgram`. A guard must not regress
-  legitimately deep recursion, so it needs its own analysis; until then the
-  baseline entry carries the crash.
+- **A NULL step in the program listing is unexplained.** Under memcheck at
+  upstream `0d62b4f92`, the keyscan `integrate_pgm_x20` sequence reads a NULL
+  step in `_decodeOneStep` from a re-entrant `fnPem` (`fnPem` ->
+  `refreshScreen` -> `_refreshPemScreen` -> `fnPem`). From `1560394cc` on, the
+  sequence passes. That merge reworks the function-name overlay and the
+  program-entry display in `screen.c` and `manage.c`; which of its changes
+  stops the NULL decode, and whether another route still reaches it, is not
+  established.
+  `scripts/test/leakscan-baseline.txt` records the bisect.
 - **POOL_GUARD is not wired into any lane** - a manual sweep only (Section 15,
   Risks).
 - **`covBmpName()` should unlink its target bitmap** so a skipped SNAP fails

@@ -920,7 +920,7 @@ Leak, warning, valgrind, cppcheck and coverage lanes gate against a checked-in
 baseline that may shrink (a fix) but **never silently grow**. When a baseline must
 move because upstream changed, resync it in its own commit that names the
 upstream SHA, and record what each line represents (e.g. the
-`keyscan CRASH seq=integrate_pgm_x20` entry) so a future reader can tell a
+`leakscan LEAK item=1611` entry) so a future reader can tell a
 known-issue marker from a regression.
 
 ### 7.7 Negative controls make a gate credible
