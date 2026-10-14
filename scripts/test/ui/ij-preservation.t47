@@ -40,13 +40,16 @@ nim 0.35
 press "@k 02"
 check "press @k 02 (sqrt) of 0.35" [reg X] 0.5916079783099616042567328291561617
 
-# The keyval forms are what c47 has and t47 does not; assert one so this file
-# fails loudly if it is ever run through the headless front end by mistake.
+# A single character and ENTER arrive as GTK key events under c47 and call the
+# key code direct headless, with the same reading, so this checks the GTK route
+# only because run-ui.sh runs c47 without --headless. reg X prints the stored
+# real34 as it is, and divideScaledLongIntegersToReal scales a long-integer
+# quotient to all 34 digits before it rounds, so 2/4 reads with trailing zeros.
 nim 2
 press ENTER
 nim 4
 press "/"
-check "press ENTER and '/' (GTK-decoded forms) give 2/4" [reg X] 0.5
+check "press ENTER and '/' (GTK-decoded forms) give 2/4" [reg X] 0.5000000000000000000000000000000000
 
 # --- softmenu decode ---------------------------------------------------------
 # F1..F6 go through btnFnClicked, which item and xeq cannot reach.
