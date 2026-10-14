@@ -77,18 +77,15 @@
 #
 # Known upstream uninitialised-value read on the matrix editor's column-width
 # pass. getRealMatrixColumnWidths and getComplexMatrixColumnWidths format every
-# element through real34ToDisplayString2, and every entry in this block is a
-# jump there on the value being formatted: display.c:738 is the scan for the
-# first significant digit, :753 the scan for trailing zeros, :794 and :814 the
-# exponent-limit clamps. The one reaching path is covMatrixEditorScroll, the
+# element through real34ToDisplayString2, and the entry in this block is a jump
+# there on the value being formatted: display.c:738 is the scan for the first
+# significant digit. The one reaching path is covMatrixEditorScroll, the
 # testSuite function the mateditscroll_cov reshape cases call.
 #
 # The value is not the matrix the case builds: every element is given, and the
-# column fnAddCol inserts is zeroed (insColRealMatrix, insColComplexMatrix).
-# At upstream ef39ddb6c memcheck attributes :738 to stack frames of
-# insColRealMatrix and insColComplexMatrix, :753 to a stack frame of
-# decNumberSquareRoot, and :794 and :814 to a stack frame of fnLuDecomposition
-# (matrix.c:640), a matrix routine the case never calls. The editor reads memory
+# column fnAddCol inserts is zeroed (insColAnyMatrix, which insColRealMatrix and
+# insColComplexMatrix call). At upstream 897d3d845 memcheck attributes :738 to a
+# stack allocation in insColAnyMatrix (matrix.c:2677). The editor reads memory
 # no code in the case wrote, so which sites fire, and at which lines, moves with
 # upstream changes to earlier corpus files and to the formatting code, with none
 # to the editor. Which buffer the editor reads is unexplained.
@@ -98,11 +95,8 @@
 # glyphs, so its pass says nothing about the digits. It is listed so the gate
 # keeps reporting genuinely new sites, and it needs an upstream report and a
 # verdict on whether a displayed digit can change. The keys are file:line, so a
-# new uninitialised read at one of these lines on another path does not gate.
+# new uninitialised read at this line on another path does not gate.
 Conditional jump or move depends on uninitialised value(s) @ display.c:738
-Conditional jump or move depends on uninitialised value(s) @ display.c:753
-Conditional jump or move depends on uninitialised value(s) @ display.c:794
-Conditional jump or move depends on uninitialised value(s) @ display.c:814
 
 # Known uninitialised read in the backup hexDump serializer. doFnReset mallocs the
 # global-register and free-region arrays (globalRegister, freeMemoryRegions in
@@ -111,4 +105,4 @@ Conditional jump or move depends on uninitialised value(s) @ display.c:814
 # Dump-only: the uninitialised bytes are written to the .cfg as hex and are
 # harmless on restore (only the used entries matter). Verified on current master
 # d1b643e7a. To be filed upstream (memset the arrays after malloc in doFnReset).
-Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:196
+Conditional jump or move depends on uninitialised value(s) @ saveRestoreBackup.c:198

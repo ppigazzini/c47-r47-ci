@@ -651,7 +651,7 @@ Four hard-won points:
   than a typical local install. A locally-regenerated baseline is missing
   runner-only sites and the gate fails.
 
-Current baseline: `valgrind-baseline.txt` (5) - all uninitialised-value reads. No
+Current baseline: `valgrind-baseline.txt` (2) - all uninitialised-value reads. No
 leak is baselined: definitely/indirectly lost stay **zero** because c47 is
 malloc-clean (it sub-allocates from its own pool), and the one possibly-lost
 block in the run belongs to the harness, not the product. Any new c47 site is a
