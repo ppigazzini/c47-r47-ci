@@ -4,7 +4,8 @@
 # Format: <file>|<IN parameter line>
 #
 # Regenerated against upstream master 1624e09b3 (gcc, full corpus). Every case
-# below grows only the RAM pool (gmp=+0, no GMP/bignum leak) and the residue is a
+# below grows only the RAM pool (gmp=+0, no GMP/bignum leak). Two are leaks that
+# grow on every call, named under 897d3d845 at the end; every other residue is a
 # one-shot allocation retained for the rest of the run, not a per-iteration leak:
 #
 #   eq_cov/deriv_cov/solve_cov/integrate_cov/pgm_solve_cov  the formula-coverage
@@ -226,20 +227,63 @@
 # The last row is the negative control: on the same engine, the old list
 # reproduces the old set, so only the list moved the charge.
 #
+# Reconciled against upstream master 897d3d845, the decimal-context-analysis
+# merge. The lane passes at f8e0ab75c, the master commit before it, and the
+# commits after it to 7f5cf1e38 change no engine or corpus file. Four cases are
+# added and six stop appearing, all pool-only (gmp=+0).
+#
+# Added, four cases. Each is a corpus line the merge adds, and putting back the
+# 7f030deba copy of that one file removes it from the full run:
+#
+#   eq_cov.txt        FARG=20 (+8) and FARG=21 (+4), fnEqCalcCov on a complex
+#                     NaN, from f6610012b. One-shot: eq_cov listed three times
+#                     grows each once.
+#   remainder.txt     RY=M1,2 RX=M2,1 (+64), the mismatched real-matrix
+#                     remainder, from feda80677. A LEAK: remainder listed three
+#                     times grows +64 on every pass. elementwiseRemaRema
+#                     (src/c47/mathematics/matrix.c) converts both operands into
+#                     pool matrices, then returns on ERROR_MATRIX_MISMATCH
+#                     without freeing either: two 2-element real34 copies are
+#                     the 64 bytes.
+#   mvarmenu_cov.txt  FARG=1 RY=REAL:"0" RX=REAL:"1" (+56) is the last case of
+#                     pgm_solve_cov.txt, fnIntegratePgmCov, from 398a538ad. The
+#                     overlay reports a file's last case under the name of the
+#                     next file in the list. A LEAK: pgm_solve_cov listed three
+#                     times grows +56 on every pass. The allocation is NOT
+#                     identified.
+#
+# The full list doubled shows each leak once, not twice: the ratchet reports a
+# case only when it goes below the lowest level the run has reached, and the
+# first pass sets that level. Repeat the one file to tell a leak from a
+# one-shot.
+#
+# Stop appearing, six cases, none fixed. Run alone on the 897d3d845 testSuite,
+# each file still grows the case; an earlier case now takes the charge. The
+# 7f030deba corpus on that testSuite, with one file swapped for its 897d3d845
+# copy, names the file:
+#
+#   rm_iter_cov.txt FARG=0 (+48 alone)    stats_cov
+#   cpxslv_cov.txt FARG=0 (+64 alone)     eq_cov, deriv_cov or solve_cov, any
+#                                         one of them
+#   mvarmenu_cov.txt FARG=11 (+12 alone)  integrate_cov
+#   graphs_cov.txt PGM="G1" X^2 and SIN(X), PGM="G2" (+1332, +4, +36 alone)
+#                     the engine, not a file: the 7f030deba corpus on the
+#                     897d3d845 testSuite already loses all three.
+#                     program_flow_cov listed just ahead of graphs_cov does not,
+#                     and the case that takes the charge is NOT identified.
+#
 
 clearvars_cov.txt|IN: FARG=9877
-cpxslv_cov.txt|IN: FL_ASLIFT=0 FARG=0 RY=REAL:"1" RX=REAL:"5"
 deriv_accuracy.txt|IN: FARG=0
 deriv_accuracy.txt|IN: FL_ASLIFT=1 RX=REAL:"1" PGM="Xa"
 deriv_mvar_cov.txt|IN: FARG=0
 eq_cov.txt|IN: FARG=0 RX=REAL:"0"
 eq_cov.txt|IN: FARG=1 RX=REAL:"0"
 eq_cov.txt|IN: FARG=2 RX=REAL:"0"
-graphs_cov.txt|IN: FL_ASLIFT=1 R00=STRI:"S" RY=REAL:"-5" RX=REAL:"5" PGM="G2"
-graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"SIN(X)" PGM="G1"
-graphs_cov.txt|IN: FL_ASLIFT=1 RZ=REAL:"-5" RY=REAL:"5" RX=STRI:"X^2" PGM="G1"
+eq_cov.txt|IN: FL_SPCRES=1 FARG=20 RX=CPLX:"1 i NaN"
+eq_cov.txt|IN: FL_SPCRES=1 FARG=21 RX=CPLX:"1 i NaN"
 mvarmenu_cov.txt|IN: FARG=1 RX=REAL:"0"
-mvarmenu_cov.txt|IN: FARG=11 RX=REAL:"0"
+mvarmenu_cov.txt|IN: FARG=1 RY=REAL:"0" RX=REAL:"1"
 nested_cov.txt|IN: FARG=0
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="DBLINT"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="PLTINT3"
@@ -247,7 +291,7 @@ nested_cov.txt|IN: FL_ASLIFT=1 PGM="SLVSLV"
 nested_cov.txt|IN: FL_ASLIFT=1 PGM="TRPINT"
 pgm_solve_cov.txt|IN: FARG=0
 pgm_solve_cov.txt|IN: FARG=1 RX=REAL:"3"
-rm_iter_cov.txt|IN: FARG=0 RMODE=0 RY=REAL:"0" RX=REAL:"1"
+remainder.txt|IN: FL_ASLIFT=0 RY=REMA:"M1,2[1,2]" RX=REMA:"M2,1[3,4]"
 undo_on_error.txt|IN: FARG=0
 undo_on_error.txt|IN: FL_ASLIFT=1 FL_IGN1ER=0 PGM="ENS"
 vtoeq.txt|IN: FL_ASLIFT=0 FL_CPXRES=0 RY=REAL:"3" RX=REMA:"M1,3[1,-2,-4]"
