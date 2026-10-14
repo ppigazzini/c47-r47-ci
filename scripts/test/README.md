@@ -188,6 +188,10 @@ to reproduce a CI coverage failure.
   state-file mutation sweep; manual, not lanes, each with its own README.
 - `tooling/lsan-analysis.supp` - LeakSanitizer suppressions the two
   `c43-*-analysis.yml` workflows use.
+- `tooling/asan-decfinalize.patch` - the ASan exclusion for decNumber's
+  `decFinalize` that the two `c43-*-analysis.yml` workflows apply before their
+  ASan build; [docs/05-debugging.md](../../docs/05-debugging.md) Section 11
+  says what it hides.
 - `coverage-floors.txt` - the per-sector floors `run-coverage.sh` gates on when
   `SECTOR_GATE=1`; edited by hand.
 - `tooling/function-reachability.py` - summarizes the effective testSuite

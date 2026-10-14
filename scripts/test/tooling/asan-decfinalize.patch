@@ -1,0 +1,12 @@
+diff --git a/dep/decNumberICU/decCommon.c b/dep/decNumberICU/decCommon.c
+index ccb7edfe7..62d708f89 100644
+--- a/dep/decNumberICU/decCommon.c
++++ b/dep/decNumberICU/decCommon.c
+@@ -228,6 +228,7 @@ static uByte allnines[DECPMAX]=
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9};
+ #endif
+ 
++__attribute__((no_sanitize("address")))
+ static decFloat * decFinalize(decFloat *df, bcdnum *num,
+                               decContext *set) {
+   uByte *ub;                  // work

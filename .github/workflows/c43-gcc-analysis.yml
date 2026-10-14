@@ -186,6 +186,16 @@ jobs:
           chmod +x tools/onARaspberry
           mkdir -p ../ci-artifacts/logs
 
+          # decFinalize (dep/decNumberICU/decCommon.c) reads its fold-down
+          # buffer after the block declaring it closes, so ASan aborts on any
+          # value the fold-down leaves shorter than 34 digits, and no
+          # ASAN_OPTIONS switch covers a use-after-scope read. The patch gives
+          # decFinalize the no_sanitize("address") upstream gives
+          # decFloatFromBCD, which reads the same buffer for 34 digits; it
+          # stops applying, failing this step, once upstream edits those lines.
+          # Keep the Clang and GCC analysis lanes on the same patch.
+          git apply ../scripts/test/tooling/asan-decfinalize.patch
+
           export CC=gcc
           export CXX=g++
 

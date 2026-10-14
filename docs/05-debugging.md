@@ -711,6 +711,16 @@ and the decNumber shift then aborts the run - export
 `UBSAN_OPTIONS=halt_on_error=0` first (the analysis workflows do), or run the
 testSuite binary directly with it, for the real tally.
 
+ASan checks nothing inside `decFinalize` (`dep/decNumberICU/decCommon.c`) in the
+two analysis workflows. That function reads its fold-down buffer after the block
+declaring it closes, a use-after-scope ASan aborts on and no `ASAN_OPTIONS`
+switch reaches, so the ASan job applies
+`scripts/test/tooling/asan-decfinalize.patch`, which marks it
+`no_sanitize("address")`: the attribute upstream already puts on
+`decFloatFromBCD`, which reads the same buffer when the fold-down fills all 34
+digits. The patch stops applying, and fails the job, once upstream edits those
+lines.
+
 GTK leak attribution: a finding is a c43 bug only if the **direct allocating
 frame** is in `src/c47*`/`src/t47`, or c43 drops a documented **transfer-full**
 pointer. `moveLabels` topped 49 leak blocks that were all fontconfig cache
