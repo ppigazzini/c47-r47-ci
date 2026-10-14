@@ -144,10 +144,10 @@ ISAS = {isa.name: isa for isa in (THUMB, X86_64)}
 
 def detect_isa(text: str) -> Isa:
     """Pick the ISA from the disassembly itself, so one command works on a firmware ELF and a simulator binary alike."""
-    head = text[:400000]
-    if "%rsp" in head or "endbr64" in head:
+    # The whole text, not a prefix: the DM42 ELF's first section opens with the DM42_qspi image, which objdump prints as megabytes of .word lines.
+    if "%rsp" in text or "endbr64" in text:
         return X86_64
-    if re.search(r"\t(?:push|bl|ldr)\b", head):
+    if re.search(r"\t(?:push|bl|ldr)\b", text):
         return THUMB
     raise SystemExit("could not tell the instruction set from the disassembly - pass --isa")
 
