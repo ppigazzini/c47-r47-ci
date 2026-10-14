@@ -24,7 +24,7 @@ concurrency:
 jobs:
   valgrind-memcheck:
     name: Valgrind memcheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # memcheck is a ~20-50x slowdown and a few iterative tests dominate; run the
     # full corpus under a large budget (near the 6h GitHub-hosted job cap) to
     # capture the complete report before choosing a time strategy.
@@ -67,11 +67,16 @@ jobs:
             zip \
             valgrind
 
+      - name: Name the runner image
+        id: image
+        shell: bash
+        run: echo "name=${ImageOS:?the runner names no image}" >> "$GITHUB_OUTPUT"
+
       - name: Cache xlsxio toolchain
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/c43/xlsxio
-          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
+          key: ${{ runner.os }}-${{ steps.image.outputs.name }}-xlsxio-a9016eb2-static-tools-v1
 
       - name: Run lane
         shell: bash

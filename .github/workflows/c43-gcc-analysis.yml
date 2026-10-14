@@ -23,7 +23,7 @@ env:
 jobs:
   resolve-upstream-core:
     name: Resolve authoritative upstream c43 revision
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       upstream_url: ${{ steps.resolve.outputs.upstream_url }}
@@ -50,7 +50,7 @@ jobs:
     name: Analyze simulator with GCC ASan and UBSan
     needs:
       - resolve-upstream-core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - name: Configure Git init defaults
@@ -103,12 +103,17 @@ jobs:
           echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/c43/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
+      - name: Name the runner image
+        id: image
+        shell: bash
+        run: echo "name=${ImageOS:?the runner names no image}" >> "$GITHUB_OUTPUT"
+
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
-          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+          key: ${{ runner.os }}-${{ steps.image.outputs.name }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
 
       - name: Build xlsxio toolchain
         if: steps.xlsxio-cache.outputs.cache-hit != 'true'
@@ -244,7 +249,7 @@ jobs:
     name: Analyze simulator with GCC and Valgrind
     needs:
       - resolve-upstream-core
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - name: Configure Git init defaults
@@ -298,12 +303,17 @@ jobs:
           echo "xlsxio_commit=$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
           echo "xlsxio_prefix=$HOME/.cache/c43/xlsxio/$XLSXIO_COMMIT" >> "$GITHUB_OUTPUT"
 
+      - name: Name the runner image
+        id: image
+        shell: bash
+        run: echo "name=${ImageOS:?the runner names no image}" >> "$GITHUB_OUTPUT"
+
       - name: Restore xlsxio toolchain cache
         id: xlsxio-cache
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ${{ steps.xlsxio.outputs.xlsxio_prefix }}
-          key: ${{ runner.os }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
+          key: ${{ runner.os }}-${{ steps.image.outputs.name }}-xlsxio-${{ steps.xlsxio.outputs.xlsxio_commit }}-static-tools-v1
 
       - name: Build xlsxio toolchain
         if: steps.xlsxio-cache.outputs.cache-hit != 'true'

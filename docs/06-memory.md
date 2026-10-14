@@ -100,13 +100,16 @@ Makefile defaults to and upstream's pipeline compiles.
 `ubuntu:25.10` CI installs, wiped build directories and ccache off, upstream
 `7f030deba` overflows packages 1, 2 and 3 by 1,536, 512 and 1,232 bytes and
 links package 4 with 27,472 bytes left; the same binary linked all four at
-`ad322d6a3`, with 3,424 bytes left in package 1. Ubuntu 24.04's 13.2.1, which
-this repo's stackprof lane installs, overflowed 1, 2 and 3 at `ad322d6a3`
-already. The margins move with every upstream commit, and two readings of one
-package at one commit have differed by 16 bytes, so read them from a build
-rather than from here. The lane profiles every package that links and reports
-the rest as `DOES NOT BUILD at this commit`. **Package 3 matters most** - it is
-the only build carrying eigenvalues, on the target with the least stack.
+`ad322d6a3`, with 3,424 bytes left in package 1. Ubuntu 24.04's 13.2.1
+overflowed 1, 2 and 3 at `ad322d6a3` already. This repo's stackprof lane
+installs the runner image's `gcc-arm-none-eabi`: on the `ubuntu-26.04` image
+`test-stackprof.yml` names, that is upstream CI's package version, 14.2.1,
+linking with binutils 2.45 where upstream's links with 2.42. The margins move
+with every upstream commit, and two readings of one package at one commit have
+differed by 16 bytes, so read them from a build rather than from here. The lane
+profiles every package that links and reports the rest as
+`DOES NOT BUILD at this commit`. **Package 3 matters most** - it is the only
+build carrying eigenvalues, on the target with the least stack.
 
 ## 3. The DM42: three stacks, and which one is a program's is disputed
 

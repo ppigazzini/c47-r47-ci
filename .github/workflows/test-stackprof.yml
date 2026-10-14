@@ -43,16 +43,16 @@ concurrency:
 jobs:
   stackprof:
     name: Platform memory limits and C-stack profile
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
     steps:
       - uses: actions/checkout@v4
       # pyproject.toml declares requires-python >=3.14 for the repo-owned Python
-      # under scripts/test/tooling/, and ruff's target-version matches it. The
-      # runner image ships an older python3, so pin the interpreter here or the
-      # declared floor is aspirational and a 3.14-only construct fails only in CI.
+      # under scripts/test/tooling/, and ruff's target-version matches it. Pin
+      # the interpreter to that floor, so the helpers run on the version the
+      # declaration names whichever python3 the runner image ships.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
@@ -83,11 +83,16 @@ jobs:
             ninja-build \
             pkg-config \
             python3
+      - name: Name the runner image
+        id: image
+        shell: bash
+        run: echo "name=${ImageOS:?the runner names no image}" >> "$GITHUB_OUTPUT"
+
       - name: Cache xlsxio toolchain
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/c43/xlsxio
-          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
+          key: ${{ runner.os }}-${{ steps.image.outputs.name }}-xlsxio-a9016eb2-static-tools-v1
       - name: Run platform memory profile (report-only)
         run: bash scripts/test/run-stackprof.sh
       - name: Upload stack profile

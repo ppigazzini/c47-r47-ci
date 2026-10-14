@@ -286,8 +286,11 @@ catalogue. Read it before trusting any lane result.
   `arm-none-eabi-gcc` 14.2.1 that upstream's `ubuntu:25.10` CI installs, upstream
   `7f030deba` overflows the 704 KiB FLASH region in packages 1, 2 and 3 (by 1,536,
   512 and 1,232 bytes) and links package 4 with 27,472 bytes left; the same
-  binary linked all four at `ad322d6a3`, where Ubuntu 24.04's 13.2.1 - the
-  compiler this repo's stackprof lane uses - already overflowed 1, 2 and 3.
+  binary linked all four at `ad322d6a3`, where Ubuntu 24.04's 13.2.1 already
+  overflowed 1, 2 and 3. This repo's stackprof lane installs the runner image's
+  `gcc-arm-none-eabi`: on the `ubuntu-26.04` image `test-stackprof.yml` names,
+  that is upstream CI's package version, 14.2.1, linking with binutils 2.45
+  where upstream's links with 2.42.
   Measure the package you mean with `make PKG=n dmcp_pkgn` under the compiler
   you care about, at the commit you care about, not "the DM42".
 - **A lane failing does not mean this repo changed.** Every lane resolves upstream

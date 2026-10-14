@@ -212,8 +212,8 @@ check. `pyproject.toml` at the root configures ruff, ruff-format and ty for the
 helpers; there is no package to build.
 `requires-python` is **>= 3.14**, and the three workflows that invoke a helper
 (`test-stackprof.yml`, `test-nestcheck.yml`, `test-coverage.yml`) pin the
-interpreter to match, because the runner image ships an older `python3` and a
-declared floor nothing enforces is a floor that breaks in CI only.
+interpreter to that floor, so the helpers run on the version the declaration
+names whichever `python3` the runner image ships.
 
 ```sh
 uv sync                      # .venv with ruff, ty, pre-commit and mpmath

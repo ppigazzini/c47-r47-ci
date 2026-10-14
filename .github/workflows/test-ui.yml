@@ -31,7 +31,7 @@ concurrency:
 jobs:
   ui:
     name: Keyboard, softmenu and matrix-editor UI tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       # Write logs inside the workspace so the upload step can find them.

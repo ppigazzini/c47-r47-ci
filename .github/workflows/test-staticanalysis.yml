@@ -23,7 +23,7 @@ concurrency:
 jobs:
   static-analysis:
     name: cppcheck static analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       LOG_DIR: ${{ github.workspace }}/ci-artifacts/logs
@@ -63,11 +63,16 @@ jobs:
             zip \
             cppcheck
 
+      - name: Name the runner image
+        id: image
+        shell: bash
+        run: echo "name=${ImageOS:?the runner names no image}" >> "$GITHUB_OUTPUT"
+
       - name: Cache xlsxio toolchain
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/c43/xlsxio
-          key: ${{ runner.os }}-xlsxio-a9016eb2-static-tools-v1
+          key: ${{ runner.os }}-${{ steps.image.outputs.name }}-xlsxio-a9016eb2-static-tools-v1
 
       - name: Run lane
         shell: bash

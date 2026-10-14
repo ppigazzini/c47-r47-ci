@@ -26,7 +26,7 @@ concurrency:
 jobs:
   smoke:
     name: Test harness skeleton smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       # Write logs inside the workspace so the upload step can find them.

@@ -31,7 +31,7 @@ permissions:
 jobs:
   package:
     name: Build macOS simulator package
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 90
     defaults:
       run:
@@ -163,7 +163,7 @@ jobs:
           xlsxio_license_file=LICENSE.txt
           compiler=${{ inputs.compiler_label }}
           make_target=dist_macos
-          runner_label=macos-14
+          runner_label=macos-26
           runner_arch=arm64
           package_zip=$(basename "$package_zip")
           package_dir=$(basename "$package_dir")
