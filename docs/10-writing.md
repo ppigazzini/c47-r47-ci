@@ -1,6 +1,6 @@
 # Writing
 
-Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+Audit basis: upstream `b847c5844357165283aac7f1e046d294b6654f03`, 2026-10-22.
 
 The rules for everything this repo writes for a reader: the **doc pages**, the
 **code comments**, the **corpus comments**, the **commit messages** and the
@@ -265,8 +265,8 @@ disabled for a reason, that reason belongs in the commit that re-enables it -
 and re-enabling it means answering the reason, not restoring the block and
 leaving the old one there as a second stale answer.
 
-**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:268` at
-`7f030deba`, the `dynamicMenuItem = -1` declaration, is checkable against a sha; "upstream does this too" is not.
+**Cite upstream as `file:line` when mirroring it.** `src/c47/c47.c:271` at
+`b847c5844`, the `dynamicMenuItem = -1` declaration, is checkable against a sha; "upstream does this too" is not.
 
 **Never explain an oddity into a convention.** If a sentence makes a strange
 thing sound intended, stop and check whether it is a bug - that sentence is

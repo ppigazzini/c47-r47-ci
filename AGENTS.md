@@ -126,7 +126,7 @@ The sections that catch this repo most often:
 | 8.1, 8.2 | what a code comment states, and its 160-to-170 column layout |
 | 8.3 | words refused in comments, commit notes and merge request text, with the replacement for each |
 | 9 | `res/SCRIPTS/cli_automation_examples.txt` read in full before any `t47` or `c47` run, freshly each session |
-| 10 | what an MR states (which claims are measured and which are reasoned), and the `res/testPgms/testPgms.bin` that `make test` writes over the tracked copy |
+| 10 | what an MR states (which claims are measured and which are reasoned), and the two tracked files `make test` writes over: `res/testPgms/testPgms.bin`, and `src/generated/constantsVerification.txt`, which a contributor restores and never commits |
 | 12 | a review correction pushed as `git commit --fixup=<sha>`, no force-push while a review is open, `git rebase --autosquash <base>` before the merge |
 
 Section 11 lists what is rejected without review, and item 10 is a refused word
@@ -135,7 +135,7 @@ preference. `scripts/test/run-upstream-contract.sh` reads section 8.3's word
 list out of a live clone and checks a drafted merge request body, or the commit
 messages on a c43 branch, against it.
 
-Reconciled against upstream `7f030deba`. Upstream's file carries no version
+Reconciled against upstream `b847c5844`. Upstream's file carries no version
 marker, so re-read it when a sync moves master and record the commit here.
 
 ## This file, and CLAUDE.md
@@ -284,10 +284,10 @@ catalogue. Read it before trusting any lane result.
   package has its own set of built code; upstream's pipeline builds package 4
   only (`make dist_dmcp`). With Arm's 14.2.Rel1 binary standing in for the
   `arm-none-eabi-gcc` 14.2.1 that upstream's `ubuntu:25.10` CI installs, upstream
-  `7f030deba` overflows the 704 KiB FLASH region in packages 1, 2 and 3 (by 1,536,
-  512 and 1,232 bytes) and links package 4 with 27,472 bytes left; the same
-  binary linked all four at `ad322d6a3`, where Ubuntu 24.04's 13.2.1 already
-  overflowed 1, 2 and 3. This repo's stackprof lane installs the runner image's
+  `b847c5844` links all four into the 704 KiB FLASH region, with 9,672, 7,944,
+  8,672 and 47,400 bytes left in packages 1 to 4; the same binary overflows
+  packages 1, 2 and 3 at `7f030deba` (by 1,536, 512 and 1,232 bytes), and
+  Ubuntu 24.04's 13.2.1 overflowed them at `ad322d6a3`. This repo's stackprof lane installs the runner image's
   `gcc-arm-none-eabi`: on the `ubuntu-26.04` image `test-stackprof.yml` names,
   that is upstream CI's package version, 14.2.1, linking with binutils 2.45
   where upstream's links with 2.42.

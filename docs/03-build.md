@@ -1,6 +1,6 @@
 # Building c43
 
-Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+Audit basis: upstream `b847c5844357165283aac7f1e046d294b6654f03`, 2026-10-22.
 
 The `make` targets, the Meson graph underneath them, the generators, and how
 each platform package is produced. The product source is not in this
@@ -95,7 +95,7 @@ The directory is one per clone and the build directories are one per
 configuration, so what it shadows is not only an older header but **another
 configuration's**: `make sim` installs the simulator's copies, and a firmware or
 package build afterwards compiles against them. `make clean` removes them
-(`Makefile:47`); do that between configurations, or build each in a clone of its
+(`Makefile:48`); do that between configurations, or build each in a clone of its
 own.
 
 
@@ -110,7 +110,7 @@ From upstream `Makefile` / `BUILD.md`:
 | `make simr47` | builds `r47` (`-DCALCMODEL=USER_R47`) |
 | `make both` | `sim simr47` |
 | `make t47` | **as a goal modifier** flips `BUILD_PC` to `build.sim.t47` (adds `-Dc_args="-DT47"`) and enables the `cp c47 t47` step. A **bare `make t47` builds the R47-based t47**. Use `make simc47 t47`. |
-| `make test` | `clean` + build + `testPgms` + run the corpus. Cleans first to avoid ASan contamination. Prints the `NUMBER OF TESTS` line from `build.sim/meson-logs/testlog.txt` once `ninja test` passes (`Makefile:166`); on a failure the summary and the failing cases are in that log only |
+| `make test` | `clean` + build + `testPgms` + run the corpus. Cleans first to avoid ASan contamination. Prints the `NUMBER OF TESTS` line from `build.sim/meson-logs/testlog.txt` once `ninja test` passes (`Makefile:166`); on a failure the summary and the failing cases are in that log only. The testSuite build also rewrites the tracked `src/generated/constantsVerification.txt` (`src/generateTests/constantsCheck.py`), whose header stamp changes every run; upstream `AGENTS.md` section 10 says to restore it with `git checkout --` and never commit it |
 | `make repeattest` | re-run without the clean (timing/stability); stamp-driven |
 | `make test_asan` | the suite with `-Db_sanitize=address` |
 | `make both_asan` | `c47`+`r47` with ASan, **with a guard that fails if the binary did not actually link the ASan runtime** - `otool -L` then `ldd`, so it holds on macOS and Linux alike (`Makefile:83`, `Makefile:91`) |

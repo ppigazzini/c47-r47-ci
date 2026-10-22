@@ -1,6 +1,6 @@
 # Memory Architecture
 
-Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+Audit basis: upstream `b847c5844357165283aac7f1e046d294b6654f03`, 2026-10-22.
 
 Where C47's memory physically lives on **each supported platform**, what bounds
 each region, where the platforms disagree, and how to measure any of it. Read it
@@ -22,8 +22,8 @@ allocates it there. Section 3 gives upstream's other reading.
 | arena | who bounds it | what C47 puts there | what exhaustion looks like | what detects it |
 |---|---|---|---|---|
 | **C stack** | the scheduler on DMCP (a task stack out of the firmware heap), or the host thread - at a size DMCP does not document | every call frame; the numeric kernels' multi-kilobyte local buffers | silent corruption of whatever lies below, then a hard fault | **nothing** - no guard page, no software check, and Cortex-M4 has no `MSPLIM` |
-| **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer | `malloc` returns NULL; GMP aborts | `sys_free_mem()`; the pool's own accounting sees only itself |
-| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:363`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
+| **firmware heap** | the DMCP allocator's arena, or the host `malloc` | one `malloc` for the pool (`config.c`), plus GMP's every long integer and, on firmware, every GMP temporary over 1 KiB | `malloc` returns NULL; a GMP request stops on the bug screen and resets (`gmpAllocFailed`, `src/c47/memory.c:130-142`) | `sys_free_mem()`; the pool's own accounting sees only itself |
+| **C47 pool** | `RAM_SIZE_IN_BLOCKS`, inside that one `malloc` | registers, programs, matrices, subroutine levels | on a host, `MAX_ALLOCATED_REGIONS` (`src/c47/c47.h:361`); on firmware that symbol does not exist, so wrong answers with no diagnostic | the leak and testmem lanes; the pool canary |
 | **`.data`/`.bss`** | the linker script | the mutable globals that are the calculator's state - [01-codebase.md](01-codebase.md) Section 7 | link failure, so never at run time | the build |
 
 Two consequences a newcomer gets wrong:
@@ -88,20 +88,28 @@ Two smaller divergences with real consequences:
 `DMCP_PACKAGE` selects which functions are compiled in, so the DM42 has one
 memory model but four different sets of built code - and therefore four different
 largest-frame lists and worst-case paths. Each package's `#if` block in `src/c47/defines.h` opens with a
-comment naming what it carries - `:193`, `:209`, `:225` and `:246`; the free-byte
+comment naming what it carries - `:221`, `:240`, `:259` and `:283`; the free-byte
 figures in those comments are upstream's notes, not a measurement of the tree
-they sit in. Package 3 is the only one with `EIGEN`, package 2 the only one with
-the full `X.FN` menu (1 and 3 strip it), and package 4 is the minimal build the
-Makefile defaults to and upstream's pipeline compiles.
+they sit in, and the feature list is not always the block either: package 1's
+names ELEC and fast financial functions, and its block undefines both. Read the
+block, or `gcc -E -dM` ([00-architecture.md](00-architecture.md) Annex A).
+Package 3 is the only one with `EIGEN`, `ELEC` and the analytical TVM formulas;
+package 2 the only one with the full `X.FN` menu (1 strips the elliptic
+functions, 3 and 4 also Bessel and the orthogonal polynomials); package 1 the
+only one with every distribution (2 carries the normal and the six of group 2,
+3 the normal alone, 4 none) and the only one without IR printing; and package 4
+is the minimal build the Makefile defaults to and upstream's pipeline compiles.
 
 **Which packages link moves with the tree and the compiler.** The limit is the
-704 KiB internal `FLASH` region (`src/c47-dmcp/stm32_program.ld`). With Arm's
-14.2.Rel1 binary standing in for the `arm-none-eabi-gcc` 14.2.1 that upstream's
-`ubuntu:25.10` CI installs, wiped build directories and ccache off, upstream
-`7f030deba` overflows packages 1, 2 and 3 by 1,536, 512 and 1,232 bytes and
-links package 4 with 27,472 bytes left; the same binary linked all four at
-`ad322d6a3`, with 3,424 bytes left in package 1. Ubuntu 24.04's 13.2.1
-overflowed 1, 2 and 3 at `ad322d6a3` already. This repo's stackprof lane
+704 KiB internal `FLASH` region (`src/c47-dmcp/stm32_program.ld`); the same
+script places the GMP multiplication and division tiers that the 3,328-bit
+long-integer ceiling never reaches in QSPI instead (`stm32_program.ld:72-111`).
+With Arm's 14.2.Rel1 binary standing in for the `arm-none-eabi-gcc` 14.2.1 that
+upstream's `ubuntu:25.10` CI installs, wiped build directories and ccache off,
+the audit basis links all four packages, with 9,672, 7,944, 8,672 and 47,400
+bytes left in packages 1 to 4; the same binary overflows packages 1, 2 and 3 at
+`7f030deba`, by 1,536, 512 and 1,232 bytes. Ubuntu 24.04's 13.2.1 overflowed 1,
+2 and 3 at `ad322d6a3` already. This repo's stackprof lane
 installs the runner image's `gcc-arm-none-eabi`: on the `ubuntu-26.04` image
 `test-stackprof.yml` names, that is upstream CI's package version, 14.2.1,
 linking with binutils 2.45 where upstream's links with 2.42. The margins move
@@ -153,7 +161,10 @@ band. It is what is left of the arena once C47's pool is taken:
 
 GMP is in that number, not beside it: `allocGmp` rounds for accounting and then
 calls libc `malloc` ([01-codebase.md](01-codebase.md) Section 6), so every long
-integer competes with the stack a program is running on.
+integer competes with the stack a program is running on - and so does every GMP
+temporary over 1 KiB, which the firmware's GMP takes from that allocator rather
+than with `alloca` (Section 7). A request the arena cannot meet never reaches
+GMP as NULL: `gmpAllocFailed` shows the bug screen and resets the calculator.
 
 **Upstream reads the same image differently.** `tools/pgemu/MEASUREMENTS.md` and
 `tools/pgemu/target.py` take the vector table's initial MSP, `0x20017FF0`, as the
@@ -200,7 +211,7 @@ the highest such word is the initial heap break, not a variable at all. The tool
 reports the conservative end of the range and says which it is.
 
 Upstream carries the matching fact for SRAM2: the DMCP **system data block** is
-at a fixed `0x10002000`, and `src/c47-dmcp/stm32_program.ld:187` fails the link
+at a fixed `0x10002000`, and `src/c47-dmcp/stm32_program.ld:228` fails the link
 if C47's `.bss` reaches it. The headroom moves with every global; read `_ebss`
 from the build's `C47.map`.
 
@@ -282,22 +293,24 @@ of them are design decisions worth knowing before you touch them:
 
 - **The modulo pair takes its buffer from the heap, at a precision that splits
   by hardware.** `WP34S_Mod` and `WP34S_BigMod`
-  (`src/c47/mathematics/wp34s.c:2145`, `:2171`) each carry a
+  (`src/c47/mathematics/wp34s.c:2855`, `:2881`) each carry a
   `HARDWARE_MODEL == HWM_DM42` branch. On the DM42 both reduce at 2139 digits in
   a 1436-byte `REAL_T_ALLOC` buffer; every other build allocates 12321 digits
   (8224 bytes) the same way and reduces at 6147 (`WP34S_Mod`) or 12321
   (`WP34S_BigMod`). Both raise `ERROR_RAM_FULL` when the allocation fails.
   Because `HARDWARE_MODEL` is undefined on host builds, the simulator runs the
   wide side and cannot show the DM42's 2139-digit reduction. The pool-allocating
-  `_Pauli` variants (`:2095`-`:2136`) sit inside `#if 0`, so the -NaN defect
+  `_Pauli` variants (`:2805`-`:2846`) sit inside `#if 0`, so the -NaN defect
   upstream records above them belongs to code no build compiles.
 - **The angle-reduction buffers are heap, at the largest size that did not
-  crash.** `src/c47/registerValueConversions.c:1404-1405` takes both 2139-digit
-  buffers with `REAL_T_ALLOC`, a self-freeing `malloc` (`src/c47/realType.h:28`),
-  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:1403`
+  crash.** `src/c47/registerValueConversions.c:2282-2283` takes both 2139-digit
+  buffers with `REAL_T_ALLOC`, a self-freeing `malloc` (`src/c47/realType.h:43`),
+  and raises `ERROR_RAM_FULL` if either fails. Upstream's comment at `:2281`
   measures the trade: 1436 bytes each, 2872 of a 2936-byte frame, and "from the
-  heap the frame falls to 64 bytes". The 2139 ceiling is found, not derived -
-  `:1404` and `:1413` both say 6147 overruns the stack. **On the DM42 the relief
+  heap the frame falls to 64 bytes". One constant, `LONGINT_RADIAN_REDUCTION_DIGITS`
+  (`:2257`), sizes the context, both buffers and the 2pi divisor, and its comment
+  says 2139 covers the 1000-digit input cap; the ceiling above it is found, not
+  derived - `:2282` and `:2291` both say 6147 overruns the stack. **On the DM42 the relief
   depends on which stack reading holds (Section 3):** on this repo's, `malloc`
   comes out of the same 90,104 B arena the task stack grows into, so the cost
   sits inside one budget. On the DM42n and the host it leaves the stack.
@@ -330,7 +343,10 @@ Three things no static walk sees, all of them reported rather than hidden:
   reported.
 - **`alloca` and VLAs.** GMP sizes temporaries with `alloca`; the lane counts the
   functions whose frame is dynamic and prints how many lie on the path it
-  reported. `gcc -fstack-usage` marks them, and the profiler excludes them from
+  reported. On the firmware the bound per temporary is 1 KiB: upstream's
+  `subprojects/packagefiles/gmp-6.2.1/gmp-impl.h` overlay sends a larger
+  `TMP_ALLOC` to the heap allocator instead (`:379-383`), where the stock limit
+  is 0x7f00. A function still makes as many 1 KiB allocations as it asks for. `gcc -fstack-usage` marks them, and the profiler excludes them from
   its own self-check, because a dynamic frame has no fixed size to check.
 - **Interrupt frames.** Whatever DMCP's handlers push lands on the same stack.
 
@@ -464,9 +480,11 @@ column carries an unknown constant and compares only with itself.
   and it is cheaper than it looks on the host: the firmware already paints new
   task stacks with `0xA5` (four `#165` immediates in the image), so the mark can
   be read back without painting anything first.
-- **The frames of packages 1, 2 and 3.** At upstream `7f030deba` none of them
-  links with either compiler Section 2 measures, so there is no ELF to profile;
-  packages 2 and 3 carry the stack-heaviest functions.
+- **The frames of packages 1, 2 and 3 under the lane's toolchain.** At the audit
+  basis all three link under the 14.2 proxy with under 10 KiB to spare (Section
+  2), and the lane's 14.2.1 links with binutils 2.45 rather than 2.42, so whether
+  the lane gets an ELF for each is read from its run, not from here; packages 2
+  and 3 carry the stack-heaviest functions.
 - **The macOS and Windows simulators.** Their compile-time limits are in the
   matrix, which is a preprocessor answer and needs no host. Their frames and
   their thread stack limits are not measured; the lane profiles the host it runs

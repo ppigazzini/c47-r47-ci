@@ -1,6 +1,6 @@
 # Debugging c43
 
-Audit basis: upstream `7f030deba57dd9df0e01bdf6ff395898131868dd`, 2026-10-07.
+Audit basis: upstream `b847c5844357165283aac7f1e046d294b6654f03`, 2026-10-22.
 
 Which detector can see which bug, how to run it, and the ways this project has
 already fooled itself. If you read one page before chasing a bug in C47, read
@@ -24,8 +24,8 @@ recognise is in [09-glossary.md](09-glossary.md).
 
 Verified in `src/c47/` of the upstream clone:
 
-- `ram` is a single `uint32_t *` (`c47.h:338`), `malloc`ed once in
-  `config.c:1816`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
+- `ram` is a single `uint32_t *` (`c47.h:336`), `malloc`ed once in
+  `config.c:1825`: `ram = (uint32_t *)malloc(TO_BYTES(RAM_SIZE_IN_BLOCKS));`
 - The calculator sub-allocates from it via `allocC47Blocks` -> `freeListAlloc`
   (`memory.c:76`, `core/freeList.c`).
 - GMP is separate: `allocGmp`/`reallocGmp`/`freeGmp` (`memory.c`) are installed
@@ -45,7 +45,7 @@ Consequences, and they are the whole reason this page exists:
 ## 2. The block, and the stride the canary must use
 
 This is the single most important number on this page. From
-`src/c47/defines.h:2341-2346`:
+`src/c47/defines.h:2451-2457`:
 
 ```c
 #define BPB                 2 // 2^BPB = number of bytes per block
@@ -60,7 +60,7 @@ This is the single most important number on this page. From
   **up**; `TO_BYTES` is an exact shift.
 - A C47 pointer is a **16-bit index into `ram`**; `C47_NULL = 65535 = 0xffff`
   is reserved, which is why RAM must stay below `2^16 - 1` blocks.
-- `RAM_SIZE_IN_BLOCKS` (`defines.h:2174-2182`): simulator and testSuite
+- `RAM_SIZE_IN_BLOCKS` (`defines.h:2284-2292`): simulator and testSuite
   (`!DMCP_BUILD`) get `RAM_SIZE_IN_BLOCKS_NEW_HW` = **65534 blocks = 262136
   bytes**. DM42 (DMCP, old HW) gets 16384 blocks = 65536 bytes. DMCP5 gets
   65534.
@@ -306,13 +306,13 @@ The item sweep carries scalar operands only, so matrix overruns never trigger
 through it - see 4.1 for why matrix operands were reverted rather than kept.
 `fnInsCol`/`fnInsRow` are real (`ui/matrixEditor.c:285`/`:257`) but need an
 editor key context, so the headless sweep cannot reach the editor path either.
-(The empty `fnInsCol`/`fnInsRow` at `items.c:1349-1351` are catalog-generator
+(The empty `fnInsCol`/`fnInsRow` at `items.c:1352-1354` are catalog-generator
 stubs under `#if defined(GENERATE_CATALOGS) || defined(GENERATE_TESTPGMS)`, not
 the build's definitions.)
 
 **A live-region sweep needs a reset hook, or it reports the reset.** A block that
 is never freed is never checked at free time, so the sweep has to walk a registry
-the wrappers keep. `doFnReset` (`config.c:1805-1818`) `memset`s the whole pool and
+the wrappers keep. `doFnReset` (`config.c:1814-1827`) `memset`s the whole pool and
 re-forms the free list to one region **without a single `free`**, so from that
 point every registered pointer is stale and its guard bytes read as zero. Without
 a `poolGuardResetRegistry()` call there, a corpus run reports the reset itself as
@@ -326,7 +326,7 @@ run ends on **30 sweep-time violations**, 25 of them 4-block regions with a zero
 guard. That count was **identical with and without** the restore fixes of
 !1631, so it is a property of the tree, not of any one change - use it as a
 baseline and compare counts, never "clean vs not clean". It is unexplained; one
-candidate is `resizeProgramMemory` (`memory.c:158`), which grows program memory
+candidate is `resizeProgramMemory` (`memory.c:180`), which grows program memory
 downwards by adjusting `freeMemoryRegions[last]` and `xcopy`ing over the result,
 entirely outside the four wrappers the canary instruments. That is a hypothesis,
 not a finding: nobody has confirmed it.
@@ -426,7 +426,7 @@ long-integer loop counter, ~100 leaks per plot); `solver/isumprod.c`,
 `solver/sumprod.c`, the `stringFuncs.c` x->alpha family, `printing/print.c`.
 All of them are fixed upstream (`7577398dd`, `9050ca35d`); the commits show the
 fix shape, and the list maps the bug class for new code. Checked clean: `prime.c`, `matrixEditor.c`,
-`registerValueConversions.c:288`.
+`registerValueConversions.c:1132`.
 
 **Counter-example - do not "fix" this one.** `getRegisterAsLongIntQuiet`'s
 *callers* own `val` and free it on error (e.g. `compare.c` frees `int1`/`int2`),
@@ -472,7 +472,7 @@ Three gotchas, all load-bearing:
 ### 7.1 The whitelist is the real coverage gate
 
 `Func: fnX` is resolved by a linear search of `funcTestNoParam[]`
-(`testSuite.c:6781`). Unregistered functions return "cannot find the function to
+(`testSuite.c:7817`). Unregistered functions return "cannot find the function to
 test". Whole **core** subsystems sit at 0% purely because their entry points are
 unregistered, not because they are hard to test.
 
@@ -528,7 +528,7 @@ for every DM42 package (the block common to packages 1-4, inside
 `TWO_FILE_PGM`); `OPTION_SQUARE_159` is undefined everywhere. So the host's
 `SLVC` calls `solveCubicEquation159()` and the eigensolver takes its 159-digit
 path, while every DM42 package's `SLVC` calls the 75-digit
-`solveCubicEquation()` (`solver/slvc.c`) and package 3's eigensolver its
+`solveCubicEquation()` (`mathematics/slvc.c`) and package 3's eigensolver its
 75-digit path.
 
 So every corpus run, every coverage run and every fuzz run exercises the host's
@@ -604,9 +604,9 @@ The equation lane has a clean baseline: a 120 s campaign finds nothing.
 The restore lane's hexDump finding - the byte count and the dump lines both come
 from the file on trust - is **real and confirmed**: replacing one dump line of a
 valid `backup.cfg` with two characters gives a heap over-read in
-`restoreStateValue`'s hexDump branch (the `*v` reads, `saveRestoreBackup.c:692`),
+`restoreStateValue`'s hexDump branch (the `*v` reads, `saveRestoreBackup.c:694`),
 and a region count of 100000 gives an out-of-bounds write (the `*buf` store,
-`:696`), both under ASan on `3c84890a1`. The archived minimal file
+`:698`), both under ASan on `3c84890a1`. The archived minimal file
 `scripts/test/tooling/fuzz-restore-repro/min-hexdump-oob.cfg` does **not**
 reproduce standalone on master through the current harness (measured clean on
 both an unfixed and a fixed tree); it is kept as a seed, not as a repro. Fixed
@@ -625,7 +625,7 @@ The only lane with a gate knob (`VALGRIND_GATE`) that defaults on. Full corpus, 
 Four hard-won points:
 
 - **memcheck prints basenames.** A detector that matches the literal string
-  `src/c47/` against frames that read `matrixEditor.c:1032` matches nothing, and
+  `src/c47/` against frames that read `matrixEditor.c:1021` matches nothing, and
   the gate is **inert** - it has been, detecting zero of six real findings. The
   matcher builds its owner map from `find "$UPSTREAM_DIR/src/c47" -printf '%f'`.
   Attribute access errors to the
@@ -774,8 +774,10 @@ Every one of these has silently passed a broken thing at least once.
    though the build dir is correct. Upstream's `AGENTS.md` section 10 settles the
    remedy: `make clean`, then the target, after any branch switch or merge, and
    hand-installing the headers over the top is not the fix.
-   `src/generated/constantsVerification.txt` is tracked and regenerated -
-   `git checkout --` it before any history rewrite.
+   `src/generated/constantsVerification.txt` is tracked and regenerated by
+   every testSuite build; upstream `AGENTS.md` section 10 says to restore it with
+   `git checkout --` and never commit it, and a history rewrite needs it restored
+   first.
 8. **`ninja -C $BUILD_DIR src/c47/vcs.h` first, always.** Meson does not wire the
    generated `vcs.h` as a dependency of every source, so a fresh parallel
    testSuite-only build races.
@@ -801,7 +803,7 @@ Every one of these has silently passed a broken thing at least once.
     orphaned). A **gdb hardware watchpoint** on
     `dynamicSoftmenu[0].menuContent` finds a culprit that no source grep can -
     a field nulled without freeing writes nothing textually greppable. (In
-    `runPgm` (`testSuite.c:831`), the buffer is freed before the pointer is
+    `runPgm` (`testSuite.c:866`), the buffer is freed before the pointer is
     dropped.)
 14. **GTK transfer-full vs transfer-none** (Section 11).
 15. **A gate can be inert for its whole life** - the valgrind basename bug
